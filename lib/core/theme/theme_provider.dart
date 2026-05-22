@@ -2,10 +2,10 @@ import 'package:expense_management/core/storage/storage_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class ThemeNotifier extends AsyncNotifier<ThemeMode> {
+class ThemeNotifier extends Notifier<ThemeMode> {
 
   @override
-  Future<ThemeMode> build() async {
+  ThemeMode build() {
     final storage = ref.read(localStoreHelperProvider);
     final themeIndex = storage.getThemeIndex();
     if (themeIndex != null) {
@@ -17,24 +17,23 @@ class ThemeNotifier extends AsyncNotifier<ThemeMode> {
   // Hàm đổi Theme mượt mà + Sync Local + Sync DB ngầm
   Future<void> toggleTheme() async {
     final storage = ref.read(localStoreHelperProvider);
-    final currentTheme = state.value ?? ThemeMode.system;
+    final currentTheme = state;
     final newTheme = currentTheme == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
     
-    // Cập nhật State cho UI render tức thì
-    state = AsyncData(newTheme);
-    
-    // Lưu Local Storage
+    state = newTheme;
+
     storage.saveThemeIndex(newTheme.index);
 
-    // Bắn API lên Database ngầm (Background)
     _syncThemeToDatabase(newTheme == ThemeMode.dark ? 'dark' : 'light');
   }
 
   void _syncThemeToDatabase(String themeStr) {
     try {
       // ref.read(userRepositoryProvider).updatePreferences(theme: themeStr);
-    } catch (_) {}
+    } catch (_) {
+      //To be continue
+    }
   }
 }
 
-final themeProvider = AsyncNotifierProvider<ThemeNotifier, ThemeMode>(ThemeNotifier.new);
+final themeProvider = NotifierProvider<ThemeNotifier, ThemeMode>(ThemeNotifier.new);
