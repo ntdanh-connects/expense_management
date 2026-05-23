@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 extension AppThemeExpenseManagement on BuildContext{
-
+  AppColorsExtension get colors => Theme.of(this).extension<AppColorsExtension>()!;
 }
 
 class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
@@ -24,7 +24,25 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   });
 
   @override
-  ThemeExtension<AppColorsExtension> copyWith() => this;
+  ThemeExtension<AppColorsExtension> copyWith({
+    Color? background,
+    Color? surface,
+    Color? primary,
+    Color? textPrimary,
+    Color? textSecondary,
+    Color? incomeGreen,
+    Color? expenseRed,
+  }){
+   return AppColorsExtension(
+      background: background ?? this.background,
+      surface: surface ?? this.surface,
+      primary: primary ?? this.primary,
+      textPrimary: textPrimary ?? this.textPrimary,
+      textSecondary: textSecondary ?? this.textSecondary,
+      incomeGreen: incomeGreen ?? this.incomeGreen,
+      expenseRed: expenseRed ?? this.expenseRed,
+    );
+  }
 
   @override
   ThemeExtension<AppColorsExtension> lerp(ThemeExtension<AppColorsExtension>? other, double t) {
@@ -41,22 +59,22 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   }
 
   static final light = AppColorsExtension(
-    background: const Color(0xFFF8F9FA),
-    surface: Colors.white,
-    primary: const Color(0xFF3B82F6), 
-    textPrimary: const Color(0xFF1F2937),
-    textSecondary: const Color(0xFF6B7280),
-    incomeGreen: const Color(0xFF10B981), 
-    expenseRed: const Color(0xFFEF4444), 
+    background: const Color(0xFFF4F6FA),   
+    surface: Colors.white,                 
+    primary: const Color(0xFF52B788),      
+    textPrimary: const Color(0xFF0F172A),  
+    textSecondary: const Color(0xFF64748B),
+    incomeGreen: const Color(0xFF10B981),  
+    expenseRed: const Color(0xFFEF4444),   
   );
 
   static final dark = AppColorsExtension(
-    background: const Color(0xFF111827),
-    surface: const Color(0xFF1F2937),
-    primary: const Color(0xFF60A5FA),
-    textPrimary: Colors.white,
+    background: const Color(0xFF111827),   
+    surface: const Color(0xFF1F2937),      
+    primary: const Color(0xFF74C69D),      
+    textPrimary: Colors.white,             
     textSecondary: const Color(0xFF9CA3AF),
-    incomeGreen: const Color(0xFF34D399),
-    expenseRed: const Color(0xFFF87171),
+    incomeGreen: const Color(0xFF34D399),  
+    expenseRed: const Color(0xFFF87171),   
   );
 }
