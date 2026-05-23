@@ -46,6 +46,8 @@ dependencies:
   intl: ^0.20.2
   currency_text_input_formatter: ^2.3.0
   shared_preferences: ^2.5.5
+  shimmer: ^3.0.0
+  flutter_secure_storage: ^10.2.0
 
 dev_dependencies:
   flutter_test:
@@ -61,6 +63,7 @@ dev_dependencies:
   freezed: ^3.2.5
   json_serializable: ^6.14.0
   drift_dev: ^2.33.0
+  retrofit_generator: ^10.2.6
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
