@@ -46,3 +46,27 @@ app.*.map.json
 
 # FVM Version Cache
 .fvm/
+.vscode
+
+//file
+*.freezed.dart
+*.g.dart
+
+# Chặn các file rác sinh ra của tầng Native Android
+.gradle/
+local.properties
+*.bundle
+*.apk
+*.aab
+
+# Chặn các file rác sinh ra của tầng Native iOS / MacOS (Chỉ giữ Podfile, không giữ Pods thô)
+ios/.symlinks/
+ios/Pods/
+macos/Pods/
+*.contents
+XCode/
+DerivedData/
+.project
+
+# Chặn file cấu hình môi trường bảo mật bí mật (Nếu có)
+.env
