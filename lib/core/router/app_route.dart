@@ -3,6 +3,7 @@ import 'package:expense_management/features/auth/auth_provider.dart';
 import 'package:expense_management/features/auth/domain/auth_state.dart';
 import 'package:expense_management/features/auth/presentation/screens/login_screen.dart';
 import 'package:expense_management/features/auth/presentation/screens/register_screen.dart';
+import 'package:expense_management/features/auth/presentation/screens/splash_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +11,7 @@ import 'package:go_router/go_router.dart';
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 class RoutePaths {
+  static const splash = '/splash';
   static const login = '/login';
   static const register = '/register';
   static const home = '/';
@@ -43,10 +45,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     navigatorKey: rootNavigatorKey,
-    initialLocation: RoutePaths.login,
+    initialLocation: RoutePaths.splash,
     debugLogDiagnostics: true,
     refreshListenable: refreshListenable,
     routes: [
+      GoRoute(path: RoutePaths.splash,builder: (context, state) => const SplashScreen(),),
       GoRoute(
         path: RoutePaths.login,
         builder: (context, state) => const LoginScreen(),
@@ -65,7 +68,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final authState = ref.read(authNotifierProvider);
 
-      // 🛡️ CHUẨN BÀI: Chỉ đá về Login nếu state ĐÚNG LÀ unauthenticated thuần túy
       final isUnauthenticated = authState.maybeWhen(
         unauthenticated: () => true,
         orElse: () => false,
@@ -75,17 +77,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           state.matchedLocation == '/login' ||
           state.matchedLocation == '/register';
 
-      // Nếu thực sự chưa đăng nhập/hết hạn token + cố tình vào trang trong -> Mới đá về login
       if (isUnauthenticated && !isGoingToAuth) {
         return '/login';
       }
 
-      // Nếu đã authenticated (đăng nhập rồi) + cố tình quay lại auth -> Đá ra đảo Dashboard
       final isAuthenticated = authState.maybeWhen(
         authenticated: (_) => true,
         orElse: () => false,
       );
-      if (isAuthenticated && isGoingToAuth) {
+      
+      final isGoingToAuthOrSplash =
+          state.matchedLocation == '/login' ||
+          state.matchedLocation == '/register' ||
+          state.matchedLocation == '/splash';
+
+      if (isAuthenticated && isGoingToAuthOrSplash) {
         return '/';
       }
 

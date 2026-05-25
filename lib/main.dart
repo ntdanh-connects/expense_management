@@ -1,6 +1,7 @@
 import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/storage/local_storage_helper.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
+import 'package:expense_management/core/theme/theme_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/storage/storage_provider.dart';
 import 'package:flutter/material.dart';
@@ -28,13 +29,15 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
+    final themeMode = ref.watch(themeProvider);
+
     return MaterialApp.router(
       title: 'Capital',
       debugShowCheckedModeBanner: false,
 
       routerConfig: router,
 
-      themeMode: ThemeMode.light,
+      themeMode: themeMode,
 
       theme: ThemeData(
         useMaterial3: true,

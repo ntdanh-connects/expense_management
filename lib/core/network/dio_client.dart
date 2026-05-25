@@ -5,97 +5,140 @@ import 'package:expense_management/core/network/api_endpoints.dart';
 import '../storage/secure_storage_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final dioClientProvider = Provider<Dio>((ref){
+final dioClientProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
       baseUrl: AppConfig.baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
+      connectTimeout: const Duration(milliseconds: AppConfig.connectTimeout),
+      receiveTimeout: const Duration(milliseconds: AppConfig.receiveTimeout),
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      }
-    )
+        'Content-Type': 'application/json',
+      },
+    ),
   );
 
-  dio.interceptors.add(
-    InterceptorsWrapper(
-      onRequest: (options, handler) async{
-        final storage = ref.read(secureStorageServiceProvider);
-        final token = await storage.get(key: AppConstant.accessToken);
+  dio.interceptors.addAll([
+    AuthInterceptor(ref),
+    RefreshTokenInterceptor(ref, dio),
+    ErrorHandlingInterceptor(),
+  ]);
 
-        if(token != null){
-          options.headers['Authorization'] = 'Bearer $token';
-        }
-
-        return handler.next(options);
-      },
-
-      onError: (DioException e, handler) async{
-        if(e.response?.statusCode == 401) {
-          final prefs = ref.read(secureStorageServiceProvider);
-          final refreshToken = await prefs.get(key: AppConstant.refreshToken);
-          
-          if(refreshToken != null){
-            try{
-              final refreshDio = Dio(BaseOptions(baseUrl: AppConfig.baseUrl));
-              final respone = await refreshDio.post(
-                ApiEndpoints.refreshToken,
-                data: {'refresh_token': refreshToken}
-              );
-              if(respone.statusCode==200){
-                final newAccessToken = respone.data['access_token'];
-                final newRefreshToken = respone.data['refresh_token'];
-
-                await prefs.save(key: AppConstant.accessToken, value: newAccessToken);
-                await prefs.save(key: AppConstant.refreshToken, value: newRefreshToken);
-
-                e.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
-
-                final retryRequest = await dio.request(
-                  e.requestOptions.path,
-                  options: Options(
-                    method:e.requestOptions.method,
-                    headers: e.requestOptions.headers
-                  ),
-                  data: e.requestOptions.data,
-                  queryParameters: e.requestOptions.queryParameters
-                );
-                return handler.resolve(retryRequest);
-              }
-            }catch (RefreshError){
-              //clear storage
-              //Return user LoginScreen
-            }
-          }
-        }
-
-        String errorMessage = 'Đã xảy ra lỗi kết nối mạng vui lòng thử lại nè !';
-
-        if(e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.receiveTimeout){
-          errorMessage = 'Kết nối mạng quá hạn (Timeout). Vui lòng kiểm tra lại internet!';
-        }else if(e.response != null){
-          final responseData = e.response?.data;
-          if(responseData is Map<String, dynamic>){
-            errorMessage = responseData['message'] ?? errorMessage;
-          }
-        }
-        return handler.reject(
-          DioException(
-            requestOptions: e.requestOptions,
-            response: e.response,
-            type: e.type,
-            error: errorMessage
-          )
-        );
-      },
-    )
-  );
   if (AppConfig.enableLogging) {
     dio.interceptors.add(LogInterceptor(
+      requestHeader: false,
       requestBody: true,
+      responseHeader: false,
       responseBody: true,
     ));
   }
+
   return dio;
 });
+
+class AuthInterceptor extends Interceptor {
+  final Ref ref;
+  AuthInterceptor(this.ref);
+
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+    final storage = ref.watch(secureStorageServiceProvider);
+    final accessToken = await storage.get(key: AppConstant.accessToken);
+
+    if(accessToken != null){
+      options.headers['Authorization'] = 'Bearer $accessToken';
+    }
+    return handler.next(options);
+  }
+}
+
+class RefreshTokenInterceptor extends Interceptor {
+  final Ref ref;
+  final Dio mainDio;
+  RefreshTokenInterceptor(this.ref, this.mainDio);
+
+  @override
+  void onResponse(Response response, ResponseInterceptorHandler handler) {
+    if(response.statusCode==200 && response.data is Map<String,dynamic>){
+      final data = response.data as Map<String,dynamic>;
+      final path = response.requestOptions.path;
+      final isAuth = path.contains('login') || path.contains('register');
+      if(isAuth){
+        final hasError = data.containsKey('error') && data['error'] != null;
+        final isMissingToken = path.contains('login') && !data.containsKey('access_token');
+        
+        if (hasError || isMissingToken) {
+          return handler.reject(
+            DioException(
+              requestOptions: response.requestOptions,
+              response: response,
+              type: DioExceptionType.badResponse,
+              error: data['error'] ?? data['message'] ?? 'Thao tác thất bại rồi ní!',
+            ),
+          );
+        }
+      }
+    }
+    return handler.next(response);
+  }
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) async {
+    if (err.response?.statusCode == 401) {
+      final storage = ref.read(secureStorageServiceProvider);
+      final refreshToken = await storage.get(key: AppConstant.refreshToken);
+      
+      if (refreshToken != null) {
+        try {
+          final refreshDio = Dio(BaseOptions(baseUrl: AppConfig.baseUrl));
+          final response = await refreshDio.post(
+            ApiEndpoints.refreshToken,
+            data: {'refresh_token': refreshToken},
+          );
+
+          if (response.statusCode == 200) {
+            final newAccessToken = response.data['access_token'];
+            final newRefreshToken = response.data['refresh_token'];
+
+            await storage.save(key: AppConstant.accessToken, value: newAccessToken);
+            await storage.save(key: AppConstant.refreshToken, value: newRefreshToken);
+
+            err.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
+
+            final retryRequest = await mainDio.fetch(err.requestOptions);
+            return handler.resolve(retryRequest);
+          }
+        } catch (refreshError) {
+          //logout after
+        }
+      }
+    }
+    return handler.next(err); 
+  }
+}
+
+class ErrorHandlingInterceptor extends Interceptor {
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    String errorMessage = 'Đã xảy ra lỗi kết nối mạng, vui lòng thử lại sau ít phút';
+
+    if (err.type == DioExceptionType.connectionTimeout || err.type == DioExceptionType.receiveTimeout) {
+      errorMessage = 'Kết nối mạng quá hạn (Timeout). Vui lòng kiểm tra lại mạng internet của bạn !';
+    } else if (err.response != null) {
+      final responseData = err.response?.data;
+      if (responseData is Map<String, dynamic>) {
+        errorMessage = responseData['error'] ?? responseData['message'] ?? errorMessage;
+      }
+    }
+
+    // Trả ra một bản Exception có bọc thông báo tiếng Việt sạch sẽ
+    return handler.reject(
+      DioException(
+        requestOptions: err.requestOptions,
+        response: err.response,
+        type: err.type,
+        error: errorMessage,
+      ),
+    );
+  }
+}

@@ -11,9 +11,17 @@ extension DioExceptionMapper on DioException{
     if (response?.statusCode == 401 && !isAuthRequest) {
       return const NetworkFailure.unauthorized();
     }
-    if(response != null){
-      final message = response?.data['message'] ?? 'Đã xảy ra lỗi hệ thống';
-      return NetworkFailure.serverError(code: response?.statusCode ?? 500, message: message);
+    if (response != null) {
+      String errorMessage = 'Đã xảy ra lỗi hệ thống';
+      final responseData = response?.data;
+      if (responseData is Map<String, dynamic>) {
+        errorMessage = responseData['error'] ?? responseData['message'] ?? errorMessage;
+      } else if (responseData is String) {
+        errorMessage = responseData;
+      } else if (error is String) {
+        errorMessage = error as String;
+      }
+      return NetworkFailure.serverError(code: response?.statusCode ?? 500, message: errorMessage);
     }
 
     return NetworkFailure.unknown(message: message ?? 'Lỗi không xác định');

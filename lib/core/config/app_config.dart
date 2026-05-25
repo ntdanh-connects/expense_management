@@ -1,30 +1,16 @@
-enum Environment { dev, staging, prod }
-
 class AppConfig {
-  static const String _envString = String.fromEnvironment('ENV', defaultValue: 'dev');
+  static const String baseUrl = String.fromEnvironment('BASE_URL', defaultValue: '');
 
-  static Environment get environment {
-    switch (_envString) {
-      case 'prod':
-        return Environment.prod;
-      case 'staging':
-        return Environment.staging;
-      default:
-        return Environment.dev;
+  static const int connectTimeout = int.fromEnvironment('CONNECT_TIMEOUT', defaultValue: 30000);
+  static const int receiveTimeout = int.fromEnvironment('RECEIVE_TIMEOUT', defaultValue: 30000);
+
+  static bool enableLogging = baseUrl.contains('-dev') || baseUrl.contains('localhost'); 
+
+  static void validateConfig() {
+    if (baseUrl.isEmpty) {
+      throw AssertionError(
+        'Vui lòng chạy lệnh có kèm flag: --dart-define-from-file=.env.live || dev'
+      );
     }
   }
-
-  static String get baseUrl {
-    switch (environment) {
-      case Environment.prod:
-        return 'https://expense-management-api-bw81.onrender.com/'; // Domain Deploy thật
-      case Environment.staging:
-        return 'https://expense-management-api-bw81.onrender.com/'; // Domain Test
-      case Environment.dev:
-        //emulator
-        return 'https://expense-management-api-bw81.onrender.com/'; 
-    }
-  }
-
-  static const bool enableLogging = _envString != 'prod'; 
 }

@@ -11,7 +11,7 @@ class ThemeNotifier extends Notifier<ThemeMode> {
     if (themeIndex != null) {
       return ThemeMode.values[themeIndex];
     }
-    return ThemeMode.system;
+    return ThemeMode.dark;
   }
 
   // Hàm đổi Theme mượt mà + Sync Local + Sync DB ngầm
