@@ -48,6 +48,9 @@ dependencies:
   shared_preferences: ^2.5.5
   shimmer: ^3.0.0
   flutter_secure_storage: ^10.2.0
+  flutter_launcher_icons: ^0.13.1
+  elegant_notification: ^2.5.1
+  flutter_dotenv: ^6.0.1
 
 dev_dependencies:
   flutter_test:
@@ -64,6 +67,14 @@ dev_dependencies:
   json_serializable: ^6.14.0
   drift_dev: ^2.33.0
   retrofit_generator: ^10.2.6
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/app_icon.png" 
+  
+  adaptive_icon_background: "#1E1B4B"     
+  adaptive_icon_foreground: "assets/images/app_icon.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
