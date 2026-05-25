@@ -1,3 +1,5 @@
+import 'package:elegant_notification/elegant_notification.dart';
+import 'package:elegant_notification/resources/arrays.dart';
 import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/auth/auth_provider.dart';
@@ -34,124 +36,231 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final theme = Theme.of(context);
     final authState = ref.watch(authNotifierProvider);
 
+    // ⚡ TẦNG LẮNG NGHE SIDE-EFFECTS (HIỂN THỊ THÔNG BÁO TẠI TRẬN)
     ref.listen(authNotifierProvider, (previous, next) {
       next.maybeWhen(
-        registered: (successMessage){
-          if(successMessage != null){
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(
-                successMessage,
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-              backgroundColor: colors.incomeGreen,
-              duration: const Duration(seconds: 2),
-              ),
-            ); 
+        registered: (successMessage) {
+          if (successMessage != null) {
+            ElegantNotification(
+            title: Text('Thành Công',style: TextStyle(color: colors.incomeGreen,fontWeight: FontWeight.bold),),
+            description: Text(successMessage,style: TextStyle(color: colors.textPrimary),),
+            animationCurve: Curves.ease,
+            toastDuration: const Duration(seconds: 3),
+            background: colors.background.withOpacity(0.9),
+            width: MediaQuery.of(context).size.width,
+            position: Alignment.topCenter,
+            animation: AnimationType.fromTop,
+            ).show(context);
           }
-          //context.go(RoutePaths.login);
         },
-        error: (message) => ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: 
-            Text(message,style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold),),
-            backgroundColor: colors.expenseRed,
-          )
-        ),
+        error: (message) => ElegantNotification(
+            title: Text('Thất bại!',style: TextStyle(color: colors.expenseRed,fontWeight: FontWeight.bold),),
+            description: Text(message,style: TextStyle(color: colors.textPrimary),),
+            animationCurve: Curves.ease,
+            toastDuration: const Duration(seconds: 3),
+            background: colors.background.withOpacity(0.9),
+            width: MediaQuery.of(context).size.width,
+            position: Alignment.topCenter,
+            animation: AnimationType.fromTop,
+            ).show(context),
         orElse: () {},
       );
     });
 
     final isLoading = authState.maybeWhen(authenticating: () => true, orElse: () => false);
 
-    
+    // 🔄 TẦNG RẼ NHÁNH WIDGET CHUẨN KIẾN TRÚC RIVERPOD - ÉP FORM ĐỨNG IM
+    return authState.when(
+      authenticating: () => _buildRegisterForm(isLoading: true, colors: colors),
+      unauthenticated: () => _buildRegisterForm(isLoading: false, colors: colors),
+      error: (_) => _buildRegisterForm(isLoading: false, colors: colors),
+      authenticated: (_) => _buildRegisterForm(isLoading: true, colors: colors),
+      registered: (_) => _buildRegisterForm(isLoading: false, colors: colors),
+    );
+  }
+
+  /// 📦 Layout Mobile thuần túy - Đồng bộ Form Card Tối chuẩn BankDash trong video nhen ní!
+  Widget _buildRegisterForm({required bool isLoading, required AppColorsExtension colors}) {
+    final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: colors.textPrimary),
-          onPressed: () => context.pop(),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: colors.authGradient, // Phủ dải màu lấp lánh góc khuất web BankDash
         ),
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Sửa tên app đồng bộ SpendWise xịn mịn
+                  Text(
+                    'SpendWise', 
+                    style: theme.textTheme.headlineLarge?.copyWith(
+                      fontWeight: FontWeight.bold, 
+                      color: colors.textPrimary, // Chữ sáng màu trên nền tối
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Kiểm soát tài chính, làm chủ tương lai.', 
+                    style: TextStyle(fontSize: 14, color: colors.textSecondary),
+                  ),
+                  const SizedBox(height: 32),
 
-              Text('SavvyFinance', style: theme.textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold, color: const Color(0xFF0F172A))),
-              const SizedBox(height: 8),
-              Text('Kiểm soát tài chính, làm chủ tương lai.', style: TextStyle(fontSize: 14, color: colors.textSecondary)),
-              const SizedBox(height: 24),
-
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(color: colors.surface, borderRadius: BorderRadius.circular(24)),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Center(child: Text('Tạo tài khoản mới', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold))),
-                      const SizedBox(height: 20),
-
-                      AuthTextField(controller: _nameController, hintText: 'Họ tên', prefixIcon: Icons.person_outline, enabled: !isLoading, validator: (val) => (val == null || val.isEmpty) ? 'Nhập họ tên ní ơi!' : null),
-                      const SizedBox(height: 16),
-                      
-                      AuthTextField(controller: _emailController, hintText: 'Email', prefixIcon: Icons.email_outlined, enabled: !isLoading, validator: (val) => (val == null || !val.contains('@')) ? 'Email sai cú pháp rồi!' : null),
-                      const SizedBox(height: 16),
-                      
-                      AuthTextField(controller: _passwordController, hintText: 'Mật khẩu', prefixIcon: Icons.lock_outline, obscureText: true, enabled: !isLoading, validator: (val) => (val == null || val.length < 6) ? 'Mật khẩu từ 6 ký tự nhen!' : null),
-                      const SizedBox(height: 16),
-                      
-                      AuthTextField(controller: _confirmPasswordController, hintText: 'Xác nhận mật khẩu', prefixIcon: Icons.refresh_outlined, obscureText: true, enabled: !isLoading, validator: (val) => val != _passwordController.text ? 'Mật khẩu không khớp!' : null),
-                      const SizedBox(height: 16),
-
-                      Row(
+                  // 🔥 FIX TRIỆT ĐỂ: CARD BỌC FORM ĐÃ ĐỔI SANG TÔNG TỐI HIGH-TECH CỦA WEB
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: colors.authCardBg, // Nhuộm màu đen mờ/xám sẫm chuẩn BankDash của ní
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: colors.textSecondary.withOpacity(0.1), // Viền mờ tinh tế
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.4),
+                          blurRadius: 25,
+                          offset: const Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Checkbox(value: _isAgreed, activeColor: colors.primary, onChanged: isLoading ? null : (val) => setState(() => _isAgreed = val ?? false)),
-                          Expanded(child: Text('Tôi đồng ý với Điều khoản & Chính sách bảo mật của Capital.', style: TextStyle(fontSize: 13, color: colors.textSecondary))),
+                          Center(
+                            child: Text(
+                              'Tạo tài khoản mới', 
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: colors.textPrimary, // Chữ sáng rực lên
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          AuthTextField(
+                            controller: _nameController, 
+                            hintText: 'Họ tên', 
+                            prefixIcon: Icons.person_outline, 
+                            enabled: !isLoading, 
+                            validator: (val) => (val == null || val.isEmpty) ? 'Nhập họ tên ní ơi!' : null,
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          AuthTextField(
+                            controller: _emailController, 
+                            hintText: 'Email', 
+                            prefixIcon: Icons.email_outlined, 
+                            enabled: !isLoading, 
+                            validator: (val) => (val == null || !val.contains('@')) ? 'Email sai cú pháp rồi!' : null,
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          AuthTextField(
+                            controller: _passwordController, 
+                            hintText: 'Mật khẩu', 
+                            prefixIcon: Icons.lock_outline, 
+                            obscureText: true, 
+                            enabled: !isLoading, 
+                            validator: (val) => (val == null || val.length < 6) ? 'Mật khẩu từ 6 ký tự nhen!' : null,
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          AuthTextField(
+                            controller: _confirmPasswordController, 
+                            hintText: 'Xác nhận mật khẩu', 
+                            prefixIcon: Icons.refresh_outlined, 
+                            obscureText: true, 
+                            enabled: !isLoading, 
+                            validator: (val) => val != _passwordController.text ? 'Mật khẩu không khớp!' : null,
+                          ),
+                          const SizedBox(height: 20),
+
+                          Row(
+                            children: [
+                              Checkbox(
+                                value: _isAgreed, 
+                                activeColor: colors.primary, // Ăn theo màu Tím Indigo / Xanh Blue nút bấm
+                                checkColor: Colors.white,
+                                side: BorderSide(color: colors.textSecondary),
+                                onChanged: isLoading ? null : (val) => setState(() => _isAgreed = val ?? false),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  'Tôi đồng ý với Điều khoản & Chính sách bảo mật của SpendWise.', 
+                                  style: TextStyle(fontSize: 13, color: colors.textSecondary),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+
+                          // NÚT BẤM ĐĂNG KÝ
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: ElevatedButton(
+                              onPressed: (isLoading || !_isAgreed) ? null : () {
+                                if (_formKey.currentState!.validate()) {
+                                  ref.read(authNotifierProvider.notifier).register(
+                                        _nameController.text.trim(),
+                                        _emailController.text.trim(),
+                                        _passwordController.text,
+                                      );
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: colors.primary, 
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), 
+                                elevation: 0,
+                              ),
+                              child: isLoading
+                                  ? const SizedBox(
+                                      width: 24, 
+                                      height: 24, 
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5, 
+                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      ),
+                                    )
+                                  : const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center, 
+                                      children: [
+                                        Text('Sign Up ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)), 
+                                        Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
+                                      ],
+                                    ),
+                            ),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 20),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
 
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton(
-                          onPressed: (isLoading || !_isAgreed) ? null : () {
-                            if (_formKey.currentState!.validate()) {
-                              ref.read(authNotifierProvider.notifier).register(_nameController.text.trim(), _emailController.text.trim(), _passwordController.text);
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(backgroundColor: colors.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
-                          child: isLoading
-                              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)))
-                              : Row(mainAxisAlignment: MainAxisAlignment.center, children: const [Text('Đăng ký ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)), Icon(Icons.arrow_forward_rounded, color: Colors.white)]),
-                        ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('Đã có tài khoản? ', style: TextStyle(color: colors.textSecondary)),
+                      GestureDetector(
+                        onTap: () => context.go(RoutePaths.login),
+                        child: Text('Đăng nhập ngay', style: TextStyle(fontWeight: FontWeight.bold, color: colors.primary)),
                       ),
                     ],
                   ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('Đã có tài khoản? ', style: TextStyle(color: colors.textSecondary)),
-                  GestureDetector(
-                    onTap: () => context.go(RoutePaths.login),
-                    child: Text('Đăng nhập', style: TextStyle(fontWeight: FontWeight.bold, color: colors.primary)),
-                  ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),
