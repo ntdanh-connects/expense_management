@@ -69,4 +69,6 @@ DerivedData/
 .project
 
 # Chặn file cấu hình môi trường bảo mật bí mật (Nếu có)
+.env.dev
+.env.live
 .env
