@@ -1,9 +1,14 @@
 import 'dart:async';
+import 'package:expense_management/features/analytic/presentation/screens/analytic_screen.dart';
 import 'package:expense_management/features/auth/auth_provider.dart';
 import 'package:expense_management/features/auth/domain/auth_state.dart';
 import 'package:expense_management/features/auth/presentation/screens/login_screen.dart';
 import 'package:expense_management/features/auth/presentation/screens/register_screen.dart';
 import 'package:expense_management/features/auth/presentation/screens/splash_screen.dart';
+import 'package:expense_management/features/dashboard/presentation/screens/dashboard_screen.dart';
+import 'package:expense_management/features/dashboard/presentation/screens/main_shell_screen.dart';
+import 'package:expense_management/features/profile/presentation/screens/profile_screen.dart';
+import 'package:expense_management/features/wallet/presentation/screens/wallet_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -14,7 +19,11 @@ class RoutePaths {
   static const splash = '/splash';
   static const login = '/login';
   static const register = '/register';
-  static const home = '/';
+  static const dashboard = '/dashboard';
+  static const wallet = '/wallet';
+  static const analytics = '/analytics';
+  static const profile = '/profile';
+
 }
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -58,12 +67,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.register,
         builder: (context, state) => const RegisterScreen(),
       ),
-      GoRoute(
-        path: RoutePaths.home,
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Home Screen (Chưa cài đặt UI)')),
-        ),
-      ),
+
+      StatefulShellRoute.indexedStack(
+      builder: (context, state, navigationShell) {
+        return MainShellScreen(navigationShell: navigationShell);
+      }  ,
+      branches:[
+        StatefulShellBranch(routes: [
+          GoRoute(path: RoutePaths.dashboard,builder: (context, state) => const DashboardScreen(),),
+        ]),
+        StatefulShellBranch(routes: [
+          GoRoute(path: RoutePaths.wallet,builder: (context, state) => const WalletScreen(),),
+        ]),
+        StatefulShellBranch(routes: [
+          GoRoute(path: RoutePaths.analytics,builder: (context, state) => const AnalyticScreen(),),
+        ]),
+        StatefulShellBranch(routes: [
+          GoRoute(path: RoutePaths.profile,builder: (context, state) => const ProfileScreen(),),
+        ]),
+      ] )
     ],
     redirect: (context, state) {
       final authState = ref.read(authNotifierProvider);
@@ -92,7 +114,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           state.matchedLocation == '/splash';
 
       if (isAuthenticated && isGoingToAuthOrSplash) {
-        return '/';
+        return RoutePaths.dashboard;
       }
 
       return null; // Các trạng thái error, registered, authenticating -> ĐỨNG IM TẠI CHỖ!
