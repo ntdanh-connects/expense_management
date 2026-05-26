@@ -12,6 +12,7 @@ class SplashScreen extends ConsumerWidget {
 
     final colors = context.colors;
     final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       body: Container(
@@ -30,15 +31,14 @@ class SplashScreen extends ConsumerWidget {
                   color: colors.primary.withOpacity(0.15),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  Icons.account_balance_wallet_rounded,
-                  size: 64,
-                  color: colors.primary,
-                ),
+                child:Icon(
+                    Icons.account_balance_wallet_outlined,
+                   size: 45,  
+                  )
               ),
               const SizedBox(height: 24),
               Text(
-                'SpendWise', // Đồng bộ tên thương hiệu mới của ní nhen
+                'ExpenseManagement',
                 style: theme.textTheme.headlineLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: colors.textPrimary,

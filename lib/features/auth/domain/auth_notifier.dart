@@ -22,8 +22,6 @@ class AuthNotifier extends StateNotifier<AuthState>{
   }
 
   Future<void> _init() async {
-    // Chờ 2 giây hiển thị màn hình Splash trước khi chuyển sang trạng thái chưa đăng nhập
-    await Future.delayed(const Duration(seconds: 2));
     checkCurrentAuthStatus();
   }
 
@@ -47,10 +45,8 @@ class AuthNotifier extends StateNotifier<AuthState>{
   Future<void> register(String fullName, String email, String password) async {
     state = const AuthState.authenticating();
     try {
-      // Hứng chuỗi chữ "Đăng kí tài khoản thành công" từ UseCase
       final successMessage = await registerUseCase.execute(fullName, email, password,password);
       
-      // Trả trạng thái về chưa đăng nhập để giữ form, đẩy thông điệp thành công ra ngoài
       state = AuthState.registered(message: successMessage);
     } on AppException catch (e) {
       state = AuthState.error(message: e.toString());
@@ -79,7 +75,6 @@ class AuthNotifier extends StateNotifier<AuthState>{
       }
     }
 
-    // Nếu không có token -> Đẩy về unauthenticated để GoRouter đá về Login
     state = const AuthState.unauthenticated();
   }
 }
