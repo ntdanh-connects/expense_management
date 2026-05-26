@@ -7,7 +7,7 @@ class WalletScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return  Scaffold(
       body: Center(
-        child: Text('No Data'),
+        child: Text('No in Wallet'),
       ),
     );
   }
