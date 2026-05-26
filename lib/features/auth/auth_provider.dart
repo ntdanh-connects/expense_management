@@ -41,3 +41,6 @@ final authNotifierProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref
   final registerUseCase = ref.watch(registerUseCaseProvider);
   return AuthNotifier(loginUseCase,registerUseCase ,ref);
 });
+
+final splashCompletedProvider = StateProvider<bool>((ref) => false);
+
