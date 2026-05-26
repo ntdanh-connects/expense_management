@@ -2,7 +2,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'base_response_dto.g.dart';
 
-@JsonSerializable(genericArgumentFactories: true)//Map Json List or Object to Object Dart
+@JsonSerializable(genericArgumentFactories: true)
 class BaseResponseDto<T> {
   final String message;
   final T data;

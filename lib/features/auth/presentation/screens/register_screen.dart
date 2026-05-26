@@ -24,6 +24,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isAgreed = false;
 
+  final ValueNotifier<bool> _obscurePasswordNotifier = ValueNotifier(true);
+  final ValueNotifier<bool> _obscurePasswordConfirmNotifier = ValueNotifier(true);
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -38,7 +41,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final colors = context.colors;
     final authState = ref.watch(authNotifierProvider);
 
-    // ⚡ TẦNG LẮNG NGHE SIDE-EFFECTS (HIỂN THỊ THÔNG BÁO TẠI TRẬN)
     ref.listen(authNotifierProvider, (previous, next) {
       next.maybeWhen(
         registered: (successMessage) {
@@ -71,7 +73,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     final isLoading = authState.maybeWhen(authenticating: () => true, orElse: () => false);
 
-    // 🔄 TẦNG RẼ NHÁNH WIDGET CHUẨN KIẾN TRÚC RIVERPOD - ÉP FORM ĐỨNG IM
     return authState.when(
       authenticating: () => _buildRegisterForm(isLoading: true, colors: colors),
       unauthenticated: () => _buildRegisterForm(isLoading: false, colors: colors),
@@ -81,7 +82,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     );
   }
 
-  /// 📦 Layout Mobile thuần túy - Đồng bộ Form Card Tối chuẩn BankDash trong video nhen ní!
   Widget _buildRegisterForm({required bool isLoading, required AppColorsExtension colors}) {
     final theme = Theme.of(context);
 
@@ -90,7 +90,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         width: double.infinity,
         height: double.infinity,
         decoration: BoxDecoration(
-          gradient: colors.authGradient, // Phủ dải màu lấp lánh góc khuất web BankDash
+          gradient: colors.authGradient, 
         ),
         child: SafeArea(
           child: Center(
@@ -99,9 +99,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Sửa tên app đồng bộ SpendWise xịn mịn
                   Text(
-                    'SpendWise', 
+                    'ExpenseManagement',
                     style: theme.textTheme.headlineLarge?.copyWith(
                       fontWeight: FontWeight.bold, 
                       color: colors.textPrimary, // Chữ sáng màu trên nền tối
@@ -115,14 +114,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ),
                   const SizedBox(height: 32),
 
-                  // 🔥 FIX TRIỆT ĐỂ: CARD BỌC FORM ĐÃ ĐỔI SANG TÔNG TỐI HIGH-TECH CỦA WEB
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: colors.authCardBg, // Nhuộm màu đen mờ/xám sẫm chuẩn BankDash của ní
+                      color: colors.authCardBg,
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                        color: colors.textSecondary.withOpacity(0.1), // Viền mờ tinh tế
+                        color: colors.textSecondary.withOpacity(0.1),
                       ),
                       boxShadow: [
                         BoxShadow(
@@ -139,10 +137,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         children: [
                           Center(
                             child: Text(
-                              'Tạo tài khoản mới', 
+                              'Hãy bắt đầu với ExpenseManagement', 
                               style: theme.textTheme.titleLarge?.copyWith(
                                 fontWeight: FontWeight.bold,
-                                color: colors.textPrimary, // Chữ sáng rực lên
+                                color: colors.textPrimary,
                               ),
                             ),
                           ),
@@ -153,59 +151,71 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             hintText: 'Họ tên', 
                             prefixIcon: Icons.person_outline, 
                             enabled: !isLoading, 
-                            validator: (val) => (val == null || val.isEmpty) ? 'Nhập họ tên ní ơi!' : null,
+                            validator: (val) => (val == null || val.isEmpty) ? 'Hãy điền họ tên!' : null,
                           ),
                           const SizedBox(height: 16),
                           
                           AuthTextField(
                             controller: _emailController, 
-                            hintText: 'Email', 
+                            hintText: 'example@gmail.com',
                             prefixIcon: Icons.email_outlined, 
                             enabled: !isLoading, 
-                            validator: (val) => (val == null || !val.contains('@')) ? 'Email sai cú pháp rồi!' : null,
+                            validator: (val) => (val == null || !val.contains('@')) ? 'Sai định dạng Email' : null,
                           ),
                           const SizedBox(height: 16),
                           
-                          AuthTextField(
+                          ValueListenableBuilder(
+                            valueListenable: _obscurePasswordNotifier,
+                            builder: (_,obscurePassword,child){
+                              return AuthTextField(
                             controller: _passwordController, 
                             hintText: 'Mật khẩu', 
                             prefixIcon: Icons.lock_outline, 
-                            obscureText: true, 
+                            suffixIcon: obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                            onPressSuffixIcon: () => _obscurePasswordNotifier.value = !_obscurePasswordNotifier.value,
+                            obscureText: obscurePassword, 
                             enabled: !isLoading, 
-                            validator: (val) => (val == null || val.length < 6) ? 'Mật khẩu từ 6 ký tự nhen!' : null,
-                          ),
+                            validator: (val) => (val == null || val.length < 8) ? 'Mật khẩu từ 8 ký tự trở lên!' : null,
+                            );
+                          }),
                           const SizedBox(height: 16),
                           
-                          AuthTextField(
+                          ValueListenableBuilder(
+                          valueListenable: _obscurePasswordConfirmNotifier, 
+                          builder: (_,obscurePasswordConfirm,_){
+                            return AuthTextField(
                             controller: _confirmPasswordController, 
-                            hintText: 'Xác nhận mật khẩu', 
+                            hintText: 'Điền lại mật khẩu',
                             prefixIcon: Icons.refresh_outlined, 
-                            obscureText: true, 
+                            suffixIcon: obscurePasswordConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                            onPressSuffixIcon: () => _obscurePasswordConfirmNotifier.value = !_obscurePasswordConfirmNotifier.value,
+                            obscureText: obscurePasswordConfirm, 
                             enabled: !isLoading, 
-                            validator: (val) => val != _passwordController.text ? 'Mật khẩu không khớp!' : null,
-                          ),
+                            validator: (val) => val != _passwordController.text ? 'Mật khẩu không trùng khớp' : null,
+                          );
+                          }),
+                          
                           const SizedBox(height: 20),
 
                           Row(
                             children: [
                               Checkbox(
                                 value: _isAgreed, 
-                                activeColor: colors.primary, // Ăn theo màu Tím Indigo / Xanh Blue nút bấm
+                                activeColor: colors.primary,
                                 checkColor: Colors.white,
                                 side: BorderSide(color: colors.textSecondary),
                                 onChanged: isLoading ? null : (val) => setState(() => _isAgreed = val ?? false),
                               ),
                               Expanded(
                                 child: Text(
-                                  'Tôi đồng ý với Điều khoản & Chính sách bảo mật của SpendWise.', 
+                                  'Tôi đồng ý với Điều khoản & Chính sách bảo mật của ExpMgmt.',
                                   style: TextStyle(fontSize: 13, color: colors.textSecondary),
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 24),
-
-                          // NÚT BẤM ĐĂNG KÝ
+                          
                           SizedBox(
                             width: double.infinity,
                             height: 52,

@@ -90,7 +90,7 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
     incomeGreen: const Color(0xFF34D399),  
     expenseRed: const Color(0xFFF87171),  
      authCardBg: const Color(0xFF111318),
-    authGradient: const LinearGradient(    // Dải Gradient phát quang góc khuất của web BankDash
+    authGradient: const LinearGradient(   
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: [

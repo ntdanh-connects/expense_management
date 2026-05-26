@@ -15,7 +15,7 @@ class ThemeToggleButton extends ConsumerWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? color.surface.withOpacity(0.8) : color.textSecondary,
+        gradient: color.authGradient,
         shape: BoxShape.circle
       ),
       child: IconButton(

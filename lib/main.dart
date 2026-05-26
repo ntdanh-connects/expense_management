@@ -32,7 +32,7 @@ class MyApp extends ConsumerWidget {
     final themeMode = ref.watch(themeProvider);
 
     return MaterialApp.router(
-      title: 'Capital',
+      title: 'EM',
       debugShowCheckedModeBanner: false,
 
       routerConfig: router,

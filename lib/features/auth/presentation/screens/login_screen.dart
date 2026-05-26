@@ -21,6 +21,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  
+  final ValueNotifier<bool> _obscurePasswordNotifier = ValueNotifier(true);
 
   @override
   void dispose() {
@@ -69,7 +71,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       orElse: () => false,
     );
 
-    // 🔄 TẦNG RẼ NHÁNH WIDGET GIAO DIỆN THEO ĐÚNG TRẠNG THÁI
     return authState.when(
       authenticating: () => _buildLoginForm(isLoading: true, colors: colors),
       unauthenticated: () => _buildLoginForm(isLoading: false, colors: colors),
@@ -79,7 +80,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  /// 📦 Hàm dựng UI Layout Mobile thuần túy - Đồng bộ Form Card Tối chuẩn BankDash trong video nhen ní!
   Widget _buildLoginForm({
     required bool isLoading,
     required AppColorsExtension colors,
@@ -103,19 +103,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Icon biểu tượng ví được bọc mờ tinh tế trên nền tối
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: colors.primary.withOpacity(0.15),
+                          gradient: colors.authGradient,
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
-                          Icons.account_balance_wallet_rounded,
-                          size: 48,
-                          color: colors
-                              .primary, // Ăn theo xanh dương/tím rực rỡ phát quang
-                        ),
+                          Icons.account_balance_wallet_outlined,
+                          size: 44,
+                        )
                       ),
                       const SizedBox(height: 16),
 
@@ -149,12 +146,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       const SizedBox(height: 32),
 
-                      // 🔥 FIX TRIỆT ĐỂ: CARD BỌC FORM ĐÃ ĐỔI SANG TÔNG TỐI HIGH-TECH CỦA WEB
                       Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
                           color: colors
-                              .authCardBg, // Nhuộm màu đen mờ/xám sẫm chuẩn BankDash của ní
+                              .authCardBg,
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(
                             color: colors.textSecondary.withOpacity(
@@ -189,7 +185,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 enabled: !isLoading,
                                 validator: (val) =>
                                     (val == null || !val.contains('@'))
-                                    ? 'Email sai định dạng rồi ní!'
+                                    ? 'Email sai định dạng!'
                                     : null,
                               ),
                               const SizedBox(height: 20),
@@ -220,24 +216,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   ),
                                 ],
                               ),
-                              AuthTextField(
+                              ValueListenableBuilder(valueListenable: _obscurePasswordNotifier, builder: 
+                              (context,obscurePassword,child){
+                                return AuthTextField(
                                 controller: _passwordController,
                                 hintText: '••••••••',
                                 prefixIcon: Icons.lock_outline,
-                                obscureText: true,
+                                obscureText: obscurePassword,
                                 enabled: !isLoading,
-                                suffixIcon: Icon(
-                                  Icons.visibility_outlined,
-                                  color: colors.textSecondary,
-                                ),
+                                suffixIcon: obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                onPressSuffixIcon: () =>  _obscurePasswordNotifier.value = !_obscurePasswordNotifier.value,
                                 validator: (val) =>
-                                    (val == null || val.length < 6)
-                                    ? 'Mật khẩu phải từ 6 ký tự nhen ní!'
+                                    (val == null || val.length < 8)
+                                    ? 'Mật khẩu phải từ 8 ký tự trở lên'
                                     : null,
-                              ),
+                                );
+                              }),
+                              
                               const SizedBox(height: 28),
 
-                              // NÚT BẤM ĐĂNG NHẬP CHUẨN MÀU NEON/TÍM ĐỒNG BỘ
                               SizedBox(
                                 width: double.infinity,
                                 height: 52,
@@ -247,11 +244,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       : () {
                                           if (_formKey.currentState!
                                               .validate()) {
-                                            ref
-                                                .read(
-                                                  authNotifierProvider.notifier,
-                                                )
-                                                .login(
+                                            ref.read(authNotifierProvider.notifier).login(
                                                   _emailController.text.trim(),
                                                   _passwordController.text,
                                                 );
@@ -372,7 +365,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: colors.authCardBg, // Tiệp màu nền tối của card lớn
+          color: colors.authCardBg,
           border: Border.all(color: colors.textSecondary.withOpacity(0.2)),
         ),
         child: Icon(icon, size: 28, color: colors.primary),
