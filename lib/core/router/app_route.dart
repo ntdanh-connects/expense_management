@@ -36,6 +36,10 @@ class GoRouterRefreshStream extends ChangeNotifier {
     });
   }
 
+  void refresh() {
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _subscription.cancel();
@@ -48,6 +52,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ref.read(authNotifierProvider.notifier).stream,
   );
   
+  ref.listen<bool>(splashCompletedProvider, (previous, next) {
+    refreshListenable.refresh();
+  });
+  
   ref.onDispose(() {
     refreshListenable.dispose();
   });
@@ -58,7 +66,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     debugLogDiagnostics: true,
     refreshListenable: refreshListenable,
     routes: [
-      GoRoute(path: RoutePaths.splash,builder: (context, state) => const SplashScreen(),),
+      GoRoute(
+        path: RoutePaths.splash,
+        pageBuilder: (context, state) => CustomTransitionPage<void>(
+          key: state.pageKey,
+          child: const SplashScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            // Trả về child phẳng lỳ, tắt sạch hiệu ứng chuyển trang mặc định của hệ thống 
+            // để nhường sân khấu cho cục ClipPath toán học tự xử lý!
+            return child; 
+          },
+        ),
+      ),
       GoRoute(
         path: RoutePaths.login,
         builder: (context, state) => const LoginScreen(),
@@ -89,6 +108,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ],
     redirect: (context, state) {
       final authState = ref.read(authNotifierProvider);
+      final splashCompleted = ref.read(splashCompletedProvider);
+
+      // Nếu đang ở splash và splash chưa hoàn thành thì đứng im tại splash!
+      if (state.matchedLocation == '/splash' && !splashCompleted) {
+        return null;
+      }
 
       final isUnauthenticated = authState.maybeWhen(
         unauthenticated: () => true,
