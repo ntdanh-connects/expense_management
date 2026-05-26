@@ -7,7 +7,7 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return  Scaffold(
       body: Center(
-        child: Text('No Data'),
+        child: Text('Wating update'),
       ),
     );
   }

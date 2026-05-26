@@ -19,9 +19,9 @@ class CustomSlidingBottomBar extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        bottom: MediaQuery.of(context).padding.bottom + 12,
+        left: 12,
+        right: 12,
+        bottom: MediaQuery.of(context).padding.bottom + 5,
       ),
       child: Container(
         height: 68,
