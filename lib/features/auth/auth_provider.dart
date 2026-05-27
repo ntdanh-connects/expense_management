@@ -1,7 +1,9 @@
 
 
+import 'package:expense_management/core/database/app_database.dart';
 import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/core/storage/secure_storage_service.dart';
+import 'package:expense_management/features/auth/data/datasource/local/auth_local_data_source.dart';
 import 'package:expense_management/features/auth/data/datasource/remote/auth_api_service.dart';
 import 'package:expense_management/features/auth/data/repository_impl/auth_repository_impl.dart';
 import 'package:expense_management/features/auth/domain/auth_notifier.dart';
@@ -18,11 +20,17 @@ final authApiServiceProvider = Provider<AuthApiService>((ref){
   return AuthApiService(dio);
 });
 
+final authLocalDataSourceProvider = Provider<AuthLocalDataSource>((ref){
+  final db = ref.watch(appDatabaseProvider);
+  return AuthLocalDataSource(db);
+});
+
 //Goi abstract repo de xu ly ben duoi bang impl
 final authRepositoryProvider = Provider<AuthRepository>((ref){
   final apiService = ref.watch(authApiServiceProvider);
   final secureStorage = ref.watch(secureStorageServiceProvider);
-  return AuthRepositoryImpl(apiService, secureStorage);
+  final localDataSource = ref.watch(authLocalDataSourceProvider);
+  return AuthRepositoryImpl(apiService, secureStorage,localDataSource);
 });
 
 //useCase cho logic nghiep vu
@@ -39,7 +47,8 @@ final registerUseCaseProvider = Provider<RegisterUseCase>((ref){
 final authNotifierProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref){
   final loginUseCase = ref.watch(loginUseCaseProvider);
   final registerUseCase = ref.watch(registerUseCaseProvider);
-  return AuthNotifier(loginUseCase,registerUseCase ,ref);
+  final authRepository = ref.watch(authRepositoryProvider);
+  return AuthNotifier(loginUseCase,registerUseCase,authRepository,ref);
 });
 
 final splashCompletedProvider = StateProvider<bool>((ref) => false);

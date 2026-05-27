@@ -18,4 +18,7 @@ abstract class AuthApiService {
 
   @POST(ApiEndpoints.register)
   Future<BaseResponseDto<dynamic>> register(@Body() RegisterRequestDto params);
+
+  @GET(ApiEndpoints.profile)
+  Future<AuthResponseDto> getFreshProfile();
 }

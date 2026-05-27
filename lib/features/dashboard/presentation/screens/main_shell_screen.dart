@@ -1,28 +1,45 @@
-import 'package:expense_management/shared/widgets/custom_sliding_bottom_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:expense_management/shared/widgets/custom_sliding_bottom_bar.dart';
+import 'package:expense_management/features/auth/auth_provider.dart'; // Import provider auth của ní vào
 
-class MainShellScreen extends StatelessWidget {
-  // 1. Ní hứng lấy kiểu dữ liệu StatefulNavigationShell từ GoRouter truyền sang
+class MainShellScreen extends ConsumerStatefulWidget {
   final StatefulNavigationShell navigationShell;
 
   const MainShellScreen({
     super.key,
-    required this.navigationShell, // <-- Bắt buộc phải truyền vào khi gọi Class này
+    required this.navigationShell,
   });
+
+  @override
+  ConsumerState<MainShellScreen> createState() => _MainShellScreenState();
+}
+
+class _MainShellScreenState extends ConsumerState<MainShellScreen> {
+  
+  @override
+  void initState() {
+    super.initState();
+    //PHÁT LỆNH KÍCH NỔ ĐỒNG BỘ PROFILE LẶN NGẦM (BACKGROUND SYNC)
+    // Khung xương vừa lên hình là âm thầm bắn API kéo data tươi về đè vào Drift DB
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(authNotifierProvider.notifier).syncUserProfileImplicit();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // 2. Thả nguyên cục navigationShell làm body (nó tự biết vẽ màn hình con của Tab đó lên)
-      body: navigationShell, 
-      
+      extendBody: true, 
+      body: widget.navigationShell,
       bottomNavigationBar: CustomSlidingBottomBar(
-        // 3. Chọc vào bên trong nó lấy index hiện tại (0, 1, 2, 3) để tô màu nút BottomBar
-        currentIndex: navigationShell.currentIndex,
+        currentIndex: widget.navigationShell.currentIndex,
         onTap: (index) {
-          // 4. Gọi lệnh bẻ lái chuyển Tab lặn ngầm mà không mất State cũ
-          navigationShell.goBranch(index);
+          widget.navigationShell.goBranch(
+            index,
+            initialLocation: index == widget.navigationShell.currentIndex,
+          );
         },
       ),
     );
