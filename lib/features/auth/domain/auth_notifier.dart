@@ -4,9 +4,12 @@ import 'package:dio/dio.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/core/error/app_exception.dart';
 import 'package:expense_management/core/storage/secure_storage_service.dart';
+import 'package:expense_management/features/auth/auth_provider.dart';
 import 'package:expense_management/features/auth/data/mappers/auth_mapper.dart';
 import 'package:expense_management/features/auth/data/models/auth_response_dto.dart';
+import 'package:expense_management/features/auth/data/repository_impl/auth_repository_impl.dart';
 import 'package:expense_management/features/auth/domain/auth_state.dart';
+import 'package:expense_management/features/auth/domain/entities/user_entity.dart';
 import 'package:expense_management/features/auth/domain/repositories/auth_repository.dart';
 import 'package:expense_management/features/auth/domain/use_case/login_use_case.dart';
 import 'package:expense_management/features/auth/domain/use_case/register_use_case.dart';
@@ -16,8 +19,9 @@ import 'package:flutter_riverpod/legacy.dart';
 class AuthNotifier extends StateNotifier<AuthState>{
   final LoginUseCase _loginUseCase;
   final RegisterUseCase registerUseCase;
+  final AuthRepository _authRepository;
   final Ref ref;
-  AuthNotifier(this._loginUseCase,this.registerUseCase,this.ref): super(const AuthState.authenticating()) {
+  AuthNotifier(this._loginUseCase,this.registerUseCase,this._authRepository,this.ref): super(const AuthState.authenticating()) {
     _init();
   }
 
@@ -57,24 +61,49 @@ class AuthNotifier extends StateNotifier<AuthState>{
 
 
   Future<void> checkCurrentAuthStatus() async {
-
     final storage = ref.read(secureStorageServiceProvider);
-    final token = await storage.get(key: AppConstant.accessToken);
-    final userJsonString = await storage.get(key: 'cached_user_profile');
+    final localDataSource = ref.read(authLocalDataSourceProvider);
 
-    if (token != null && userJsonString != null) {
-      try {
-        final Map<String, dynamic> userMap = jsonDecode(userJsonString);
-        final userEntity = AuthMapper.toUserEntity(UserDataDto.fromJson(userMap));
-        
-        state = AuthState.authenticated(user: userEntity);
-        return;
-      } catch (_) {
-        state = const AuthState.unauthenticated();
-        return;
-      }
+    final refreshToken = await storage.get(key: AppConstant.refreshToken);
+    final userId = await storage.get(key: AppConstant.userId); 
+
+    // Nếu mất dấu Token bảo mật hoặc chưa từng login thành công -> Đá văng ra Login
+    if (refreshToken == null || userId == null) {
+      state = const AuthState.unauthenticated();
+      return;
     }
 
-    state = const AuthState.unauthenticated();
+    try {
+      // Chọc thẳng tay vào Drift SQLite bốc hàng dữ liệu lên RAM
+      final localUserRow = await localDataSource.getCachedProfile(userId);
+
+      if (localUserRow != null) {
+        final userEntity = UserEntity(
+          id: localUserRow.id,
+          email: localUserRow.email,
+          fullName: localUserRow.fullName,
+          currency: localUserRow.currency,
+          language: localUserRow.language,
+          theme: localUserRow.theme,
+        );
+        state = AuthState.authenticated(user: userEntity);
+      } else {
+        state = const AuthState.unauthenticated();
+      }
+    } catch (_) {
+      state = const AuthState.unauthenticated();
+    }
+  }
+
+  Future<void> syncUserProfileImplicit() async {
+    try {
+      // Gọi Repo bắn API lên Backend của ní lấy thông tin tươi sống mới nhất
+      final freshUser = await _authRepository.syncFreshProfile();
+      
+      // Đè bẹp trạng thái cũ, ép UI âm thầm đổi chữ mượt mà không giật lag!
+      state = AuthState.authenticated(user: freshUser);
+    } catch (_) {
+      // Mất mạng hay lỗi BE ,xài tiếp data cũ ở Local bình thường
+    }
   }
 }

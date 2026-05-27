@@ -42,7 +42,7 @@ class AuthInterceptor extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
-    final storage = ref.watch(secureStorageServiceProvider);
+    final storage = ref.read(secureStorageServiceProvider);
     final accessToken = await storage.get(key: AppConstant.accessToken);
 
     if(accessToken != null){
@@ -87,13 +87,17 @@ class RefreshTokenInterceptor extends Interceptor {
     if (err.response?.statusCode == 401) {
       final storage = ref.read(secureStorageServiceProvider);
       final refreshToken = await storage.get(key: AppConstant.refreshToken);
+      final userId = await storage.get(key: AppConstant.userId);
       
       if (refreshToken != null) {
         try {
           final refreshDio = Dio(BaseOptions(baseUrl: AppConfig.baseUrl));
           final response = await refreshDio.post(
             ApiEndpoints.refreshToken,
-            data: {'refresh_token': refreshToken},
+            data: {
+              'user_id': userId,
+              'refresh_token': refreshToken
+              },
           );
 
           if (response.statusCode == 200) {
@@ -109,7 +113,7 @@ class RefreshTokenInterceptor extends Interceptor {
             return handler.resolve(retryRequest);
           }
         } catch (refreshError) {
-          //logout after
+          storage.clearAll();
         }
       }
     }
