@@ -118,7 +118,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                       // Đổi tên thương hiệu chuẩn chỉ SpendWise đồng bộ với Web của ní luôn!
                       Text(
-                        'SpendWise',
+                        'ExpesenManagement',
                         style: theme.textTheme.headlineLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: colors
