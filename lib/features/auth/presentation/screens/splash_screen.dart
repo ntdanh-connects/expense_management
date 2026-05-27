@@ -96,7 +96,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'SpendWise',
+                  'ExpenseManagement',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: colors.textPrimary,
