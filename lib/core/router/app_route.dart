@@ -9,7 +9,7 @@ import 'package:expense_management/features/dashboard/presentation/screens/dashb
 import 'package:expense_management/features/dashboard/presentation/screens/main_shell_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/edit_profile_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/profile_screen.dart';
-import 'package:expense_management/features/wallet/presentation/screens/wallet_screen.dart';
+import 'package:expense_management/features/transaction/presentation/screens/transaction_history_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -21,7 +21,7 @@ class RoutePaths {
   static const login = '/login';
   static const register = '/register';
   static const dashboard = '/dashboard';
-  static const wallet = '/wallet';
+  static const history = '/history';
   static const analytics = '/analytics';
   static const profile = '/profile';
   static const editProfile = '/profile/edit';
@@ -97,7 +97,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: RoutePaths.dashboard,builder: (context, state) => const DashboardScreen(),),
         ]),
         StatefulShellBranch(routes: [
-          GoRoute(path: RoutePaths.wallet,builder: (context, state) => const WalletScreen(),),
+          GoRoute(path: RoutePaths.history,builder: (context, state) => const TransactionHistoryScreen(),),
         ]),
         StatefulShellBranch(routes: [
           GoRoute(path: RoutePaths.analytics,builder: (context, state) => const AnalyticScreen(),),

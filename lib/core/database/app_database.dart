@@ -19,13 +19,35 @@ class Users extends Table {
   Set<Column> get primaryKey => {id}; // Đóng chặt khóa chính
 }
 
+class Wallets extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  RealColumn get balance => real()();
+  TextColumn get type => text()();
+  TextColumn get icon => text()();
+  TextColumn get color => text()();
+  BoolColumn get isHidden => boolean().withDefault(const Constant(false))();
 
-@DriftDatabase(tables: [Users])
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+
+@DriftDatabase(tables: [Users,Wallets])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(): super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.createTable(wallets);
+      }
+    },
+  );
 
   Future<void> saveUserProfile(User userRow) async{
     await into(users).insertOnConflictUpdate(userRow);
@@ -38,9 +60,20 @@ class AppDatabase extends _$AppDatabase {
   Stream<User?> watchUserProfile(String userId) {
     return (select(users)..where((t) => t.id.equals(userId))).watchSingleOrNull();
   }
+  Future<void> saveAllWallets(List<Wallet> walletRows) async {
+    await batch((batch) {
+      batch.insertAllOnConflictUpdate(wallets, walletRows);
+    });
+  }
+
+  // Stream danh sách ví theo thời gian thực ra UI lướt sóng
+  Stream<List<Wallet>> watchAllWallets() {
+    return (select(wallets)..where((t) => t.isHidden.equals(false))).watch();
+  }
 
   Future<void> clearAuthData() async {
     await delete(users).go();
+    await delete(wallets).go();
   }
 }
 

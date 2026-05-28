@@ -142,13 +142,21 @@ class AuthNotifier extends StateNotifier<AuthState>{
   Future<void> logout() async {
     _stopWatchingUser();
 
-    final storage = ref.read(secureStorageServiceProvider);
-    await storage.delete(key: AppConstant.accessToken);
-    await storage.delete(key: AppConstant.refreshToken);
-    await storage.delete(key: AppConstant.userId);
+    try {
+      final storage = ref.read(secureStorageServiceProvider);
+      await storage.delete(key: AppConstant.accessToken);
+      await storage.delete(key: AppConstant.refreshToken);
+      await storage.delete(key: AppConstant.userId);
+    } catch (_) {
+      // Bỏ qua lỗi Keychain/SecureStorage khi dev
+    }
 
-    final dbInstance = ref.read(db.appDatabaseProvider);
-    await dbInstance.clearAuthData();
+    try {
+      final dbInstance = ref.read(db.appDatabaseProvider);
+      await dbInstance.clearAuthData();
+    } catch (_) {
+      // Bỏ qua lỗi clear DB để luôn đổi trạng thái sang unauthenticated
+    }
 
     state = const AuthState.unauthenticated();
   }

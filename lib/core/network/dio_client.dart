@@ -4,6 +4,8 @@ import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/core/network/api_endpoints.dart';
 import '../storage/secure_storage_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:expense_management/features/auth/auth_provider.dart';
+
 
 final dioClientProvider = Provider<Dio>((ref) {
   final dio = Dio(
@@ -113,7 +115,8 @@ class RefreshTokenInterceptor extends Interceptor {
             return handler.resolve(retryRequest);
           }
         } catch (refreshError) {
-          storage.clearAll();
+          await storage.clearAll();
+          ref.read(authNotifierProvider.notifier).logout();
         }
       }
     }
