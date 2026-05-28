@@ -1,4 +1,4 @@
-import 'package:expense_management/features/auth/domain/entities/user_entity.dart';
+import 'package:expense_management/shared/domain/user_entity.dart';
 import 'package:expense_management/features/auth/domain/repositories/auth_repository.dart';
 
 class LoginUseCase {

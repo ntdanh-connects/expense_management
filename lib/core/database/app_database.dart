@@ -35,6 +35,10 @@ class AppDatabase extends _$AppDatabase {
     return await (select(users)..where((t) => t.id.equals(userId))).getSingleOrNull();
   }
 
+  Stream<User?> watchUserProfile(String userId) {
+    return (select(users)..where((t) => t.id.equals(userId))).watchSingleOrNull();
+  }
+
   Future<void> clearAuthData() async {
     await delete(users).go();
   }
