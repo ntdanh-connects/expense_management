@@ -26,7 +26,7 @@ class BottomBarConfig {
   // 1. Khai báo 4 Tab chức năng chính tương ứng 4 Branch GoRouter
   static final List<BottomBarItem> mainTabs = [
     BottomBarItem(icon: Icons.grid_view_rounded, label: 'Tổng quan'),
-    BottomBarItem(icon: Icons.account_balance_wallet_rounded, label: 'Ví tiền'),
+    BottomBarItem(icon: Icons.receipt_long_rounded, label: 'Lịch sử'),
     BottomBarItem(icon: Icons.analytics_outlined, label: 'Thống kê'),
     BottomBarItem(icon: Icons.person_outline_rounded, label: 'Cá nhân'),
   ];
