@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart'; // Nạp extension màu sắc của anh em mình
+import '../../core/theme/app_colors.dart'; // Nạp extension màu sắc của anh em mình
 
 class AuthTextField extends StatelessWidget {
   final TextEditingController controller;

@@ -14,16 +14,18 @@
 //   }
 // }
 
+import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
+import 'package:go_router/go_router.dart';
 import '../widgets/profile_menu_item.dart';
 import '../widgets/wallet_card.dart';
-import 'edit_profile_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
-  const ProfileScreen({super.key});
+  final VoidCallback onLogout;
+  const ProfileScreen({super.key, required this.onLogout});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -99,11 +101,7 @@ class ProfileScreen extends ConsumerWidget {
                     // Hiển thị trực tiếp Họ tên người dùng lấy từ Entity sạch
                     trailingText: currentUser?.fullName ?? 'Chưa cập nhật',
                     onTap: () {
-                      // Chuyển tiếp mượt mà sang giao diện sửa đổi hồ sơ
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const EditProfileScreen()),
-                      );
+                      context.push(RoutePaths.editProfile);
                     },
                   ),
                   Divider(color: colors.textSecondary.withOpacity(0.1), height: 1, indent: 16, endIndent: 16),
@@ -146,9 +144,7 @@ class ProfileScreen extends ConsumerWidget {
               width: double.infinity,
               height: 52,
               child: OutlinedButton.icon(
-                onPressed: () {
-                  // Gọi chức năng giải phóng token, logout tại đây sau này
-                },
+                onPressed: onLogout,
                 icon: Icon(Icons.logout_rounded, color: colors.expenseRed),
                 label: Text(
                   'Đăng xuất',

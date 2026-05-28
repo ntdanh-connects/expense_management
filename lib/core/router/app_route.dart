@@ -7,6 +7,7 @@ import 'package:expense_management/features/auth/presentation/screens/register_s
 import 'package:expense_management/features/auth/presentation/screens/splash_screen.dart';
 import 'package:expense_management/features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:expense_management/features/dashboard/presentation/screens/main_shell_screen.dart';
+import 'package:expense_management/features/profile/presentation/screens/edit_profile_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/profile_screen.dart';
 import 'package:expense_management/features/wallet/presentation/screens/wallet_screen.dart';
 import 'package:flutter/material.dart';
@@ -23,7 +24,7 @@ class RoutePaths {
   static const wallet = '/wallet';
   static const analytics = '/analytics';
   static const profile = '/profile';
-
+  static const editProfile = '/profile/edit';
 }
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -102,7 +103,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: RoutePaths.analytics,builder: (context, state) => const AnalyticScreen(),),
         ]),
         StatefulShellBranch(routes: [
-          GoRoute(path: RoutePaths.profile,builder: (context, state) => const ProfileScreen(),),
+          GoRoute(
+            path: RoutePaths.profile,
+            builder: (context, state) => ProfileScreen(
+              onLogout: () {
+                ref.read(authNotifierProvider.notifier).logout();
+              },
+            ),
+            routes: [
+              GoRoute(
+                path: 'edit',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) => const EditProfileScreen(),
+              ),
+            ],
+          ),
         ]),
       ] )
     ],

@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
+import 'package:expense_management/core/database/app_database.dart' as db;
 import 'package:expense_management/core/error/app_exception.dart';
 import 'package:expense_management/core/storage/secure_storage_service.dart';
 import 'package:expense_management/features/auth/auth_provider.dart';
@@ -9,7 +11,7 @@ import 'package:expense_management/features/auth/data/mappers/auth_mapper.dart';
 import 'package:expense_management/features/auth/data/models/auth_response_dto.dart';
 import 'package:expense_management/features/auth/data/repository_impl/auth_repository_impl.dart';
 import 'package:expense_management/features/auth/domain/auth_state.dart';
-import 'package:expense_management/features/auth/domain/entities/user_entity.dart';
+import 'package:expense_management/shared/domain/user_entity.dart';
 import 'package:expense_management/features/auth/domain/repositories/auth_repository.dart';
 import 'package:expense_management/features/auth/domain/use_case/login_use_case.dart';
 import 'package:expense_management/features/auth/domain/use_case/register_use_case.dart';
@@ -21,6 +23,9 @@ class AuthNotifier extends StateNotifier<AuthState>{
   final RegisterUseCase registerUseCase;
   final AuthRepository _authRepository;
   final Ref ref;
+  
+  StreamSubscription<db.User?>? _userSubscription;
+
   AuthNotifier(this._loginUseCase,this.registerUseCase,this._authRepository,this.ref): super(const AuthState.authenticating()) {
     _init();
   }
@@ -38,7 +43,7 @@ class AuthNotifier extends StateNotifier<AuthState>{
       //_ref.read(localeProvider.notifier).changeLocale(userEntity.language, isFromLogin: true);
       // _ref.read(themeProvider.notifier).changeTheme(userEntity.theme == 'dark');
 
-      state = AuthState.authenticated(user: userEntity);
+      _startWatchingUser(userEntity.id);
     } on AppException catch (e) {
       state = AuthState.error(message: e.toString());
     } catch (e) {
@@ -69,6 +74,7 @@ class AuthNotifier extends StateNotifier<AuthState>{
 
     // Nếu mất dấu Token bảo mật hoặc chưa từng login thành công -> Đá văng ra Login
     if (refreshToken == null || userId == null) {
+      _stopWatchingUser();
       state = const AuthState.unauthenticated();
       return;
     }
@@ -78,19 +84,13 @@ class AuthNotifier extends StateNotifier<AuthState>{
       final localUserRow = await localDataSource.getCachedProfile(userId);
 
       if (localUserRow != null) {
-        final userEntity = UserEntity(
-          id: localUserRow.id,
-          email: localUserRow.email,
-          fullName: localUserRow.fullName,
-          currency: localUserRow.currency,
-          language: localUserRow.language,
-          theme: localUserRow.theme,
-        );
-        state = AuthState.authenticated(user: userEntity);
+        _startWatchingUser(userId);
       } else {
+        _stopWatchingUser();
         state = const AuthState.unauthenticated();
       }
     } catch (_) {
+      _stopWatchingUser();
       state = const AuthState.unauthenticated();
     }
   }
@@ -105,5 +105,57 @@ class AuthNotifier extends StateNotifier<AuthState>{
     } catch (_) {
       // Mất mạng hay lỗi BE ,xài tiếp data cũ ở Local bình thường
     }
+  }
+
+  void _startWatchingUser(String userId) {
+    _userSubscription?.cancel();
+    final dbInstance = ref.read(db.appDatabaseProvider);
+    _userSubscription = dbInstance.watchUserProfile(userId).listen((localUserRow) {
+      if (localUserRow != null) {
+        final userEntity = UserEntity(
+          id: localUserRow.id,
+          email: localUserRow.email,
+          fullName: localUserRow.fullName,
+          currency: localUserRow.currency,
+          language: localUserRow.language,
+          theme: localUserRow.theme,
+        );
+        state.maybeWhen(
+          authenticated: (currentUser) {
+            if (currentUser != userEntity) {
+              state = AuthState.authenticated(user: userEntity);
+            }
+          },
+          orElse: () {
+            state = AuthState.authenticated(user: userEntity);
+          },
+        );
+      }
+    });
+  }
+
+  void _stopWatchingUser() {
+    _userSubscription?.cancel();
+    _userSubscription = null;
+  }
+
+  Future<void> logout() async {
+    _stopWatchingUser();
+
+    final storage = ref.read(secureStorageServiceProvider);
+    await storage.delete(key: AppConstant.accessToken);
+    await storage.delete(key: AppConstant.refreshToken);
+    await storage.delete(key: AppConstant.userId);
+
+    final dbInstance = ref.read(db.appDatabaseProvider);
+    await dbInstance.clearAuthData();
+
+    state = const AuthState.unauthenticated();
+  }
+
+  @override
+  void dispose() {
+    _stopWatchingUser();
+    super.dispose();
   }
 }

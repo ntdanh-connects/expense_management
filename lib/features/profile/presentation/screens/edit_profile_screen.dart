@@ -2,7 +2,7 @@ import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
-import 'package:expense_management/features/auth/presentation/widgets/auth_text_field.dart';
+import 'package:expense_management/shared/widgets/custom_text_field.dart';
 
 class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});
@@ -15,6 +15,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _emailController;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -31,6 +32,49 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _nameController.dispose();
     _emailController.dispose();
     super.dispose();
+  }
+
+  void _onSave() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final updateProfileUseCase = ref.read(updateProfileUseCaseProvider);
+      await updateProfileUseCase.execute(
+        fullName: _nameController.text.trim(),
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cập nhật thông tin thành công!'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Không thể đồng bộ với server: $e. Dữ liệu đã được lưu trữ cục bộ.'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.orange,
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -115,18 +159,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 controller: _emailController,
                 hintText: 'Địa chỉ email tài khoản',
                 prefixIcon: Icons.mail_outline_rounded,
-                enabled: true, // 👈 Đã chỉnh thành true để người dùng có thể click chọn và gõ bàn phím bình thường
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Email không được phép để trống';
-                  }
-                  // Biểu thức chính quy kiểm tra định dạng email cơ bản chuẩn chỉ
-                  final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                  if (!emailRegex.hasMatch(value.trim())) {
-                    return 'Vui lòng nhập đúng định dạng Email';
-                  }
-                  return null;
-                },
+                enabled: false, // 👈 Không cho phép sửa đổi email
               ),
               const SizedBox(height: 40),
 
@@ -135,26 +168,25 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      // Xử lý logic đẩy dữ liệu cập nhật (bao gồm email mới) lên Server/Database sau này
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Tính năng lưu thay đổi thông tin đang được tích hợp cùng hệ thống api!'),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    }
-                  },
+                  onPressed: _isLoading ? null : _onSave,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: colors.primary,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
                   ),
-                  child: const Text(
-                    'Lưu thay đổi',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : const Text(
+                          'Lưu thay đổi',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
                 ),
               ),
             ],

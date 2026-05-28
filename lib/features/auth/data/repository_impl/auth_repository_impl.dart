@@ -11,7 +11,7 @@ import 'package:expense_management/features/auth/data/mappers/auth_mapper.dart';
 import 'package:expense_management/features/auth/data/models/auth_response_dto.dart';
 import 'package:expense_management/features/auth/data/models/login_request_dto.dart';
 import 'package:expense_management/features/auth/data/models/register_request_dto.dart';
-import 'package:expense_management/features/auth/domain/entities/user_entity.dart';
+import 'package:expense_management/shared/domain/user_entity.dart';
 import 'package:expense_management/features/auth/domain/repositories/auth_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/database/app_database.dart' as db;
