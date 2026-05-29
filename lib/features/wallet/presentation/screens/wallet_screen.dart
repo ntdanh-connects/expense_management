@@ -21,6 +21,15 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   final TextEditingController _amountController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    // 🔄 Tự động đồng bộ hóa ngầm danh sách ví từ Backend ngay khi người dùng vào màn hình này
+    Future.microtask(() {
+      ref.read(walletNotifierProvider.notifier).refreshWallets();
+    });
+  }
+
+  @override
   void dispose() {
     _amountController.dispose();
     super.dispose();
@@ -61,12 +70,15 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       ),
       body: walletState.when(
         data: (walletList) {
-          return SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.only(bottom: 40),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          return RefreshIndicator(
+            onRefresh: () => ref.read(walletNotifierProvider.notifier).refreshWallets(),
+            color: colors.primary,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+              padding: const EdgeInsets.only(bottom: 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 const SizedBox(height: 16),
 
                 // 💳 1. DANH SÁCH VÍ HÀNG NGANG (CAROUSEL) + CARD THÊM VÍ Ở CUỐI
@@ -84,7 +96,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                           padding: const EdgeInsets.only(right: 16),
                           child: WalletCardItem(
                             wallet: wallet,
-                            onTap: () {},
+                            onTap: () => context.push('/add-wallet', extra: wallet),
                           ),
                         );
                       } else {
@@ -308,9 +320,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 ),
               ],
             ),
-          );
-        },
-        loading: () => const WalletShimmerLoading(),
+          ),
+        );
+      },
+      loading: () => const WalletShimmerLoading(),
         error: (err, _) => Center(
           child: Text(
             'Lỗi hệ thống: $err',

@@ -15,15 +15,7 @@ class WalletCardItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final gradient = _getGradient(wallet.color, wallet.name);
 
-    // Bốc 4 ký tự cuối của id làm số thẻ
-    final lastFour = wallet.id.length >= 4
-        ? wallet.id.substring(wallet.id.length - 4).toUpperCase()
-        : '8842';
 
-    // Mock ngày hết hạn dựa theo chữ cái đầu của ID
-    final mockMonth = (wallet.id.hashCode % 12 + 1).toString().padLeft(2, '0');
-    final mockYear = (28 + (wallet.id.hashCode % 5)).toString();
-    final expiryDate = '$mockMonth/$mockYear';
 
     return GestureDetector(
       onTap: onTap,
@@ -106,30 +98,8 @@ class WalletCardItem extends StatelessWidget {
               ),
             ),
 
-            // Dòng dưới cùng: Số thẻ ẩn danh & Hạn dùng
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '**** $lastFour',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2.0,
-                  ),
-                ),
-                Text(
-                  'Hết hạn $expiryDate',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.75),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
+            // Dòng dưới cùng: Sạch sẽ, không còn mã số/hết hạn thừa thãi
+            const SizedBox.shrink(),
           ],
         ),
       ),

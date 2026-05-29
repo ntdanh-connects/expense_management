@@ -11,6 +11,7 @@ import 'package:expense_management/features/profile/presentation/screens/biometr
 import 'package:expense_management/features/profile/presentation/screens/personal_info_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/profile_screen.dart';
 import 'package:expense_management/features/transaction/presentation/screens/transaction_history_screen.dart';
+import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/presentation/screens/wallet_screen.dart';
 import 'package:expense_management/features/wallet/presentation/screens/add_wallet_screen.dart';
 import 'package:flutter/material.dart';
@@ -101,7 +102,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.addWallet,
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const AddWalletScreen(),
+        builder: (context, state) {
+          final wallet = state.extra as WalletEntity?;
+          return AddWalletScreen(walletToEdit: wallet);
+        },
       ),
 
       StatefulShellRoute.indexedStack(
