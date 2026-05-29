@@ -7,7 +7,8 @@ import 'package:expense_management/features/auth/presentation/screens/register_s
 import 'package:expense_management/features/auth/presentation/screens/splash_screen.dart';
 import 'package:expense_management/features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:expense_management/features/dashboard/presentation/screens/main_shell_screen.dart';
-import 'package:expense_management/features/profile/presentation/screens/edit_profile_screen.dart';
+import 'package:expense_management/features/profile/presentation/screens/biometric_settings_screen.dart';
+import 'package:expense_management/features/profile/presentation/screens/personal_info_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/profile_screen.dart';
 import 'package:expense_management/features/transaction/presentation/screens/transaction_history_screen.dart';
 import 'package:flutter/material.dart';
@@ -25,6 +26,7 @@ class RoutePaths {
   static const analytics = '/analytics';
   static const profile = '/profile';
   static const editProfile = '/profile/edit';
+  static const biometricSecurity = '/profile/biometric';
 }
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -114,7 +116,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: 'edit',
                 parentNavigatorKey: rootNavigatorKey,
-                builder: (context, state) => const EditProfileScreen(),
+                builder: (context, state) => const PersonalInfoScreen(),
+              ),
+              GoRoute(
+                path: 'biometric',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) => const BiometricSettingsScreen(),
               ),
             ],
           ),
