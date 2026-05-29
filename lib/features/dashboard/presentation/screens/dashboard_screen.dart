@@ -353,7 +353,7 @@ class DashboardScreen extends ConsumerWidget {
     return Container(
       width: 140,
       margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.circular(20),
@@ -378,21 +378,27 @@ class DashboardScreen extends ConsumerWidget {
             ),
             child: Icon(icon, color: iconColor, size: 18),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: colors.textSecondary,
               fontSize: 12,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            amount,
-            style: TextStyle(
-              color: colors.textPrimary,
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              amount,
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
