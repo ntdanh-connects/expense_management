@@ -10,6 +10,11 @@ class WalletLocalService {
     await _db.saveAllWallets(walletRows);
   }
 
+  Future<void> createWallet(Wallet walletRow) async {
+    await _db.createWallet(walletRow);
+  }
+
+
   //Stream từ Drift DB lên
   Stream<List<Wallet>> watchCachedWallets() {
     return _db.watchAllWallets();

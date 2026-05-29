@@ -4,6 +4,7 @@ import 'package:expense_management/features/wallet/data/data_source/local/wallet
 import 'package:expense_management/features/wallet/data/data_source/remote/wallet_api_service.dart';
 import 'package:expense_management/features/wallet/data/mapper/wallet_mapper.dart';
 import 'package:expense_management/features/wallet/domain/repository/wallet_repository.dart';
+import 'package:expense_management/core/database/app_database.dart';
 import '../../domain/entities/wallet_entity.dart';
 
 class WalletRepositoryImpl  implements WalletRepository{
@@ -39,5 +40,19 @@ class WalletRepositoryImpl  implements WalletRepository{
     return _localDataSource.watchCachedWallets().map((rows) {
       return rows.map((row) => WalletMapper.toEntity(row)).toList();
     });
+  }
+
+  @override
+  Future<void> createWallet(WalletEntity wallet) async {
+    final row = Wallet(
+      id: wallet.id,
+      name: wallet.name,
+      balance: wallet.balance,
+      type: wallet.type,
+      icon: wallet.icon,
+      color: wallet.color,
+      isHidden: false,
+    );
+    await _localDataSource.createWallet(row);
   }
 }

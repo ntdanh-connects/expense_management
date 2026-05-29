@@ -11,6 +11,8 @@ import 'package:expense_management/features/profile/presentation/screens/biometr
 import 'package:expense_management/features/profile/presentation/screens/personal_info_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/profile_screen.dart';
 import 'package:expense_management/features/transaction/presentation/screens/transaction_history_screen.dart';
+import 'package:expense_management/features/wallet/presentation/screens/wallet_screen.dart';
+import 'package:expense_management/features/wallet/presentation/screens/add_wallet_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -22,6 +24,8 @@ class RoutePaths {
   static const login = '/login';
   static const register = '/register';
   static const dashboard = '/dashboard';
+  static const wallet = '/wallet';
+  static const addWallet = '/add-wallet';
   static const history = '/history';
   static const analytics = '/analytics';
   static const profile = '/profile';
@@ -88,6 +92,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.register,
         builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.wallet,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const WalletScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.addWallet,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AddWalletScreen(),
       ),
 
       StatefulShellRoute.indexedStack(
