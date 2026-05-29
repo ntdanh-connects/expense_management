@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/shared/widgets/shared_top_app_bar.dart';
+import 'package:go_router/go_router.dart';
+import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -10,6 +12,7 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final walletState = ref.watch(walletNotifierProvider);
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -63,12 +66,33 @@ class DashboardScreen extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    '45.280.000 đ',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 30,
-                      fontWeight: FontWeight.bold,
+                  walletState.when(
+                    data: (walletList) {
+                      final totalBalance = walletList.fold<double>(0, (sum, w) => sum + w.balance);
+                      return Text(
+                        '${(totalBalance)} đ',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 30,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      );
+                    },
+                    loading: () => const Text(
+                      '... đ',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 30,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    error: (_, __) => const Text(
+                      '0 đ',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 30,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -175,7 +199,9 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                 ),
                 TextButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    context.push('/wallet');
+                  },
                   child: Text(
                     'Xem tất cả',
                     style: TextStyle(
@@ -189,38 +215,65 @@ class DashboardScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
 
-            // DANH SÁCH VÍ HÀNG NGANG (SCROLL HORIZONTAL)
+             // DANH SÁCH VÍ HÀNG NGANG (SCROLL HORIZONTAL)
             SizedBox(
               height: 110,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                children: [
-                  _buildWalletCard(
-                    context: context,
-                    title: 'Tiền mặt',
-                    amount: '2.500.000đ',
-                    icon: Icons.payments_rounded,
-                    iconBgColor: Colors.teal.shade50,
-                    iconColor: Colors.teal,
+              child: walletState.when(
+                data: (walletList) {
+                  if (walletList.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'Chưa có ví nào',
+                        style: TextStyle(
+                          color: colors.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                    );
+                  }
+                  return ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: walletList.length,
+                    itemBuilder: (context, index) {
+                      final wallet = walletList[index];
+                      final hexColor = wallet.color.replaceAll('#', '');
+                      Color itemColor;
+                      try {
+                        itemColor = hexColor.length == 6
+                            ? Color(int.parse('FF$hexColor', radix: 16))
+                            : colors.primary;
+                      } catch (_) {
+                        itemColor = colors.primary;
+                      }
+
+                      return _buildWalletCard(
+                        context: context,
+                        title: wallet.name,
+                        amount: '${(wallet.balance)} đ',
+                        icon: _getWalletIcon(wallet.type),
+                        iconBgColor: itemColor.withOpacity(0.12),
+                        iconColor: itemColor,
+                      );
+                    },
+                  );
+                },
+                loading: () => Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: colors.primary,
+                    ),
                   ),
-                  _buildWalletCard(
-                    context: context,
-                    title: 'MoMo',
-                    amount: '840.000đ',
-                    icon: Icons.qr_code_scanner_rounded,
-                    iconBgColor: Colors.pink.shade50,
-                    iconColor: Colors.pink,
+                ),
+                error: (err, _) => Center(
+                  child: Text(
+                    'Lỗi tải ví',
+                    style: TextStyle(color: colors.expenseRed, fontSize: 13),
                   ),
-                  _buildWalletCard(
-                    context: context,
-                    title: 'Techcombank',
-                    amount: '41.900.000đ',
-                    icon: Icons.account_balance_rounded,
-                    iconBgColor: Colors.red.shade50,
-                    iconColor: Colors.red,
-                  ),
-                ],
+                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -468,5 +521,18 @@ class DashboardScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  IconData _getWalletIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'cash':
+        return Icons.payments_rounded;
+      case 'bank':
+        return Icons.account_balance_rounded;
+      case 'e-wallet':
+        return Icons.qr_code_scanner_rounded;
+      default:
+        return Icons.credit_card_rounded;
+    }
   }
 }

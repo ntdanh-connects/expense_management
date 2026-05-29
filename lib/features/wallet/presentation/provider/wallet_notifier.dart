@@ -1,17 +1,26 @@
 import 'dart:async';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_provider.dart';
+import 'package:expense_management/features/auth/auth_provider.dart';
+import 'package:expense_management/features/auth/domain/auth_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class WalletNotifier extends StreamNotifier<List<WalletEntity>> {
   @override
   Stream<List<WalletEntity>> build() {
-    //UseCase từ provider
+    // 👁️ Lắng nghe trạng thái đăng nhập: Khi đăng nhập thành công, Riverpod tự rebuild Notifier này!
+    final authState = ref.watch(authNotifierProvider);
+
     final watchWalletsUseCase = ref.read(watchWalletsUseCaseProvider);
     final syncWalletsUseCase = ref.read(syncWalletsUseCaseProvider);
 
-    // Kích hoạt đồng bộ hóa dữ liệu từ Backend ngầm
-    Future.microtask(() => syncWalletsUseCase.execute());
+    // Kích hoạt đồng bộ hóa dữ liệu từ Backend ngầm nếu đã đăng nhập thành công
+    authState.maybeWhen(
+      authenticated: (_) {
+        Future.microtask(() => syncWalletsUseCase.execute());
+      },
+      orElse: () {},
+    );
 
     // Trả về trực tiếp Stream từ Drift SQLite để Riverpod tự động quản lý và lắng nghe
     return watchWalletsUseCase.execute();

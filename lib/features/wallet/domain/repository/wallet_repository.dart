@@ -6,4 +6,6 @@ abstract class WalletRepository {
 
   // 📺 Luồng Stream tươi sống bốc dữ liệu từ SQLite Local bắn thẳng lên UI lướt sóng
   Stream<List<WalletEntity>> watchWallets();
+
+  Future<void> createWallet(WalletEntity wallet);
 }

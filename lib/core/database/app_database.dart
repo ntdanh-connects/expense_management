@@ -66,6 +66,10 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  Future<void> createWallet(Wallet walletRow) async {
+    await into(wallets).insertOnConflictUpdate(walletRow);
+  }
+
   // Stream danh sách ví theo thời gian thực ra UI lướt sóng
   Stream<List<Wallet>> watchAllWallets() {
     return (select(wallets)..where((t) => t.isHidden.equals(false))).watch();

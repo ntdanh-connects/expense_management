@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:expense_management/core/theme/app_colors.dart'; // ⚡ Import tệp extension của ní nhen
 import '../../domain/entities/wallet_entity.dart';
 
 class WalletCardItem extends StatelessWidget {
@@ -14,87 +13,122 @@ class WalletCardItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 🎨 HÚP EXTENSION QUÝ TỘC CỦA NÍ: Lôi bộ màu tương ứng ra xài phẳng lỳ
-    final appColors = context.colors;
+    final gradient = _getGradient(wallet.color, wallet.name);
 
-    // 🔮 ẢO THUẬT HEX COLOR: Bóc màu BE gửi về sang Color đối tượng
-    final hexColor = wallet.color.replaceAll('#', '');
-    final Color neonColor = hexColor.length == 6
-        ? Color(int.parse('FF$hexColor', radix: 16))
-        : appColors.primary; // ⚡ BẢO HIỂM: Lấy màu primary hệ thống nếu BE nhảy lỗi
+    // Bốc 4 ký tự cuối của id làm số thẻ
+    final lastFour = wallet.id.length >= 4
+        ? wallet.id.substring(wallet.id.length - 4).toUpperCase()
+        : '8842';
 
-    return InkWell(
+    // Mock ngày hết hạn dựa theo chữ cái đầu của ID
+    final mockMonth = (wallet.id.hashCode % 12 + 1).toString().padLeft(2, '0');
+    final mockYear = (28 + (wallet.id.hashCode % 5)).toString();
+    final expiryDate = '$mockMonth/$mockYear';
+
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      splashColor: neonColor.withOpacity(0.1),
-      highlightColor: Colors.transparent,
       child: Container(
-        padding: const EdgeInsets.all(20),
+        width: 320,
+        height: 180,
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: appColors.surface, // ⚡ ĐỒNG BỘ THEME: Ăn theo màu surface của hệ theme (Light/Dark tự co giãn)
+          gradient: gradient,
           borderRadius: BorderRadius.circular(24),
-          // ✨ VIỀN PHÁT SÁNG NEON MỜ ẢO CHÍNH CHỦ THEO MÀU VÍ
-          border: Border.all(color: neonColor.withOpacity(0.3), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: neonColor.withOpacity(0.08),
+              color: Colors.black.withOpacity(0.12),
               blurRadius: 16,
-              offset: const Offset(0, 6),
-            )
+              offset: const Offset(0, 8),
+            ),
           ],
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Cụm vòng tròn bọc Icon phát sáng dải màu Neon
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: neonColor.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                _getWalletIcon(wallet.type),
-                color: neonColor,
-                size: 26,
-              ),
-            ),
-            const SizedBox(width: 16),
-            // Tên Ví và Loại ví phẳng lỳ
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    wallet.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: appColors.textPrimary, // ⚡ ĐỒNG BỘ THEME TEXT
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+            // Dòng trên cùng: Tên & loại + Icon Logo
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        wallet.name.toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        wallet.type == 'e-wallet' ? 'E-WALLET' : (wallet.type == 'bank' ? 'BANK' : 'CASH'),
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    wallet.type.toUpperCase(),
-                    style: TextStyle(
-                      color: appColors.textSecondary, // ⚡ ĐỒNG BỘ THEME TEXT PHỤ
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.2,
-                    ),
+                ),
+                // Logo tròn phát sáng màu trắng hoặc icon
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                ],
-              ),
+                  child: Icon(
+                    _getWalletIcon(wallet.icon),
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+              ],
             ),
-            // Số dư ví thật giật số độc quyền VND
+
+            // Số dư ví to rõ nét ở chính giữa
             Text(
-              '${_formatMoney(wallet.balance)} ₫',
-              style: TextStyle(
-                color: neonColor,
-                fontSize: 20,
+              '${_formatMoney(wallet.balance)} đ',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 26,
                 fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
               ),
+            ),
+
+            // Dòng dưới cùng: Số thẻ ẩn danh & Hạn dùng
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '**** $lastFour',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2.0,
+                  ),
+                ),
+                Text(
+                  'Hết hạn $expiryDate',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.75),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -102,12 +136,28 @@ class WalletCardItem extends StatelessWidget {
     );
   }
 
-  IconData _getWalletIcon(String type) {
-    switch (type.toLowerCase()) {
-      case 'cash':
-        return Icons.wb_sunny_rounded; 
+  IconData _getWalletIcon(String iconKey) {
+    switch (iconKey.toLowerCase()) {
+      case 'wallet':
+        return Icons.account_balance_wallet_rounded;
       case 'bank':
         return Icons.account_balance_rounded;
+      case 'card':
+        return Icons.credit_card_rounded;
+      case 'piggy':
+        return Icons.savings_rounded;
+      case 'cash':
+        return Icons.payments_rounded;
+      case 'bag':
+        return Icons.shopping_bag_rounded;
+      case 'car':
+        return Icons.directions_car_rounded;
+      case 'home':
+        return Icons.home_rounded;
+      case 'food':
+        return Icons.restaurant_rounded;
+      case 'plane':
+        return Icons.flight_rounded;
       case 'e-wallet':
         return Icons.qr_code_scanner_rounded;
       default:
@@ -117,7 +167,25 @@ class WalletCardItem extends StatelessWidget {
 
   String _formatMoney(double value) {
     RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-    String Function(Match) mathFunc = (Match match) => '${match[1]},';
+    String Function(Match) mathFunc = (Match match) => '${match[1]}.';
     return value.toStringAsFixed(0).replaceAllMapped(reg, mathFunc);
+  }
+
+  Gradient _getGradient(String colorHex, String name) {
+    final hexColor = colorHex.replaceAll('#', '');
+    Color baseColor;
+    try {
+      baseColor = hexColor.length == 6
+          ? Color(int.parse('FF$hexColor', radix: 16))
+          : const Color(0xFF6366F1); // fallback
+    } catch (_) {
+      baseColor = const Color(0xFF6366F1);
+    }
+
+    return LinearGradient(
+      colors: [baseColor, Color.alphaBlend(Colors.black.withOpacity(0.22), baseColor)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
   }
 }
