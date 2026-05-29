@@ -1,3 +1,5 @@
+import 'package:expense_management/features/wallet/data/models/create_wallet_request.dart';
+
 import '../../domain/entities/wallet_entity.dart';
 
 abstract class WalletRepository {
@@ -7,5 +9,7 @@ abstract class WalletRepository {
   // 📺 Luồng Stream tươi sống bốc dữ liệu từ SQLite Local bắn thẳng lên UI lướt sóng
   Stream<List<WalletEntity>> watchWallets();
 
-  Future<void> createWallet(WalletEntity wallet);
+  Future<void> createWallet(CreateWalletRequest request);
+
+  Future<void> updateWallet(String id, CreateWalletRequest request);
 }

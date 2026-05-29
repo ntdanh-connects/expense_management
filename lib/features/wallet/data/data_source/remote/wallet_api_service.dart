@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:expense_management/core/network/base_response_dto.dart';
+import 'package:expense_management/features/wallet/data/models/create_wallet_request.dart';
 import 'package:expense_management/features/wallet/data/models/wallet_dto.dart';
 import 'package:retrofit/retrofit.dart';
 import 'package:expense_management/core/network/api_endpoints.dart';
@@ -11,7 +12,14 @@ abstract class WalletApiService {
   factory WalletApiService(Dio dio) = _WalletApiService;
 
   @GET(ApiEndpoints.wallets)
-  Future<BaseResponseDto<List<WalletDto>>> getRemoteWallets(
-    @Query("user_id") String userId,
+  Future<BaseResponseDto<List<WalletDto>>> getRemoteWallets();
+
+  @POST(ApiEndpoints.wallets)
+  Future<BaseResponseDto<WalletDto>> createRemoteWallet(@Body() CreateWalletRequest request);
+
+  @POST('${ApiEndpoints.wallets}/{id}')
+  Future<BaseResponseDto<WalletDto>> updateRemoteWallet(
+    @Path('id') String id,
+    @Body() CreateWalletRequest request,
   );
 }

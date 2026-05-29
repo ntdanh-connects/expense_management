@@ -25,6 +25,16 @@ class WalletNotifier extends StreamNotifier<List<WalletEntity>> {
     // Trả về trực tiếp Stream từ Drift SQLite để Riverpod tự động quản lý và lắng nghe
     return watchWalletsUseCase.execute();
   }
+
+  // 🔄 Thực hiện đồng bộ tươi mới trực tiếp danh sách ví từ remote DB về SQLite local
+  Future<void> refreshWallets() async {
+    try {
+      final syncWalletsUseCase = ref.read(syncWalletsUseCaseProvider);
+      await syncWalletsUseCase.execute();
+    } catch (e) {
+      print('Error manually refreshing wallets: $e');
+    }
+  }
 }
 
 final walletNotifierProvider = StreamNotifierProvider<WalletNotifier, List<WalletEntity>>(() {
