@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/core/storage/secure_storage_service.dart';
 import 'package:expense_management/features/wallet/data/data_source/local/wallet_local_service.dart';
@@ -42,30 +43,44 @@ class WalletRepositoryImpl  implements WalletRepository{
 
   @override
   Future<void> createWallet(CreateWalletRequest request) async {
+    AppLogger.debug("🌐 [Wallet-Sync] Bắt đầu gửi yêu cầu tạo ví mới '${request.name}' lên Remote Server...", tag: "Wallet-Sync");
     try {
       final response = await _apiService.createRemoteWallet(request);
       final walletDto = response.data;
+      AppLogger.info("☁️ [Wallet-Sync] Tạo ví mới '${request.name}' trên Remote Server thành công! Tiến hành lưu vào SQLite...", tag: "Wallet-Sync");
+
       final row = WalletMapper.toDatabaseRow(walletDto);
       await _localDataSource.createWallet(row);
 
-      AppLogger.debug("💾 [SQLite] Đã lưu ví mới '${row.name}' vào SQLite thành công", tag: "SQLite");
+      AppLogger.info("💾 [SQLite] Đã lưu ví mới '${row.name}' vào SQLite local thành công!", tag: "SQLite");
     } catch (e, stackTrace) {
-      AppLogger.error("🚨 [SQLite] Lỗi tạo ví trong SQLite: $e", tag: "SQLite", stackTrace: stackTrace);
+      if (e is DioException) {
+        AppLogger.error("🚨 [Wallet-Sync] Lỗi tạo ví trên Remote Server: ${e.message}", tag: "Wallet-Sync", stackTrace: stackTrace);
+      } else {
+        AppLogger.error("🚨 [SQLite] Lỗi lưu ví mới vào SQLite local: $e", tag: "SQLite", stackTrace: stackTrace);
+      }
       rethrow; 
     }
   }
 
   @override
   Future<void> updateWallet(String id, CreateWalletRequest request) async {
+    AppLogger.debug("🌐 [Wallet-Sync] Bắt đầu gửi yêu cầu cập nhật ví ID: $id (Tên mới: '${request.name}') lên Remote Server...", tag: "Wallet-Sync");
     try {
       final response = await _apiService.updateRemoteWallet(id, request);
       final walletDto = response.data;
+      AppLogger.info("☁️ [Wallet-Sync] Cập nhật ví ID: $id trên Remote Server thành công! Tiến hành ghi đè SQLite local...", tag: "Wallet-Sync");
+
       final row = WalletMapper.toDatabaseRow(walletDto);
       await _localDataSource.createWallet(row); // Drift insertOnConflictUpdate tự động ghi đè bản ghi cũ trùng ID
 
-      AppLogger.debug("💾 [SQLite] Đã cập nhật ví '${row.name}' (ID: $id) trong SQLite", tag: "SQLite");
+      AppLogger.info("💾 [SQLite] Cập nhật ví '${row.name}' (ID: $id) vào SQLite local thành công!", tag: "SQLite");
     } catch (e, stackTrace) {
-      AppLogger.error("🚨 [SQLite] Lỗi cập nhật ví trong SQLite: $e", tag: "SQLite", stackTrace: stackTrace);
+      if (e is DioException) {
+        AppLogger.error("🚨 [Wallet-Sync] Lỗi cập nhật ví trên Remote Server: ${e.message}", tag: "Wallet-Sync", stackTrace: stackTrace);
+      } else {
+        AppLogger.error("🚨 [SQLite] Lỗi cập nhật ví trong SQLite local: $e", tag: "SQLite", stackTrace: stackTrace);
+      }
       rethrow;
     }
   }

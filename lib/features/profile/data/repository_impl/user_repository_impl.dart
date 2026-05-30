@@ -2,10 +2,12 @@ import 'package:dio/dio.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/core/error/app_exception.dart';
 import 'package:expense_management/core/network/network_exception_mapper.dart';
+import 'package:expense_management/core/network/network_failure.dart';
 import 'package:expense_management/core/storage/secure_storage_service.dart';
 import 'package:expense_management/core/database/app_database.dart' as db;
 import 'package:expense_management/core/utils/app_logger.dart';
 import 'package:expense_management/shared/domain/user_entity.dart';
+import 'package:json_annotation/json_annotation.dart';
 import '../../domain/repositories/user_repository.dart';
 import '../datasource/remote/user_api_service.dart';
 import '../mappers/profile_mapper.dart';
@@ -35,7 +37,8 @@ class UserRepositoryImpl implements UserRepository {
     );
     await _db.saveUserProfile(updatedLocalRow);
 
-    AppLogger.debug("💾 [SQLite] Cập nhật tạm thời tên mới: '$fullName' vào SQLite", tag: "SQLite");
+    AppLogger.info("💾 [SQLite] [Offline-First] Cập nhật SQLite thành công! Đã lưu tạm thời tên mới: '$fullName'.", tag: "SQLite");
+    AppLogger.debug("🌐 [Sync-Flow] Bắt đầu gửi đồng bộ thông tin mới lên Server...", tag: "Sync-Flow");
 
     // 2. Đồng bộ thông tin lên Server
     try {
@@ -52,12 +55,21 @@ class UserRepositoryImpl implements UserRepository {
         theme: freshData.preference.theme,
       ));
       
-      AppLogger.debug("💾 [SQLite] Đã đồng bộ dữ liệu hồ sơ chuẩn từ BE vào SQLite thành công", tag: "SQLite");
+      AppLogger.info("☁️ [Sync-Flow] Kiểm tra Server: Đồng bộ thành công! Đã cập nhật đè dữ liệu chuẩn từ BE vào SQLite local.", tag: "Sync-Flow");
 
       return ProfileMapper.toUserEntity(freshData);
     } on DioException catch (e) {
-      // Ném lỗi ra ngoài để thông báo đồng bộ thất bại (dữ liệu vẫn được lưu tạm ở SQLite thiết bị)
+      final errorMsg = e.message ?? "Lỗi mạng kết nối";
+      AppLogger.warning("⚠️ [Sync-Flow] Kiểm tra Server: Đồng bộ thất bại ($errorMsg). Giữ tên tạm thời '$fullName' trong SQLite local để chạy offline.", tag: "Sync-Flow");
       throw AppException(e.toNetworkFailure());
+    } on CheckedFromJsonException catch (e, stackTrace) {
+      AppLogger.error(
+        "🚨 [JSON-Parse] Lỗi phân tích cú pháp JSON khi cập nhật Profile! "
+        "Class: '${e.className}', Key lỗi: '${e.key}' (Giá trị thực tế: ${e.map?[e.key]}, Lỗi: ${e.message})",
+        tag: "JSON-Parse",
+        stackTrace: stackTrace,
+      );
+      throw AppException(NetworkFailure.unknown(message: "Lỗi cấu trúc dữ liệu JSON từ Server ở trường '${e.key}'"));
     }
   }
 }
