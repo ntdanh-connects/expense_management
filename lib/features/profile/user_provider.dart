@@ -1,6 +1,9 @@
+import 'package:expense_management/core/config/app_config.dart';
 import 'package:expense_management/core/database/app_database.dart';
 import 'package:expense_management/core/network/dio_client.dart';
+import 'package:expense_management/core/storage/local_storage_helper.dart';
 import 'package:expense_management/core/storage/secure_storage_service.dart';
+import 'package:expense_management/core/storage/storage_provider.dart';
 import 'package:expense_management/features/auth/auth_provider.dart';
 import 'package:expense_management/features/auth/domain/auth_state.dart';
 import 'package:expense_management/features/profile/data/datasource/remote/user_api_service.dart';
@@ -37,4 +40,9 @@ final userRepositoryProvider = Provider<UserRepository>((ref) {
 final updateProfileUseCaseProvider = Provider<UpdateProfileUseCase>((ref) {
   final repository = ref.watch(userRepositoryProvider);
   return UpdateProfileUseCase(repository);
+});
+
+/// Provider xác định công cụ nhà phát triển có được phép hiển thị/hoạt động hay không
+final developerToolsEnabledProvider = Provider<bool>((ref) {
+  return AppConfig.enableLogging;
 });

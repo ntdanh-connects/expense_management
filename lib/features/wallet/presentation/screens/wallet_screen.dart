@@ -529,51 +529,26 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  // Thực hiện giao dịch chuyển khoản
-  void _executeTransfer(AppColorsExtension colors) async {
-    if (_fromWallet == null || _toWallet == null) {
-      _showSnackBar('Vui lòng chọn đầy đủ Ví nguồn và Ví đích!', isError: true);
-      return;
-    }
-    if (_fromWallet!.id == _toWallet!.id) {
-      _showSnackBar('Ví nguồn và Ví đích không được trùng nhau!', isError: true);
-      return;
-    }
-
+  // Thực hiện giao dịch chuyển khoản thông qua Provider nghiệp vụ
+  void _executeTransfer(AppColorsExtension colors) {
     final amountStr = _amountController.text.trim();
-    if (amountStr.isEmpty) {
-      _showSnackBar('Vui lòng nhập số tiền cần chuyển!', isError: true);
-      return;
-    }
+    
+    // Gọi thực thi logic ở Provider
+    final errorMsg = ref.read(internalTransferHistoryProvider.notifier).executeTransfer(
+      fromWallet: _fromWallet,
+      toWallet: _toWallet,
+      amountStr: amountStr,
+    );
 
-    final amount = double.tryParse(amountStr);
-    if (amount == null || amount <= 0) {
-      _showSnackBar('Số tiền chuyển không hợp lệ!', isError: true);
-      return;
-    }
-
-    if (_fromWallet!.balance < amount) {
-      _showSnackBar('Số dư ví "${_fromWallet!.name}" không đủ!', isError: true);
-      return;
-    }
-
-    try {
-      // Thêm record vào lịch sử chuyển tiền (chỉ lưu local tạm thời)
-      ref.read(internalTransferHistoryProvider.notifier).addTransfer(
-            fromWalletName: _fromWallet!.name,
-            toWalletName: _toWallet!.name,
-            amount: amount,
-          );
-
+    if (errorMsg != null) {
+      _showSnackBar(errorMsg, isError: true);
+    } else {
       _amountController.clear();
       setState(() {
         _fromWallet = null;
         _toWallet = null;
       });
-
       _showSnackBar('Chuyển khoản nội bộ thành công!', isError: false);
-    } catch (e) {
-      _showSnackBar('Chuyển tiền thất bại: $e', isError: true);
     }
   }
 

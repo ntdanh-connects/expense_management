@@ -178,7 +178,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              AuthTextField(
+                              CustomTextField(
                                 controller: _emailController,
                                 hintText: 'example@email.com',
                                 prefixIcon: Icons.email_outlined,
@@ -218,7 +218,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                               ValueListenableBuilder(valueListenable: _obscurePasswordNotifier, builder: 
                               (context,obscurePassword,child){
-                                return AuthTextField(
+                                return CustomTextField(
                                 controller: _passwordController,
                                 hintText: '••••••••',
                                 prefixIcon: Icons.lock_outline,

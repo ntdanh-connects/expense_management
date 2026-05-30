@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:expense_management/core/config/app_config.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/core/network/api_endpoints.dart';
+import 'package:expense_management/core/network/log_console_interceptor.dart';
 import '../storage/secure_storage_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/features/auth/auth_provider.dart';
@@ -27,6 +28,7 @@ final dioClientProvider = Provider<Dio>((ref) {
   ]);
 
   if (AppConfig.enableLogging) {
+    dio.interceptors.add(LogConsoleInterceptor());
     dio.interceptors.add(LogInterceptor(
       requestHeader: false,
       requestBody: true,

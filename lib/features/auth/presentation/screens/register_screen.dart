@@ -146,7 +146,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ),
                           const SizedBox(height: 24),
 
-                          AuthTextField(
+                          CustomTextField(
                             controller: _nameController, 
                             hintText: 'Họ tên', 
                             prefixIcon: Icons.person_outline, 
@@ -155,7 +155,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ),
                           const SizedBox(height: 16),
                           
-                          AuthTextField(
+                          CustomTextField(
                             controller: _emailController, 
                             hintText: 'example@gmail.com',
                             prefixIcon: Icons.email_outlined, 
@@ -167,7 +167,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ValueListenableBuilder(
                             valueListenable: _obscurePasswordNotifier,
                             builder: (_,obscurePassword,child){
-                              return AuthTextField(
+                              return CustomTextField(
                             controller: _passwordController, 
                             hintText: 'Mật khẩu', 
                             prefixIcon: Icons.lock_outline, 
@@ -183,7 +183,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ValueListenableBuilder(
                           valueListenable: _obscurePasswordConfirmNotifier, 
                           builder: (_,obscurePasswordConfirm,_){
-                            return AuthTextField(
+                            return CustomTextField(
                             controller: _confirmPasswordController, 
                             hintText: 'Điền lại mật khẩu',
                             prefixIcon: Icons.refresh_outlined, 
