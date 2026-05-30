@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart'; // Nạp extension màu sắc của anh em mình
 
-class AuthTextField extends StatelessWidget {
+class CustomTextField extends StatelessWidget {
   final TextEditingController controller;
   final String hintText;
   final IconData prefixIcon;
@@ -11,7 +11,7 @@ class AuthTextField extends StatelessWidget {
   final VoidCallback? onPressSuffixIcon;
   final String? Function(String?)? validator;
 
-  const AuthTextField({
+  const CustomTextField({
     super.key,
     required this.controller,
     required this.hintText,

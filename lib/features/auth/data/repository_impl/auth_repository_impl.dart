@@ -11,6 +11,7 @@ import 'package:expense_management/features/auth/data/mappers/auth_mapper.dart';
 import 'package:expense_management/features/auth/data/models/auth_response_dto.dart';
 import 'package:expense_management/features/auth/data/models/login_request_dto.dart';
 import 'package:expense_management/features/auth/data/models/register_request_dto.dart';
+import 'package:expense_management/core/utils/app_logger.dart';
 import 'package:expense_management/shared/domain/user_entity.dart';
 import 'package:expense_management/features/auth/domain/repositories/auth_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,6 +42,8 @@ class AuthRepositoryImpl implements AuthRepository{
         language: dto.data.preference.language,
         theme: dto.data.preference.theme,));
 
+    AppLogger.debug("💾 [SQLite] Đã lưu cache hồ sơ đăng nhập cục bộ cho User ID: ${dto.data.userId}", tag: "SQLite");
+
     return AuthMapper.toUserEntity(dto.data);
     }on DioException catch(e){
       throw AppException(e.toNetworkFailure());
@@ -50,7 +53,12 @@ class AuthRepositoryImpl implements AuthRepository{
   @override
   Future<UserEntity> syncFreshProfile() async {
     try {
-      final response = await _authApiService.getFreshProfile(); 
+      final userId = await _secureStorageService.get(key: AppConstant.userId);
+      if (userId == null) {
+        throw Exception("Không tìm thấy thông tin định danh người dùng cục bộ.");
+      }
+
+      final response = await _authApiService.getFreshProfile({"user_id": userId}); 
       final freshData = response.data;
 
       // Ghi đè cập nhật SQLite Local bằng dữ liệu chuẩn nhất từ Backend ní trả về
@@ -62,6 +70,8 @@ class AuthRepositoryImpl implements AuthRepository{
         language: freshData.preference.language,
         theme: freshData.preference.theme,
       ));
+
+      AppLogger.debug("💾 [SQLite] Đã đồng bộ ngầm hồ sơ người dùng mới nhất từ BE vào SQLite", tag: "SQLite");
 
       return AuthMapper.toUserEntity(freshData);
     } on DioException catch (e) {

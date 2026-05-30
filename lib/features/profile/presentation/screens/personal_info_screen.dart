@@ -74,19 +74,37 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
 
   void _onSave() async {
     if (!_formKey.currentState!.validate()) return;
+    
+    final fullName = _nameController.text.trim();
+    if (fullName.isEmpty) return;
+
     setState(() => _isSaving = true);
     
-    await Future.delayed(const Duration(seconds: 1)); 
-
-    if (mounted) {
-      setState(() => _isSaving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Cập nhật thông tin thành công!'), 
-          backgroundColor: context.colors.incomeGreen,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+    try {
+      // Gọi thực tế UseCase cập nhật SQLite và Remote BE API
+      await ref.read(updateProfileUseCaseProvider).execute(fullName: fullName);
+      
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Cập nhật thông tin thành công!'), 
+            backgroundColor: context.colors.incomeGreen,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi cập nhật: ${e.toString()}'), 
+            backgroundColor: context.colors.expenseRed,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 

@@ -6,6 +6,7 @@ import 'package:expense_management/features/wallet/data/mapper/wallet_mapper.dar
 import 'package:expense_management/features/wallet/data/models/create_wallet_request.dart';
 import 'package:expense_management/features/wallet/domain/repository/wallet_repository.dart';
 import 'package:expense_management/core/database/app_database.dart';
+import 'package:expense_management/core/utils/app_logger.dart';
 import '../../domain/entities/wallet_entity.dart';
 
 class WalletRepositoryImpl  implements WalletRepository{
@@ -25,9 +26,10 @@ class WalletRepositoryImpl  implements WalletRepository{
       final dbRows = dtoList.map((dto) => WalletMapper.toDatabaseRow(dto)).toList();
 
       await _localDataSource.cacheWallets(dbRows);
+
+      AppLogger.debug("💾 [SQLite] Đã đồng bộ ngầm ${dbRows.length} ví từ remote BE vào SQLite local", tag: "SQLite");
     } catch (e, stackTrace) {
-      print('Error syncing wallets: $e');
-      print(stackTrace);
+      AppLogger.error("🚨 [SQLite] Lỗi đồng bộ ngầm ví: $e", tag: "SQLite", stackTrace: stackTrace);
     }
   }
 
@@ -45,10 +47,11 @@ class WalletRepositoryImpl  implements WalletRepository{
       final walletDto = response.data;
       final row = WalletMapper.toDatabaseRow(walletDto);
       await _localDataSource.createWallet(row);
+
+      AppLogger.debug("💾 [SQLite] Đã lưu ví mới '${row.name}' vào SQLite thành công", tag: "SQLite");
     } catch (e, stackTrace) {
-      print('Error creating Wallet in Repository: $e');
-      print(stackTrace);
-      rethrow; // 🚨 Rất quan trọng! Phải rethrow để UI bắt được lỗi và thông báo cho người dùng
+      AppLogger.error("🚨 [SQLite] Lỗi tạo ví trong SQLite: $e", tag: "SQLite", stackTrace: stackTrace);
+      rethrow; 
     }
   }
 
@@ -59,9 +62,10 @@ class WalletRepositoryImpl  implements WalletRepository{
       final walletDto = response.data;
       final row = WalletMapper.toDatabaseRow(walletDto);
       await _localDataSource.createWallet(row); // Drift insertOnConflictUpdate tự động ghi đè bản ghi cũ trùng ID
+
+      AppLogger.debug("💾 [SQLite] Đã cập nhật ví '${row.name}' (ID: $id) trong SQLite", tag: "SQLite");
     } catch (e, stackTrace) {
-      print('Error updating Wallet in Repository: $e');
-      print(stackTrace);
+      AppLogger.error("🚨 [SQLite] Lỗi cập nhật ví trong SQLite: $e", tag: "SQLite", stackTrace: stackTrace);
       rethrow;
     }
   }

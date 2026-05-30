@@ -1,7 +1,11 @@
+import 'dart:ui';
+import 'package:expense_management/core/config/app_config.dart';
 import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/storage/local_storage_helper.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/theme/theme_provider.dart';
+import 'package:expense_management/core/utils/app_logger.dart';
+import 'package:expense_management/core/utils/log_console_overlay.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/storage/storage_provider.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +14,33 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() async{
   WidgetsFlutterBinding.ensureInitialized();
   final sharedPrefs = await SharedPreferences.getInstance();
+
+  if (AppConfig.enableLogging) {
+    // Bắt lỗi Flutter toàn cục và lưu lại (Chỉ kích hoạt trong DEV)
+    FlutterError.onError = (details) {
+      FlutterError.presentError(details);
+      AppLogger.error(
+        details.exceptionAsString(),
+        tag: 'FlutterError',
+        stackTrace: details.stack,
+        details: details.context?.toString(),
+      );
+    };
+
+    // Bắt lỗi hệ thống/nền toàn cục của Dart (Chỉ kích hoạt trong DEV)
+    PlatformDispatcher.instance.onError = (error, stack) {
+      AppLogger.error(
+        error.toString(),
+        tag: 'UncaughtError',
+        stackTrace: stack,
+      );
+      return true;
+    };
+  }
+
+  // Khởi tạo trạng thái ẩn/hiện nút nổi (Bắt buộc ẩn khi ở môi trường LIVE)
+  final showOverlay = AppConfig.enableLogging && (sharedPrefs.getBool('show_developer_console') ?? true);
+  AppLogger.isConsoleOverlayVisible.value = showOverlay;
 
   runApp(
     ProviderScope(
@@ -54,6 +85,10 @@ class MyApp extends ConsumerWidget {
         primaryColor: AppColorsExtension.dark.primary,
         extensions: [AppColorsExtension.dark],
       ),
+
+      builder: (context, child) {
+        return LogConsoleOverlay(child: child!);
+      },
     );
   }
 }

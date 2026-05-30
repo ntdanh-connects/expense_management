@@ -25,6 +25,22 @@ class LocalStorageHelper {
     return await _prefs.setString(_localeKey, code);
   }
 
+  bool getBiometricLogin() {
+    return _prefs.getBool('biometric_login_enabled') ?? false;
+  }
+
+  Future<bool> saveBiometricLogin(bool enabled) async {
+    return await _prefs.setBool('biometric_login_enabled', enabled);
+  }
+
+  bool getBiometricTx() {
+    return _prefs.getBool('biometric_tx_enabled') ?? false;
+  }
+
+  Future<bool> saveBiometricTx(bool enabled) async {
+    return await _prefs.setBool('biometric_tx_enabled', enabled);
+  }
+
   Future<bool> clearAll() async {
     return await _prefs.clear();
   }

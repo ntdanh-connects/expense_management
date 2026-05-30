@@ -4,6 +4,7 @@ import 'package:expense_management/core/error/app_exception.dart';
 import 'package:expense_management/core/network/network_exception_mapper.dart';
 import 'package:expense_management/core/storage/secure_storage_service.dart';
 import 'package:expense_management/core/database/app_database.dart' as db;
+import 'package:expense_management/core/utils/app_logger.dart';
 import 'package:expense_management/shared/domain/user_entity.dart';
 import '../../domain/repositories/user_repository.dart';
 import '../datasource/remote/user_api_service.dart';
@@ -34,6 +35,8 @@ class UserRepositoryImpl implements UserRepository {
     );
     await _db.saveUserProfile(updatedLocalRow);
 
+    AppLogger.debug("💾 [SQLite] Cập nhật tạm thời tên mới: '$fullName' vào SQLite", tag: "SQLite");
+
     // 2. Đồng bộ thông tin lên Server
     try {
       final responseDto = await _userApiService.updateProfile(fullName);
@@ -49,6 +52,8 @@ class UserRepositoryImpl implements UserRepository {
         theme: freshData.preference.theme,
       ));
       
+      AppLogger.debug("💾 [SQLite] Đã đồng bộ dữ liệu hồ sơ chuẩn từ BE vào SQLite thành công", tag: "SQLite");
+
       return ProfileMapper.toUserEntity(freshData);
     } on DioException catch (e) {
       // Ném lỗi ra ngoài để thông báo đồng bộ thất bại (dữ liệu vẫn được lưu tạm ở SQLite thiết bị)

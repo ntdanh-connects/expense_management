@@ -427,7 +427,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Đang tạo ví...',
+                         widget.walletToEdit != null ? 'Đang thay đổi ví' : ' Đang tạo ví',
                         style: TextStyle(
                           color: colors.textPrimary,
                           fontSize: 14,
@@ -753,11 +753,11 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
         availableBalance: _initialBalance.toStringAsFixed(0),
       );
 
-      // 🚀 Gọi API thực tế thông qua Repository (Tạo mới hoặc Cập nhật)
+      // 🚀 Gọi API thực tế thông qua Use Cases (Tạo mới hoặc Cập nhật)
       if (widget.walletToEdit != null) {
-        await ref.read(walletRepositoryProvider).updateWallet(widget.walletToEdit!.id, request);
+        await ref.read(updateWalletUseCaseProvider).execute(widget.walletToEdit!.id, request);
       } else {
-        await ref.read(walletRepositoryProvider).createWallet(request);
+        await ref.read(createWalletUseCaseProvider).execute(request);
       }
       
       setState(() {
