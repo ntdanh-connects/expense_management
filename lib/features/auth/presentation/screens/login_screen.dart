@@ -6,9 +6,17 @@ import 'package:expense_management/features/auth/auth_provider.dart';
 import 'package:expense_management/features/auth/domain/auth_state.dart';
 import 'package:expense_management/features/auth/presentation/widgets/auth_header_action.dart';
 import 'package:expense_management/shared/widgets/custom_text_field.dart';
+import 'package:expense_management/shared/widgets/github_logo.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
+import 'package:expense_management/core/utils/app_logger.dart';
+import 'package:flutter/foundation.dart';
+
+import 'package:expense_management/features/auth/data/service/social_auth_service.dart';
+import 'package:expense_management/features/auth/presentation/widgets/safe_account_linking_bottom_sheet.dart';
+import 'package:expense_management/features/auth/presentation/widgets/dev_bypass_dialog.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -306,16 +314,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _buildBiometricButton(
-                            icon: Icons.fingerprint_rounded,
+                          _buildSocialButton(
+                            child: const GoogleLogo(size: 28),
                             colors: colors,
                             isLoading: isLoading,
+                            onTap: _handleGoogleSignIn,
                           ),
                           const SizedBox(width: 20),
-                          _buildBiometricButton(
-                            icon: Icons.face_retouching_natural,
+                          _buildSocialButton(
+                            child: GithubLogo(
+                              size: 28,
+                              color: colors.textPrimary,
+                            ),
                             colors: colors,
                             isLoading: isLoading,
+                            onTap: _handleGitHubSignIn,
                           ),
                         ],
                       ),
@@ -354,13 +367,97 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Widget _buildBiometricButton({
-    required IconData icon,
+  Future<void> _handleGoogleSignIn() async {
+    try {
+      final idToken = await SocialAuthService.signInWithGoogle();
+      AppLogger.info("☁️ [Google-Auth] Lấy ID Token thành công! Đang gửi lên Server...", tag: "OAuth");
+      
+      final response = await ref.read(authNotifierProvider.notifier).loginWithSocial('google', idToken);
+      if (response != null && response.status == 'requires_linking') {
+        _showLinkingDialog(response.linkToken!, response.email!, 'Google');
+      }
+    } catch (e, stackTrace) {
+      AppLogger.error("🚨 [Google-Auth] Lỗi trong quá trình Google Sign-In: $e", tag: "OAuth", stackTrace: stackTrace);
+      if (kDebugMode) {
+        _showDevBypassDialog('google');
+      } else {
+        _showErrorNotification("Lỗi đăng nhập Google: $e");
+      }
+    }
+  }
+
+  Future<void> _handleGitHubSignIn() async {
+    try {
+      final code = await SocialAuthService.signInWithGitHub();
+      AppLogger.info("☁️ [GitHub-Auth] Lấy Code thành công! Mã code: $code", tag: "OAuth");
+      
+      final response = await ref.read(authNotifierProvider.notifier).loginWithSocial('github', code);
+      if (response != null && response.status == 'requires_linking') {
+        _showLinkingDialog(response.linkToken!, response.email!, 'GitHub');
+      }
+    } catch (e, stackTrace) {
+      AppLogger.error("🚨 [GitHub-Auth] Lỗi trong quá trình GitHub Sign-In: $e", tag: "OAuth", stackTrace: stackTrace);
+      if (kDebugMode) {
+        _showDevBypassDialog('github');
+      } else {
+        _showErrorNotification("Lỗi đăng nhập GitHub: $e");
+      }
+    }
+  }
+
+  void _showDevBypassDialog(String provider) {
+    DevBypassDialog.show(
+      context,
+      provider: provider,
+      onBypassSubmitted: (email) async {
+        final mockToken = "mock_${provider}_$email";
+        AppLogger.info("🌐 [Dev-Bypass] Bắt đầu đăng nhập bằng Token giả lập: $mockToken", tag: "OAuth");
+        
+        final response = await ref.read(authNotifierProvider.notifier).loginWithSocial(provider, mockToken);
+        if (response != null && response.status == 'requires_linking') {
+          _showLinkingDialog(response.linkToken!, response.email!, provider);
+        }
+      },
+    );
+  }
+
+  void _showLinkingDialog(String linkToken, String email, String provider) {
+    SafeAccountLinkingBottomSheet.show(
+      context,
+      linkToken: linkToken,
+      email: email,
+      provider: provider,
+    );
+  }
+
+  void _showErrorNotification(String message) {
+    final colors = context.colors;
+    ElegantNotification.error(
+      title: const Text(
+        'Có lỗi xảy ra!',
+        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+      ),
+      description: Text(
+        message,
+        style: TextStyle(color: colors.textPrimary),
+      ),
+      position: Alignment.topCenter,
+      animation: AnimationType.fromTop,
+      background: colors.authCardBg.withOpacity(0.9),
+      toastDuration: const Duration(seconds: 3),
+      showProgressIndicator: false,
+      borderRadius: BorderRadius.circular(20),
+    ).show(context);
+  }
+
+  Widget _buildSocialButton({
+    required Widget child,
     required AppColorsExtension colors,
     required bool isLoading,
+    required VoidCallback onTap,
   }) {
     return GestureDetector(
-      onTap: isLoading ? null : () {},
+      onTap: isLoading ? null : onTap,
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -368,8 +465,70 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           color: colors.authCardBg,
           border: Border.all(color: colors.textSecondary.withOpacity(0.2)),
         ),
-        child: Icon(icon, size: 28, color: colors.primary),
+        child: child,
       ),
     );
   }
+}
+
+class GoogleLogo extends StatelessWidget {
+  final double size;
+  const GoogleLogo({super.key, this.size = 24});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _GoogleLogoPainter(),
+      ),
+    );
+  }
+}
+
+class _GoogleLogoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.24
+      ..strokeCap = StrokeCap.butt;
+
+    final double radius = size.width / 2;
+    final Rect rect = Rect.fromCircle(center: Offset(radius, radius), radius: radius - paint.strokeWidth / 2);
+
+    // 1. Red Segment (Top)
+    paint.color = const Color(0xFFEA4335);
+    canvas.drawArc(rect, -2.4, 1.2, false, paint);
+
+    // 2. Yellow Segment (Left)
+    paint.color = const Color(0xFFFBBC05);
+    canvas.drawArc(rect, -3.6, 1.2, false, paint);
+
+    // 3. Green Segment (Bottom)
+    paint.color = const Color(0xFF34A853);
+    canvas.drawArc(rect, 0.8, 1.4, false, paint);
+
+    // 4. Blue Segment & Horizontal Bar
+    paint.color = const Color(0xFF4285F4);
+    canvas.drawArc(rect, -1.2, 2.0, false, paint);
+
+    // Draw the horizontal bar
+    final Paint barPaint = Paint()
+      ..color = const Color(0xFF4285F4)
+      ..style = PaintingStyle.fill;
+    
+    final double barHeight = size.height * 0.24;
+    final Rect barRect = Rect.fromLTWH(
+      size.width * 0.5,
+      size.height * 0.38,
+      size.width * 0.44,
+      barHeight,
+    );
+    canvas.drawRect(barRect, barPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

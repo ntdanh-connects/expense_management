@@ -5,5 +5,7 @@ class ApiEndpoints {
   static const profile = 'api/user/profile';
   static const expenses = 'api/logout';
   static const String updateProfile = 'api/user/profile/update';
+  static const String socialLogin = 'api/auth/social';
+  static const String linkSocial = 'api/auth/link-social';
   static const wallets = 'api/wallets';
 }
