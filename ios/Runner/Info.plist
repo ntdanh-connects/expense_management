@@ -2,6 +2,20 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- Deep link của App (GitHub OAuth) -->
+				<string>expmgmt</string>
+				<!-- TODO: Copy và dán mã REVERSED_CLIENT_ID từ file GoogleService-Info.plist của bạn vào đây (ví dụ: com.googleusercontent.apps.123-xxx) -->
+				<string>com.googleusercontent.apps.930877244924-ncc5f40a9kbudbqfag72d72udgdammnk</string>
+			</array>
+		</dict>
+	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

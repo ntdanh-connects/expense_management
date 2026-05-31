@@ -11,6 +11,8 @@ import 'package:expense_management/features/auth/domain/auth_state.dart';
 import 'package:expense_management/features/auth/domain/repositories/auth_repository.dart';
 import 'package:expense_management/features/auth/domain/use_case/login_use_case.dart';
 import 'package:expense_management/features/auth/domain/use_case/register_use_case.dart';
+import 'package:expense_management/features/auth/domain/use_case/social_login_use_case.dart';
+import 'package:expense_management/features/auth/domain/use_case/confirm_link_social_use_case.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
@@ -42,13 +44,30 @@ final registerUseCaseProvider = Provider<RegisterUseCase>((ref){
   final authRepo = ref.watch(authRepositoryProvider);
   return RegisterUseCase(authRepo);
 });
+final socialLoginUseCaseProvider = Provider<SocialLoginUseCase>((ref){
+  final authRepository = ref.watch(authRepositoryProvider);
+  return SocialLoginUseCase(authRepository);
+});
+final confirmLinkSocialUseCaseProvider = Provider<ConfirmLinkSocialUseCase>((ref){
+  final authRepository = ref.watch(authRepositoryProvider);
+  return ConfirmLinkSocialUseCase(authRepository);
+});
 
 //Check state presentation -> UI
 final authNotifierProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref){
   final loginUseCase = ref.watch(loginUseCaseProvider);
   final registerUseCase = ref.watch(registerUseCaseProvider);
+  final socialLoginUseCase = ref.watch(socialLoginUseCaseProvider);
+  final confirmLinkSocialUseCase = ref.watch(confirmLinkSocialUseCaseProvider);
   final authRepository = ref.watch(authRepositoryProvider);
-  return AuthNotifier(loginUseCase,registerUseCase,authRepository,ref);
+  return AuthNotifier(
+    loginUseCase,
+    registerUseCase,
+    socialLoginUseCase,
+    confirmLinkSocialUseCase,
+    authRepository,
+    ref,
+  );
 });
 
 final splashCompletedProvider = StateProvider<bool>((ref) => false);

@@ -15,18 +15,31 @@ import 'package:expense_management/shared/domain/user_entity.dart';
 import 'package:expense_management/features/auth/domain/repositories/auth_repository.dart';
 import 'package:expense_management/features/auth/domain/use_case/login_use_case.dart';
 import 'package:expense_management/features/auth/domain/use_case/register_use_case.dart';
+import 'package:expense_management/features/auth/domain/use_case/social_login_use_case.dart';
+import 'package:expense_management/features/auth/domain/use_case/confirm_link_social_use_case.dart';
+import 'package:expense_management/features/auth/data/models/social_auth_models.dart';
+import 'package:expense_management/features/auth/domain/repositories/auth_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 class AuthNotifier extends StateNotifier<AuthState>{
   final LoginUseCase _loginUseCase;
   final RegisterUseCase registerUseCase;
+  final SocialLoginUseCase _socialLoginUseCase;
+  final ConfirmLinkSocialUseCase _confirmLinkSocialUseCase;
   final AuthRepository _authRepository;
   final Ref ref;
   
   StreamSubscription<db.User?>? _userSubscription;
 
-  AuthNotifier(this._loginUseCase,this.registerUseCase,this._authRepository,this.ref): super(const AuthState.authenticating()) {
+  AuthNotifier(
+    this._loginUseCase,
+    this.registerUseCase,
+    this._socialLoginUseCase,
+    this._confirmLinkSocialUseCase,
+    this._authRepository,
+    this.ref,
+  ) : super(const AuthState.authenticating()) {
     _init();
   }
 
@@ -43,6 +56,37 @@ class AuthNotifier extends StateNotifier<AuthState>{
       //_ref.read(localeProvider.notifier).changeLocale(userEntity.language, isFromLogin: true);
       // _ref.read(themeProvider.notifier).changeTheme(userEntity.theme == 'dark');
 
+      _startWatchingUser(userEntity.id);
+    } on AppException catch (e) {
+      state = AuthState.error(message: e.toString());
+    } catch (e) {
+      state = AuthState.error(message: e.toString());
+    }
+  }
+
+  Future<SocialAuthResponse?> loginWithSocial(String provider, String token) async {
+    state = const AuthState.authenticating();
+    try {
+      final response = await _socialLoginUseCase.execute(provider, token);
+      if (response.status == 'success') {
+        _startWatchingUser(response.data!.userId);
+      } else if (response.status == 'requires_linking') {
+        state = const AuthState.unauthenticated(); // Keep screen unauthenticated so user can interact with modal dialog
+      }
+      return response;
+    } on AppException catch (e) {
+      state = AuthState.error(message: e.toString());
+      return null;
+    } catch (e) {
+      state = AuthState.error(message: e.toString());
+      return null;
+    }
+  }
+
+  Future<void> confirmLinkSocial(String linkToken, String password) async {
+    state = const AuthState.authenticating();
+    try {
+      final userEntity = await _confirmLinkSocialUseCase.execute(linkToken, password);
       _startWatchingUser(userEntity.id);
     } on AppException catch (e) {
       state = AuthState.error(message: e.toString());
