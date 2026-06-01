@@ -11,6 +11,7 @@ class Users extends Table {
   TextColumn get id => text()(); // userId trả về từ Backend của ní
   TextColumn get email => text()();
   TextColumn get fullName => text()();
+  TextColumn get avatarUrl => text().nullable()();
   TextColumn get currency => text()();
   TextColumn get language => text()();
   TextColumn get theme => text()();

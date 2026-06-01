@@ -1,8 +1,11 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 class PersonalInfoScreen extends ConsumerStatefulWidget {
   const PersonalInfoScreen({super.key});
@@ -15,12 +18,11 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _emailController;
-  late TextEditingController _phoneController;
-  late TextEditingController _dobController;
-  late TextEditingController _addressController;
   
   String? _avatarUrl;
   bool _isSaving = false;
+  bool _isUploadingAvatar = false;
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -28,9 +30,6 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
     final user = ref.read(currentUserProvider);
     _nameController = TextEditingController(text: user?.fullName ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
-    _phoneController = TextEditingController(text: '');
-    _dobController = TextEditingController(text: '');
-    _addressController = TextEditingController(text: '');
     
     if (user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty) {
        _avatarUrl = user.avatarUrl;
@@ -41,34 +40,47 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
-    _phoneController.dispose();
-    _dobController.dispose();
-    _addressController.dispose();
     super.dispose();
   }
 
-  // Hàm chọn ảnh từ thư viện (Tạm thời chờ tích hợp image_picker)
-  void _pickAvatarFromGallery() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Tính năng tải ảnh từ Thư viện (Gallery) đang được phát triển!'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
+  Future<void> _pickAvatarFromGallery() async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
 
-  // Hàm hiển thị Lịch để chọn ngày sinh
-  Future<void> _selectDate() async {
-    DateTime? pickedDate = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(1900),
-      lastDate: DateTime.now(),
-    );
-    if (pickedDate != null) {
-      setState(() {
-        _dobController.text = "${pickedDate.day}/${pickedDate.month}/${pickedDate.year}";
-      });
+      if (image == null) return;
+
+      setState(() => _isUploadingAvatar = true);
+
+      File imageFile = File(image.path);
+
+      await ref.read(updateAvatarUseCaseProvider).execute(imageFile: imageFile);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Cập nhật ảnh đại diện thành công!'),
+            backgroundColor: context.colors.incomeGreen,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } on DioException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi tải ảnh lên: $e'),
+            backgroundColor: context.colors.expenseRed,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUploadingAvatar = false);
     }
   }
 
@@ -81,7 +93,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
     setState(() => _isSaving = true);
     
     try {
-      // Gọi thực tế UseCase cập nhật SQLite và Remote BE API
+      // GỌI API UPDATE PROFILE
       await ref.read(updateProfileUseCaseProvider).execute(fullName: fullName);
       
       if (mounted) {
@@ -108,28 +120,25 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
     }
   }
 
-  // Widget tái sử dụng cho các ô nhập liệu
   Widget _buildInputField({
     required String label,
     required IconData icon,
     required TextEditingController controller,
     bool readOnly = false,
-    VoidCallback? onTap,
-    TextInputType? keyboardType,
     String? Function(String?)? validator,
   }) {
     final colors = context.colors;
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: colors.surface,
+        color: readOnly ? colors.surface.withOpacity(0.5) : colors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: colors.textSecondary.withOpacity(0.15)),
       ),
       child: Row(
         children: [
-          Icon(icon, color: colors.textSecondary, size: 22),
+          Icon(icon, color: readOnly ? colors.textSecondary.withOpacity(0.5) : colors.textSecondary, size: 24),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -139,7 +148,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
                 Text(
                   label,
                   style: TextStyle(
-                    color: colors.textSecondary.withOpacity(0.8),
+                    color: readOnly ? colors.textSecondary.withOpacity(0.5) : colors.textSecondary.withOpacity(0.8),
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -147,30 +156,20 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
                 TextFormField(
                   controller: controller,
                   readOnly: readOnly,
-                  onTap: onTap,
-                  keyboardType: keyboardType,
                   validator: validator,
-                  inputFormatters: keyboardType == TextInputType.phone || keyboardType == TextInputType.number 
-                      ? [FilteringTextInputFormatter.digitsOnly] 
-                      : null,
                   style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 15,
+                    color: readOnly ? colors.textSecondary : colors.textPrimary,
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                    contentPadding: EdgeInsets.symmetric(vertical: 4),
                     border: InputBorder.none,
                     focusedBorder: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     errorBorder: InputBorder.none,
                     disabledBorder: InputBorder.none,
-                    hintText: readOnly ? null : 'Nhập $label...',
-                    hintStyle: TextStyle(
-                      color: colors.textSecondary.withOpacity(0.4),
-                      fontWeight: FontWeight.normal
-                    ),
                   ),
                 ),
               ],
@@ -184,6 +183,9 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+
+    final currentUser = ref.watch(currentUserProvider);
+    final displayAvatar = currentUser?.avatarUrl ?? _avatarUrl;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -201,12 +203,13 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
         physics: const BouncingScrollPhysics(),
         child: Form(
           key: _formKey,
           child: Column(
             children: [
+              // AVATAR
               Center(
                 child: Stack(
                   children: [
@@ -214,74 +217,74 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: colors.primary.withOpacity(0.5), width: 2),
+                        border: Border.all(color: colors.primary.withOpacity(0.5), width: 3),
                       ),
                       child: CircleAvatar(
-                        radius: 46,
+                        radius: 65, 
                         backgroundColor: colors.primary.withOpacity(0.1),
-                        backgroundImage: _avatarUrl != null ? NetworkImage(_avatarUrl!) : null,
-                        child: _avatarUrl == null 
-                            ? Icon(Icons.person_rounded, size: 50, color: colors.primary) 
+                        backgroundImage: displayAvatar != null ? NetworkImage(displayAvatar) : null,
+                        child: displayAvatar == null 
+                            ? Icon(Icons.person_rounded, size: 70, color: colors.primary) 
                             : null,
                       ),
                     ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: GestureDetector(
-                        onTap: _pickAvatarFromGallery,
+
+                    if (_isUploadingAvatar)
+                      Positioned.fill(
                         child: Container(
-                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.4),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Center(
+                            child: CircularProgressIndicator(color: Colors.white),
+                          ),
+                        ),
+                      ),
+
+                    Positioned(
+                      bottom: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: _isUploadingAvatar ? null : _pickAvatarFromGallery,
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
                             color: colors.primary,
                             shape: BoxShape.circle,
-                            border: Border.all(color: colors.surface, width: 2),
+                            border: Border.all(color: colors.surface, width: 2.5),
                           ),
-                          child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 16),
+                          child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 20),
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 48),
 
+              // NHẬP HỌ TÊN
               _buildInputField(
                 label: 'Họ và tên',
                 icon: Icons.person_outline_rounded,
                 controller: _nameController,
                 validator: (val) => val == null || val.trim().isEmpty ? 'Vui lòng nhập họ tên' : null,
               ),
+              
+              // EMAIL KHÓA
               _buildInputField(
-                label: 'Địa chỉ Email',
+                label: 'Địa chỉ Email (Không thể thay đổi)',
                 icon: Icons.email_outlined,
                 controller: _emailController,
                 readOnly: true,
               ),
-              _buildInputField(
-                label: 'Số điện thoại',
-                icon: Icons.phone_outlined,
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-              ),
-              _buildInputField(
-                label: 'Ngày sinh',
-                icon: Icons.calendar_today_rounded,
-                controller: _dobController,
-                readOnly: true,
-                onTap: _selectDate,
-              ),
-              // _buildInputField(
-              //   label: 'Địa chỉ',
-              //   icon: Icons.location_on_outlined,
-              //   controller: _addressController,
-              // ),
               
               const SizedBox(height: 32),
 
+              // NÚT LƯU
               SizedBox(
                 width: double.infinity,
-                height: 52,
+                height: 56,
                 child: ElevatedButton(
                   onPressed: _isSaving ? null : _onSave,
                   style: ElevatedButton.styleFrom(
@@ -291,13 +294,13 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
                   ),
                   child: _isSaving
                       ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                          width: 26,
+                          height: 26,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3.0),
                         )
                       : const Text(
                           'Lưu thay đổi',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
                 ),
               ),

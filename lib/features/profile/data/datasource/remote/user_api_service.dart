@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:expense_management/core/network/api_endpoints.dart';
 import 'package:expense_management/core/network/base_response_dto.dart';
@@ -10,6 +12,20 @@ part 'user_api_service.g.dart';
 abstract class UserApiService {
   factory UserApiService(Dio dio) = _UserApiService;
 
-  @PUT(ApiEndpoints.updateProfile) 
-  Future<BaseResponseDto<UserDataDto>> updateProfile(@Field("full_name") String fullName);
+  @POST(ApiEndpoints.updateProfile)
+  Future<BaseResponseDto<UserDataDto>> updateProfile(
+    @Field("full_name") String fullName,
+  );
+
+  @POST(ApiEndpoints.updateAvatar)
+  @MultiPart()
+  Future<BaseResponseDto<UserDataDto>> updateAvatar(
+    @Part(name: "avatar") MultipartFile avatar
+  );
+
+  @POST(ApiEndpoints.logout)
+  Future<BaseResponseDto<void>> logout();
+
+  @POST(ApiEndpoints.logoutAll)
+  Future<BaseResponseDto<void>> logoutAll();
 }

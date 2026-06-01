@@ -9,6 +9,7 @@ import 'package:expense_management/features/auth/domain/auth_state.dart';
 import 'package:expense_management/features/profile/data/datasource/remote/user_api_service.dart';
 import 'package:expense_management/features/profile/data/repository_impl/user_repository_impl.dart';
 import 'package:expense_management/features/profile/domain/repositories/user_repository.dart';
+import 'package:expense_management/features/profile/domain/use_case/update_avatar_use_case.dart';
 import 'package:expense_management/features/profile/domain/use_case/update_profile_use_case.dart';
 import 'package:expense_management/shared/domain/user_entity.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -45,4 +46,10 @@ final updateProfileUseCaseProvider = Provider<UpdateProfileUseCase>((ref) {
 /// Provider xác định công cụ nhà phát triển có được phép hiển thị/hoạt động hay không
 final developerToolsEnabledProvider = Provider<bool>((ref) {
   return AppConfig.enableLogging;
+});
+
+/// Provider cung cấp UseCase cập nhật ảnh đại diện
+final updateAvatarUseCaseProvider = Provider<UpdateAvatarUseCase>((ref) {
+  final repository = ref.watch(userRepositoryProvider);
+  return UpdateAvatarUseCase(repository);
 });
