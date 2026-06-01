@@ -6,6 +6,8 @@ import 'package:expense_management/core/network/log_console_interceptor.dart';
 import '../storage/secure_storage_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/features/auth/auth_provider.dart';
+import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
 
 
 final dioClientProvider = Provider<Dio>((ref) {
@@ -44,8 +46,44 @@ class AuthInterceptor extends Interceptor {
   final Ref ref;
   AuthInterceptor(this.ref);
 
+  String? _deviceType;
+  String? _userAgent;
+
+  // Khởi tạo thông tin thiết bị một lần duy nhất để tối ưu hóa hiệu năng (caching)
+  Future<void> _initDeviceInfo() async {
+    if (_deviceType != null && _userAgent != null) return;
+    
+    final deviceInfo = DeviceInfoPlugin();
+    try {
+      if (Platform.isAndroid) {
+        final androidInfo = await deviceInfo.androidInfo;
+        // Lấy tên hãng + model (Ví dụ: Samsung SM-S918B)
+        _userAgent = "${androidInfo.manufacturer} ${androidInfo.model}";
+        _deviceType = "android";
+      } else if (Platform.isIOS) {
+        final iosInfo = await deviceInfo.iosInfo;
+        // Lấy tên iPhone (Ví dụ: iPhone 15 Pro)
+        _userAgent = iosInfo.name;
+        _deviceType = "ios";
+      }
+    } catch (e) {
+      _userAgent = "Unknown Mobile";
+      _deviceType = "mobile";
+    }
+  }
+
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+    // 1. Tự động lấy và đính kèm thông tin thiết bị
+    await _initDeviceInfo();
+    if (_deviceType != null) {
+      options.headers['X-Device-Type'] = _deviceType;
+    }
+    if (_userAgent != null) {
+      options.headers['User-Agent'] = _userAgent;
+    }
+
+    // 2. Lấy và đính kèm Access Token nếu có
     final storage = ref.read(secureStorageServiceProvider);
     final accessToken = await storage.get(key: AppConstant.accessToken);
 
