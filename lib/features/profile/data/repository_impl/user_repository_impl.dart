@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/core/error/app_exception.dart';
@@ -70,6 +72,53 @@ class UserRepositoryImpl implements UserRepository {
         stackTrace: stackTrace,
       );
       throw AppException(NetworkFailure.unknown(message: "Lỗi cấu trúc dữ liệu JSON từ Server ở trường '${e.key}'"));
+    }
+  }
+
+  @override
+  Future<UserEntity> updateAvatar({required File imageFile}) async {
+    final userId = await _secureStorageService.get(key: AppConstant.userId);
+    if (userId == null) {
+      throw Exception("Không tìm thấy thông tin định danh người dùng.");
+    }
+
+    try {
+
+      final file = imageFile.path.split('/').last;
+      final multipartFile = await MultipartFile.fromFile(
+        imageFile.path,
+        filename: file,
+      );
+      // 1. Gọi API gửi file ảnh lên AWS S3 (thông qua Backend)
+      final responseDto = await _userApiService.updateAvatar(multipartFile);
+      final freshData = responseDto.data;
+      
+      // 2. Lưu thông tin (đường dẫn ảnh mới) vào SQLite cục bộ để UI tự động đổi
+      await _db.saveUserProfile(db.User(
+        id: freshData.userId,
+        email: freshData.email,
+        fullName: freshData.profile.fullName,
+        avatarUrl: freshData.profile.avatarUrl,
+        currency: freshData.preference.currency,
+        language: freshData.preference.language,
+        theme: freshData.preference.theme,
+      ));
+      
+      return ProfileMapper.toUserEntity(freshData);
+    } on DioException catch (e) {
+      AppLogger.error(
+        "Dio Error khi upload ảnh: ${e.message}", 
+        tag: "AVATAR_API_ERROR", 
+        details: e.response?.data 
+      );
+      throw AppException(e.toNetworkFailure());
+    }catch (e, stack) {
+      AppLogger.error(
+        "Lỗi không mong muốn: ${e.toString()}", 
+        tag: "AVATAR_CRITICAL_ERROR", 
+        stackTrace: stack
+      );
+      rethrow;
     }
   }
 }

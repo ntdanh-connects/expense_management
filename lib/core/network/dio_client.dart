@@ -18,7 +18,7 @@ final dioClientProvider = Provider<Dio>((ref) {
       receiveTimeout: const Duration(milliseconds: AppConfig.receiveTimeout),
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
+        // 'Content-Type': 'application/json',
       },
     ),
   );
@@ -156,7 +156,10 @@ class RefreshTokenInterceptor extends Interceptor {
           }
         } catch (refreshError) {
           await storage.clearAll();
-          ref.read(authNotifierProvider.notifier).logout();
+            Future.microtask(() {
+              ref.read(authNotifierProvider.notifier).logout();
+            });
+          
         }
       }
     }
