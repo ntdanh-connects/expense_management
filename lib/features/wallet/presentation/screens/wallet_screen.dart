@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
@@ -7,6 +9,10 @@ import 'package:expense_management/features/wallet/presentation/provider/wallet_
 import 'package:expense_management/features/wallet/presentation/widget/wallet_card_item.dart';
 import 'package:expense_management/features/wallet/presentation/widget/wallet_screen_shimmer.dart';
 import 'package:expense_management/features/wallet/presentation/provider/internal_transfer_provider.dart';
+import 'package:expense_management/core/language/app_language.dart';
+import 'package:expense_management/core/language/app_provider.dart';
+
+final showHiddenWalletsProvider = StateProvider<bool>((ref) => false);
 
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
@@ -48,28 +54,52 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     return Scaffold(
       backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+        backgroundColor: colors.primary,
+        elevation: 2,
+        shadowColor: Colors.black.withOpacity(0.1),
+        systemOverlayStyle: SystemUiOverlayStyle.light,
         leading: IconButton(
-          icon: Icon(
+          icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: colors.textPrimary,
+            color: Colors.white,
             size: 20,
           ),
           onPressed: () => context.pop(),
         ),
         title: Text(
-          'Ví của tôi',
-          style: TextStyle(
-            fontSize: 22,
+          'my_wallets'.tr(ref),
+          style: const TextStyle(
+            fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: colors.textPrimary,
+            color: Colors.white,
           ),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(
+              ref.watch(showHiddenWalletsProvider)
+                  ? Icons.visibility_rounded
+                  : Icons.visibility_off_rounded,
+              color: Colors.white,
+            ),
+            tooltip: ref.watch(showHiddenWalletsProvider)
+                ? 'hide_hidden_wallets'.tr(ref)
+                : 'show_hidden_wallets'.tr(ref),
+            onPressed: () {
+              ref.read(showHiddenWalletsProvider.notifier).update((state) => !state);
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: walletState.when(
         data: (walletList) {
+          final showHidden = ref.watch(showHiddenWalletsProvider);
+          final displayedWallets = showHidden
+              ? walletList
+              : walletList.where((w) => !w.isHidden).toList();
+
           return RefreshIndicator(
             onRefresh: () => ref.read(walletNotifierProvider.notifier).refreshWallets(),
             color: colors.primary,
@@ -88,10 +118,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                     scrollDirection: Axis.horizontal,
                     physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: walletList.length + 1,
+                    itemCount: displayedWallets.length + 1,
                     itemBuilder: (context, index) {
-                      if (index < walletList.length) {
-                        final wallet = walletList[index];
+                      if (index < displayedWallets.length) {
+                        final wallet = displayedWallets[index];
                         return Padding(
                           padding: const EdgeInsets.only(right: 16),
                           child: WalletCardItem(
@@ -134,7 +164,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'Chuyển khoản nội bộ',
+                              'internal_transfer'.tr(ref),
                               style: TextStyle(
                                 color: colors.textPrimary,
                                 fontSize: 18,
@@ -151,9 +181,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                             // Trích Từ
                             Expanded(
                               child: _buildWalletDropdown(
-                                label: 'TRÍCH TỪ',
+                                label: 'transfer_from'.tr(ref),
                                 value: _fromWallet,
-                                items: walletList,
+                                items: displayedWallets,
                                 onChanged: (val) {
                                   setState(() {
                                     _fromWallet = val;
@@ -190,9 +220,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                             // Đến Ví
                             Expanded(
                               child: _buildWalletDropdown(
-                                label: 'ĐẾN VÍ',
+                                label: 'transfer_to'.tr(ref),
                                 value: _toWallet,
-                                items: walletList,
+                                items: displayedWallets,
                                 onChanged: (val) {
                                   setState(() {
                                     _toWallet = val;
@@ -224,7 +254,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                               fontWeight: FontWeight.bold,
                             ),
                             decoration: InputDecoration(
-                              hintText: 'Nhập số tiền...',
+                              hintText: 'enter_amount_hint'.tr(ref),
                               hintStyle: TextStyle(
                                 color: colors.textSecondary.withOpacity(0.6),
                                 fontSize: 15,
@@ -261,9 +291,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                                 borderRadius: BorderRadius.circular(18),
                               ),
                             ),
-                            child: const Text(
-                              'Chuyển ngay',
-                              style: TextStyle(
+                            child: Text(
+                              'transfer_now'.tr(ref),
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -284,7 +314,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Lịch sử chuyển khoản nội bộ',
+                        'internal_transfer_history'.tr(ref),
                         style: TextStyle(
                           color: colors.textPrimary,
                           fontSize: 18,
@@ -294,7 +324,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       TextButton(
                         onPressed: () {},
                         child: Text(
-                          'Chi tiết',
+                          'details'.tr(ref),
                           style: TextStyle(
                             color: colors.primary,
                             fontSize: 14,
@@ -326,7 +356,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       loading: () => const WalletShimmerLoading(),
         error: (err, _) => Center(
           child: Text(
-            'Lỗi hệ thống: $err',
+            '${'error_occurred'.tr(ref)}: $err',
             style: TextStyle(color: colors.expenseRed),
           ),
         ),
@@ -371,7 +401,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               isExpanded: true,
               value: value,
               hint: Text(
-                'Chọn ví',
+                'select_wallet'.tr(ref),
                 style: TextStyle(
                   color: colors.textSecondary.withOpacity(0.6),
                   fontSize: 13,
@@ -452,7 +482,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Thêm ví mới',
+                'add_new_wallet'.tr(ref),
                 style: TextStyle(
                   color: colors.primary,
                   fontSize: 16,
@@ -534,13 +564,27 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     final amountStr = _amountController.text.trim();
     
     // Gọi thực thi logic ở Provider
-    final errorMsg = ref.read(internalTransferHistoryProvider.notifier).executeTransfer(
+    final errorKey = ref.read(internalTransferHistoryProvider.notifier).executeTransfer(
       fromWallet: _fromWallet,
       toWallet: _toWallet,
       amountStr: amountStr,
     );
 
-    if (errorMsg != null) {
+    if (errorKey != null) {
+      String errorMsg = '';
+      if (errorKey == 'select_source_dest_wallet_error') {
+        errorMsg = 'select_source_dest_wallet_error'.tr(ref);
+      } else if (errorKey == 'same_wallet_error') {
+        errorMsg = 'same_wallet_error'.tr(ref);
+      } else if (errorKey == 'enter_amount_error') {
+        errorMsg = 'enter_amount_error'.tr(ref);
+      } else if (errorKey == 'invalid_amount_error') {
+        errorMsg = 'invalid_amount_error'.tr(ref);
+      } else if (errorKey == 'insufficient_balance_error') {
+        errorMsg = '${'insufficient_balance_error'.tr(ref)} "${_fromWallet?.name}"!';
+      } else {
+        errorMsg = errorKey;
+      }
       _showSnackBar(errorMsg, isError: true);
     } else {
       _amountController.clear();
@@ -548,10 +592,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         _fromWallet = null;
         _toWallet = null;
       });
-      _showSnackBar('Chuyển khoản nội bộ thành công!', isError: false);
+      _showSnackBar('transfer_success'.tr(ref), isError: false);
     }
   }
-
 
   void _showSnackBar(String msg, {required bool isError}) {
     final colors = context.colors;
@@ -588,21 +631,16 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   }
 
   String _formatDate(DateTime date) {
-    final listThang = [
-      'tháng 1',
-      'tháng 2',
-      'tháng 3',
-      'tháng 4',
-      'tháng 5',
-      'tháng 6',
-      'tháng 7',
-      'tháng 8',
-      'tháng 9',
-      'tháng 10',
-      'tháng 11',
-      'tháng 12'
-    ];
-    return '${date.day} ${listThang[date.month - 1]}, ${date.year}';
+    final isEn = ref.read(translationsProvider)['add_new_wallet'] == 'Add new wallet';
+    if (isEn) {
+      final listMonths = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      ];
+      return '${listMonths[date.month - 1]} ${date.day}, ${date.year}';
+    } else {
+      return '${date.day} tháng ${date.month}, ${date.year}';
+    }
   }
 }
 

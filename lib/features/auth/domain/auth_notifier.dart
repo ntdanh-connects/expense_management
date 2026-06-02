@@ -21,6 +21,7 @@ import 'package:expense_management/features/auth/domain/use_case/social_login_us
 import 'package:expense_management/features/auth/domain/use_case/confirm_link_social_use_case.dart';
 import 'package:expense_management/features/auth/data/models/social_auth_models.dart';
 import 'package:expense_management/features/auth/domain/repositories/auth_repository.dart';
+import 'package:expense_management/core/language/app_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
@@ -54,7 +55,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final userEntity = await _loginUseCase.execute(email, password);
 
-      //_ref.read(localeProvider.notifier).changeLocale(userEntity.language, isFromLogin: true);
+      ref.read(appLanguageProvider.notifier).changeLocale(userEntity.language);
       // _ref.read(themeProvider.notifier).changeTheme(userEntity.theme == 'dark');
 
       _startWatchingUser(userEntity.id);
@@ -174,10 +175,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
           id: localUserRow.id,
           email: localUserRow.email,
           fullName: localUserRow.fullName,
+          avatarUrl: localUserRow.avatarUrl,
           currency: localUserRow.currency,
           language: localUserRow.language,
           theme: localUserRow.theme,
         );
+
+        // Tự động đồng bộ ngôn ngữ hiển thị của App với thiết lập trong SQLite Profile
+        final currentAppLocale = ref.read(localeProvider);
+        if (currentAppLocale != localUserRow.language) {
+          Future.microtask(() {
+            ref.read(appLanguageProvider.notifier).changeLocale(localUserRow.language);
+          });
+        }
+
         state.maybeWhen(
           authenticated: (currentUser) {
             if (currentUser != userEntity) {

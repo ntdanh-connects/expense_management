@@ -5,6 +5,7 @@ class WalletEntity {
   final String type;
   final String icon;
   final String color;
+  final bool isHidden;
 
   WalletEntity({
     required this.id,
@@ -13,5 +14,6 @@ class WalletEntity {
     required this.type,
     required this.icon,
     required this.color,
+    required this.isHidden,
   });
 }

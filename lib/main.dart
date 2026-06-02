@@ -1,4 +1,6 @@
 import 'dart:ui';
+import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:expense_management/core/config/app_config.dart';
 import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/storage/local_storage_helper.dart';
@@ -8,6 +10,7 @@ import 'package:expense_management/core/utils/app_logger.dart';
 import 'package:expense_management/core/utils/log_console_overlay.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/storage/storage_provider.dart';
+import 'package:expense_management/core/language/app_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -42,12 +45,35 @@ void main() async{
   final showOverlay = AppConfig.enableLogging && (sharedPrefs.getBool('show_developer_console') ?? true);
   AppLogger.isConsoleOverlayVisible.value = showOverlay;
 
+  // Preload translation map
+  final localStorage = LocalStorageHelper(sharedPrefs);
+  final savedLocale = localStorage.getLanguageCode() ?? 'vi';
+  Map<String, String> initialTranslations = {};
+  try {
+    final jsonString = await rootBundle.loadString('assets/translations/$savedLocale.json');
+    final Map<String, dynamic> jsonMap = json.decode(jsonString);
+    initialTranslations = jsonMap.map((key, value) => MapEntry(key, value.toString()));
+  } catch (e) {
+    try {
+      final jsonString = await rootBundle.loadString('assets/translations/vi.json');
+      final Map<String, dynamic> jsonMap = json.decode(jsonString);
+      initialTranslations = jsonMap.map((key, value) => MapEntry(key, value.toString()));
+    } catch (_) {}
+  }
+
   runApp(
     ProviderScope(
       overrides: [
         localStoreHelperProvider.overrideWithValue(
           LocalStorageHelper(sharedPrefs)
-        )
+        ),
+        appLanguageProvider.overrideWith((ref) => AppLanguageNotifier(
+          ref,
+          AppLanguageState(
+            locale: savedLocale,
+            translations: initialTranslations,
+          ),
+        )),
       ],
       child: MyApp()
     )

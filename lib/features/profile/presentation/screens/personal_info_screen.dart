@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/core/language/app_language.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -63,17 +64,17 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Cập nhật ảnh đại diện thành công!'),
+            content: Text('update_avatar_success'.tr(ref)),
             backgroundColor: context.colors.incomeGreen,
             behavior: SnackBarBehavior.floating,
           ),
         );
       }
-    } on DioException catch (e) {
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Lỗi tải ảnh lên: $e'),
+            content: Text('upload_avatar_error'.tr(ref) + e.toString()),
             backgroundColor: context.colors.expenseRed,
             behavior: SnackBarBehavior.floating,
           ),
@@ -100,7 +101,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
         setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Cập nhật thông tin thành công!'), 
+            content: Text('update_profile_success'.tr(ref)), 
             backgroundColor: context.colors.incomeGreen,
             behavior: SnackBarBehavior.floating,
           ),
@@ -111,7 +112,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
         setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Lỗi cập nhật: ${e.toString()}'), 
+            content: Text('update_profile_error'.tr(ref) + e.toString()), 
             backgroundColor: context.colors.expenseRed,
             behavior: SnackBarBehavior.floating,
           ),
@@ -197,7 +198,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Thông tin cá nhân',
+          'edit_profile'.tr(ref),
           style: TextStyle(color: colors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
@@ -265,15 +266,15 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
 
               // NHẬP HỌ TÊN
               _buildInputField(
-                label: 'Họ và tên',
+                label: 'full_name_label'.tr(ref),
                 icon: Icons.person_outline_rounded,
                 controller: _nameController,
-                validator: (val) => val == null || val.trim().isEmpty ? 'Vui lòng nhập họ tên' : null,
+                validator: (val) => val == null || val.trim().isEmpty ? 'please_enter_name'.tr(ref) : null,
               ),
               
               // EMAIL KHÓA
               _buildInputField(
-                label: 'Địa chỉ Email (Không thể thay đổi)',
+                label: 'email_label'.tr(ref),
                 icon: Icons.email_outlined,
                 controller: _emailController,
                 readOnly: true,
@@ -298,9 +299,9 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
                           height: 26,
                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3.0),
                         )
-                      : const Text(
-                          'Lưu thay đổi',
-                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+                      : Text(
+                          'save_changes'.tr(ref),
+                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
                 ),
               ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/auth/auth_provider.dart';
+import 'package:expense_management/core/language/app_language.dart';
 import 'bottom_bar_config.dart';
 import 'quick_action_button.dart';
 
@@ -49,11 +50,11 @@ class CustomSlidingBottomBar extends ConsumerWidget {
               // 🔮 2. THANH CHỨA HÀNG NÚT ĐỐI XỨNG QUAY QUANH NÚT TRUNG TÂM
               Row(
                 children: [
-                  _buildTab(context, tabs[0], 0, itemWidth, dynamicColor, color),
-                  _buildTab(context, tabs[1], 1, itemWidth, dynamicColor, color),
+                  _buildTab(context, ref, tabs[0], 0, itemWidth, dynamicColor, color),
+                  _buildTab(context, ref, tabs[1], 1, itemWidth, dynamicColor, color),
                   _buildPlusButton(context, itemWidth, dynamicColor),
-                  _buildTab(context, tabs[2], 2, itemWidth, dynamicColor, color),
-                  _buildTab(context, tabs[3], 3, itemWidth, dynamicColor, color),
+                  _buildTab(context, ref, tabs[2], 2, itemWidth, dynamicColor, color),
+                  _buildTab(context, ref, tabs[3], 3, itemWidth, dynamicColor, color),
                 ],
               ),
             ],
@@ -69,7 +70,7 @@ class CustomSlidingBottomBar extends ConsumerWidget {
       width: width, height: 68,
       child: Center(
         child: InkWell(
-          onTap: () => showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (context) => QuickActionBottomSheet(systemAccentColor: neonColor)),
+          onTap: () => showModalBottomSheet(context: context, useRootNavigator: true, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (context) => QuickActionBottomSheet(systemAccentColor: neonColor)),
           child: Container(
             width: 48, height: 48,
             decoration: BoxDecoration(color: neonColor, shape: BoxShape.circle, boxShadow: [BoxShadow(color: neonColor.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 4))]),
@@ -81,9 +82,22 @@ class CustomSlidingBottomBar extends ConsumerWidget {
   }
 
   // Widget vẽ các nút Tab chức năng mộc mạc
-  Widget _buildTab(BuildContext context, BottomBarItem item, int idx, double width, Color actColor, dynamic color) {
+  Widget _buildTab(BuildContext context, WidgetRef ref, BottomBarItem item, int idx, double width, Color actColor, dynamic color) {
     final isSel = idx == currentIndex;
     final displayColor = isSel ? actColor : color.textSecondary;
+    
+    // Dịch nhãn tab động
+    String displayLabel = item.label;
+    if (item.label == 'Tổng quan') {
+      displayLabel = 'dashboard'.tr(ref);
+    } else if (item.label == 'Lịch sử') {
+      displayLabel = 'history'.tr(ref);
+    } else if (item.label == 'Thống kê') {
+      displayLabel = 'statistics'.tr(ref);
+    } else if (item.label == 'Cá nhân') {
+      displayLabel = 'profile'.tr(ref);
+    }
+
     return SizedBox(
       width: width, height: 68,
       child: InkWell(
@@ -93,7 +107,7 @@ class CustomSlidingBottomBar extends ConsumerWidget {
           children: [
             Icon(item.icon, color: displayColor, size: isSel ? 24 : 22),
             const SizedBox(height: 4),
-            Text(item.label, style: TextStyle(fontSize: 11, fontWeight: isSel ? FontWeight.bold : FontWeight.normal, color: displayColor)),
+            Text(displayLabel, style: TextStyle(fontSize: 11, fontWeight: isSel ? FontWeight.bold : FontWeight.normal, color: displayColor)),
           ],
         ),
       ),

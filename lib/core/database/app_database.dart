@@ -73,7 +73,7 @@ class AppDatabase extends _$AppDatabase {
 
   // Stream danh sách ví theo thời gian thực ra UI lướt sóng
   Stream<List<Wallet>> watchAllWallets() {
-    return (select(wallets)..where((t) => t.isHidden.equals(false))).watch();
+    return select(wallets).watch();
   }
 
   Future<void> clearAuthData() async {
