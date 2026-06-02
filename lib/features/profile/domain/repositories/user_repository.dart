@@ -8,4 +8,13 @@ abstract class UserRepository {
 
   // Cập nhật avatar của người dùng lên hệ thống
   Future<UserEntity> updateAvatar({required File imageFile});
+
+  // Đổi mật khẩu của người dùng
+  Future<void> changePassword({required String oldPassword, required String newPassword,required String confirmPassword});
+  
+  // Đăng xuất tất cả các thiết bị
+  Future<void> logoutAllDevices();
+
+  // Xóa tài khoản
+  Future<void> deleteAccount();
 }

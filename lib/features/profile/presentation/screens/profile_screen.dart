@@ -17,9 +17,96 @@ class ProfileScreen extends ConsumerWidget {
   final VoidCallback onLogout;
   const ProfileScreen({super.key, required this.onLogout});
 
+  void _showDeleteAccountDialog(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          backgroundColor: colors.authCardBg,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: colors.expenseRed, size: 28),
+              const SizedBox(width: 10),
+              Text(
+                'Xóa tài khoản?',
+                style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: Text(
+            'Hành động này không thể hoàn tác. Toàn bộ dữ liệu ví, giao dịch và thông tin cá nhân của bạn sẽ bị xóa vĩnh viễn khỏi hệ thống Laravel.',
+            style: TextStyle(color: colors.textSecondary, fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text('Hủy', style: TextStyle(color: colors.textSecondary, fontWeight: FontWeight.bold)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Row(
+                      children: [
+                        SizedBox(
+                          width: 20, height: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        ),
+                        SizedBox(width: 16),
+                        Text('Đang tiến hành xóa tài khoản của bạn...'),
+                      ],
+                    ),
+                    duration: Duration(days: 1),
+                  ),
+                );
+
+                try {
+                  await ref.read(userRepositoryProvider).deleteAccount();
+                  
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).clearSnackBars();
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('🎉 Tài khoản đã được xóa vĩnh viễn.'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                  
+                  onLogout();
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).clearSnackBars();
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Lỗi: ${e.toString().replaceFirst('Exception: ', '')}'),
+                      backgroundColor: colors.expenseRed,
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colors.expenseRed,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('Xác nhận xóa', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors; // Sử dụng chung file màu sắc hệ thống
+    final colors = context.colors;
     final currentUser = ref.watch(currentUserProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final showDevTools = ref.watch(developerToolsEnabledProvider);
@@ -31,7 +118,6 @@ class ProfileScreen extends ConsumerWidget {
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            // 1. SliverAppBar chứa Khối Avatar Gradient + Ngân sách có khả năng thu lại
             SliverAppBar(
               expandedHeight: 345.0,
               floating: false,
@@ -42,13 +128,11 @@ class ProfileScreen extends ConsumerWidget {
               flexibleSpace: FlexibleSpaceBar(
                 background: Column(
                   children: [
-                    // Khối Avatar hồng tím đồng bộ theo Hình 1
                     ProfileHeaderCard(
                       fullName: currentUser?.fullName ?? 'Người dùng chưa có tên',
                       membershipTier: 'Hội viên Bạch Kim',
                     ),
                     const SizedBox(height: 12),
-                    // Thẻ ngân sách hàng tháng nằm ngay dưới avatar theo Hình 2
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16.0),
                       child: CollapsibleBudgetCard(
@@ -61,14 +145,12 @@ class ProfileScreen extends ConsumerWidget {
               ),
             ),
 
-            // 2. Danh sách các tính năng cấu hình bên dưới
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 32.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // --- CÀI ĐẶT TÀI KHOẢN (Hình 1) ---
                     Text(
                       'CÀI ĐẶT TÀI KHOẢN',
                       style: TextStyle(color: colors.textSecondary, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 0.5),
@@ -85,7 +167,7 @@ class ProfileScreen extends ConsumerWidget {
                             icon: Icons.person_outline_rounded,
                             iconColor: colors.profileInfo,
                             title: 'Thông tin cá nhân',
-                            onTap: () => context.push(RoutePaths.editProfile), // Điều hướng sang màn hình thông tin
+                            onTap: () => context.push(RoutePaths.editProfile),
                           ),
                           Divider(color: colors.textSecondary.withOpacity(0.08), height: 1, indent: 50),
                           ProfileMenuItem(
@@ -94,18 +176,22 @@ class ProfileScreen extends ConsumerWidget {
                             title: 'Cài đặt thông báo',
                             onTap: () => context.push('/profile/notifications'),
                           ),
+                          Divider(color: colors.textSecondary.withOpacity(0.08), height: 1, indent: 50),
+                          ProfileMenuItem(
+                            icon: Icons.lock_reset_outlined,
+                            iconColor: colors.profileNotification,
+                            title: 'Đổi mật khẩu',
+                            onTap: () => context.push(RoutePaths.changePassword),
+                          ),
                         ],
                       ),
                     ),
 
                     const SizedBox(height: 20),
 
-                    // --- THIẾT LẬP TÀI CHÍNH (NẰM Ở GIỮA THEO HÌNH 2) ---
                     const FinancialSettingsSection(),
 
                     const SizedBox(height: 20),
-
-                    // --- GIAO DIỆN NGƯỜI DÙNG (Hình 1) ---
                     Text(
                       'GIAO DIỆN NGƯỜI DÙNG',
                       style: TextStyle(color: colors.textSecondary, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 0.5),
@@ -158,11 +244,22 @@ class ProfileScreen extends ConsumerWidget {
                         color: colors.authCardBg,
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: ProfileMenuItem(
-                        icon: Icons.help_outline_rounded,
-                        iconColor: colors.profileHelp,
-                        title: 'Trợ giúp & Hỗ trợ',
-                        onTap: () {},
+                      child: Column(
+                        children: [
+                          ProfileMenuItem(
+                            icon: Icons.help_outline_rounded,
+                            iconColor: colors.profileHelp,
+                            title: 'Trợ giúp & Hỗ trợ',
+                            onTap: () {},
+                          ),
+                          Divider(height: 1, thickness: 1, color: colors.textSecondary.withOpacity(0.05)),
+                          ProfileMenuItem(
+                            icon: Icons.delete_forever_rounded,
+                            title: 'Xóa tài khẩu',
+                            iconColor: colors.expenseRed,
+                            onTap: () => _showDeleteAccountDialog(context, ref),
+                          ),
+                        ],
                       ),
                     ),
 

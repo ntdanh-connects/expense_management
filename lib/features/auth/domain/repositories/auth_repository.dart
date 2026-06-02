@@ -8,4 +8,5 @@ abstract class AuthRepository {
   
   Future<SocialAuthResponse> loginWithSocial(String provider, String token);
   Future<UserEntity> confirmLinkSocial(String linkToken, String password);
+  Future<void> forgotPassword(String email);
 }
