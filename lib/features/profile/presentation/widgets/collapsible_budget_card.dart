@@ -1,7 +1,9 @@
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:expense_management/core/language/app_language.dart';
 
-class CollapsibleBudgetCard extends StatelessWidget {
+class CollapsibleBudgetCard extends ConsumerWidget {
   final double spentAmount;
   final double totalAmount;
 
@@ -12,7 +14,7 @@ class CollapsibleBudgetCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors; //[cite: 22]
     final double percent = (spentAmount / totalAmount).clamp(0.0, 1.0);
 
@@ -36,7 +38,7 @@ class CollapsibleBudgetCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Ngân sách tháng này',
+            'this_month_budget'.tr(ref),
             style: TextStyle(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
@@ -44,7 +46,9 @@ class CollapsibleBudgetCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Bạn đã chi ${spentAmount.toStringAsFixed(0)}đ / ${totalAmount.toStringAsFixed(0)}đ',
+                'spent_amount_info'.tr(ref)
+                    .replaceAll('{spent}', spentAmount.toStringAsFixed(0))
+                    .replaceAll('{total}', totalAmount.toStringAsFixed(0)),
                 style: TextStyle(color: colors.textSecondary, fontSize: 13),
               ),
               Text(

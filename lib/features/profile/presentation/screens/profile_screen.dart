@@ -34,37 +34,37 @@ class ProfileScreen extends ConsumerWidget {
               Icon(Icons.warning_amber_rounded, color: colors.expenseRed, size: 28),
               const SizedBox(width: 10),
               Text(
-                'Xóa tài khoản?',
+                'delete_account_q'.tr(ref),
                 style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold),
               ),
             ],
           ),
           content: Text(
-            'Hành động này không thể hoàn tác. Toàn bộ dữ liệu ví, giao dịch và thông tin cá nhân của bạn sẽ bị xóa vĩnh viễn khỏi hệ thống Laravel.',
+            'delete_account_desc'.tr(ref),
             style: TextStyle(color: colors.textSecondary, fontSize: 14),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: Text('Hủy', style: TextStyle(color: colors.textSecondary, fontWeight: FontWeight.bold)),
+              child: Text('cancel'.tr(ref), style: TextStyle(color: colors.textSecondary, fontWeight: FontWeight.bold)),
             ),
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(dialogContext);
                 
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     content: Row(
                       children: [
-                        SizedBox(
+                        const SizedBox(
                           width: 20, height: 20,
                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                         ),
-                        SizedBox(width: 16),
-                        Text('Đang tiến hành xóa tài khoản của bạn...'),
+                        const SizedBox(width: 16),
+                        Text('deleting_account_progress'.tr(ref)),
                       ],
                     ),
-                    duration: Duration(days: 1),
+                    duration: const Duration(days: 1),
                   ),
                 );
 
@@ -75,8 +75,8 @@ class ProfileScreen extends ConsumerWidget {
                   ScaffoldMessenger.of(context).clearSnackBars();
                   
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('🎉 Tài khoản đã được xóa vĩnh viễn.'),
+                    SnackBar(
+                      content: Text('delete_account_success'.tr(ref)),
                       backgroundColor: Colors.green,
                     ),
                   );
@@ -88,7 +88,7 @@ class ProfileScreen extends ConsumerWidget {
                   
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Lỗi: ${e.toString().replaceFirst('Exception: ', '')}'),
+                      content: Text('${'error'.tr(ref)}: ${e.toString().replaceFirst('Exception: ', '')}'),
                       backgroundColor: colors.expenseRed,
                     ),
                   );
@@ -98,7 +98,7 @@ class ProfileScreen extends ConsumerWidget {
                 backgroundColor: colors.expenseRed,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              child: const Text('Xác nhận xóa', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              child: Text('confirm_delete'.tr(ref), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         );
@@ -182,7 +182,7 @@ class ProfileScreen extends ConsumerWidget {
                           ProfileMenuItem(
                             icon: Icons.lock_reset_outlined,
                             iconColor: colors.profileNotification,
-                            title: 'Đổi mật khẩu',
+                            title: 'change_password'.tr(ref),
                             onTap: () => context.push(RoutePaths.changePassword),
                           ),
                         ],
@@ -288,11 +288,22 @@ class ProfileScreen extends ConsumerWidget {
                         color: colors.authCardBg,
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: ProfileMenuItem(
-                        icon: Icons.help_outline_rounded,
-                        iconColor: colors.profileHelp,
-                        title: 'help_support'.tr(ref),
-                        onTap: () {},
+                      child: Column(
+                        children: [
+                          ProfileMenuItem(
+                            icon: Icons.help_outline_rounded,
+                            iconColor: colors.profileHelp,
+                            title: 'help_support'.tr(ref),
+                            onTap: () {},
+                          ),
+                          Divider(color: colors.textSecondary.withOpacity(0.08), height: 1, indent: 50),
+                          ProfileMenuItem(
+                            icon: Icons.delete_outline_rounded,
+                            iconColor: colors.expenseRed,
+                            title: 'delete_account'.tr(ref),
+                            onTap: () => _showDeleteAccountDialog(context, ref),
+                          ),
+                        ],
                       ),
                     ),
 

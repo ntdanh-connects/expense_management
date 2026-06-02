@@ -6,6 +6,7 @@ import 'package:expense_management/features/profile/change_password_provider.dar
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:expense_management/core/language/app_language.dart';
 
 class ChangePasswordScreen extends ConsumerStatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -43,8 +44,8 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đổi mật khẩu thành công! Vui lòng đăng nhập lại.'),
+        SnackBar(
+          content: Text('change_password_success_relogin'.tr(ref)),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
         ),
@@ -59,7 +60,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
       }
     } else {
       final passwordState = ref.read(changePasswordProvider);
-      String displayError = 'Đổi mật khẩu thất bại. Vui lòng thử lại!';
+      String displayError = 'change_password_failed'.tr(ref);
 
       if (passwordState is AsyncError) {
         displayError = passwordState.error.toString();
@@ -67,7 +68,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Thất bại: $displayError'),
+          content: Text('${'failed_prefix'.tr(ref)}: $displayError'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -83,7 +84,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Đổi mật khẩu'),
+        title: Text('change_password'.tr(ref)),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -93,19 +94,19 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Tạo mật khẩu mới cho tài khoản của bạn để đảm bảo tính an toàn bảo mật.',
-                style: TextStyle(color: Colors.grey, fontSize: 14),
+              Text(
+                'change_password_desc'.tr(ref),
+                style: const TextStyle(color: Colors.grey, fontSize: 14),
               ),
               const SizedBox(height: 32),
               
               _buildPasswordField(
-                label: 'Mật khẩu hiện tại',
+                label: 'current_password'.tr(ref),
                 controller: _oldPasswordController,
                 obscureText: _obscureOld,
                 onToggleVisibility: () => setState(() => _obscureOld = !_obscureOld),
                 validator: (val) {
-                  if (val == null || val.trim().isEmpty) return 'Vui lòng nhập mật khẩu hiện tại';
+                  if (val == null || val.trim().isEmpty) return 'please_enter_current_password'.tr(ref);
                   return null;
                 },
               ),
@@ -116,7 +117,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                     context.push(RoutePaths.forgotPassword);
                   },
                   child: Text(
-                    'Quên mật khẩu?',
+                    'forgot_password_q'.tr(ref),
                     style: TextStyle(
                       color: colors.primary,
                       fontWeight: FontWeight.w600,
@@ -129,14 +130,14 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
               const SizedBox(height: 24),
               
               _buildPasswordField(
-                label: 'Mật khẩu mới',
+                label: 'new_password'.tr(ref),
                 controller: _newPasswordController,
                 obscureText: _obscureNew,
                 onToggleVisibility: () => setState(() => _obscureNew = !_obscureNew),
                 validator: (val) {
-                  if (val == null || val.trim().isEmpty) return 'Vui lòng nhập mật khẩu mới';
-                  if (val.length < 6) return 'Mật khẩu phải từ 6 ký tự trở lên';
-                  if (val == _oldPasswordController.text) return 'Mật khẩu mới không được trùng mật khẩu cũ';
+                  if (val == null || val.trim().isEmpty) return 'please_enter_new_password'.tr(ref);
+                  if (val.length < 6) return 'password_min_len_6'.tr(ref);
+                  if (val == _oldPasswordController.text) return 'new_password_same_as_old_error'.tr(ref);
                   return null;
                 },
               ),
@@ -144,13 +145,13 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
               const SizedBox(height: 24),
               
               _buildPasswordField(
-                label: 'Xác nhận mật khẩu mới',
+                label: 'confirm_new_password'.tr(ref),
                 controller: _confirmPasswordController,
                 obscureText: _obscureConfirm,
                 onToggleVisibility: () => setState(() => _obscureConfirm = !_obscureConfirm),
                 validator: (val) {
-                  if (val == null || val.trim().isEmpty) return 'Vui lòng xác nhận mật khẩu mới';
-                  if (val != _newPasswordController.text) return 'Mật khẩu xác nhận không khớp';
+                  if (val == null || val.trim().isEmpty) return 'please_confirm_new_password'.tr(ref);
+                  if (val != _newPasswordController.text) return 'passwords_do_not_match'.tr(ref);
                   return null;
                 },
               ),
@@ -172,9 +173,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                           width: 24, height: 24,
                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
                         )
-                      : const Text(
-                          'Cập nhật mật khẩu',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                      : Text(
+                          'update_password'.tr(ref),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
                 ),
               ),
