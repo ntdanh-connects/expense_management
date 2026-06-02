@@ -128,4 +128,76 @@ class UserRepositoryImpl implements UserRepository {
       rethrow;
     }
   }
+
+  @override
+  Future<void> changePassword({
+    required String oldPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    try {
+      await _userApiService.changePassword({
+        'current_password': oldPassword,
+        'password': newPassword,
+        'password_confirmation': confirmPassword,
+      });
+    } on DioException catch (e) {
+      final errorData = e.response?.data;
+      String errorMessage = "Đổi mật khẩu thất bại. Vui lòng thử lại sau.";
+      
+      if (errorData != null && errorData is Map<String, dynamic> && errorData['message'] != null) {
+        errorMessage = errorData['message'].toString();
+      }
+      
+      AppLogger.error(
+        "Dio Error khi đổi mật khẩu: ${e.message}",
+        tag: "CHANGE_PASSWORD_API_ERROR",
+        details: errorData,
+      );
+      
+      throw Exception(errorMessage);
+    } catch (e, stack) {
+      AppLogger.error(
+        "Lỗi không mong muốn khi đổi mật khẩu: ${e.toString()}",
+        tag: "CHANGE_PASSWORD_CRITICAL_ERROR",
+        stackTrace: stack,
+      );
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> logoutAllDevices() async {
+    try {
+      await _userApiService.logoutAll();
+    } on DioException catch (e) {
+      AppLogger.error(
+        "Dio Error khi logout tất cả thiết bị: ${e.message}", 
+        tag: "LOGOUT_ALL_API_ERROR", 
+        details: e.response?.data 
+      );
+      throw Exception(e.response?.data['message'] ?? "Không thể đăng xuất các thiết bị khác.");
+    }
+  }
+
+  @override
+  Future<void> deleteAccount() async {
+    try {
+      await _userApiService.deleteAccount(); 
+    } on DioException catch (e) {
+      AppLogger.error(
+        "Dio Error khi xóa tài khoản: ${e.message}", 
+        tag: "DELETE_ACCOUNT_API_ERROR", 
+        details: e.response?.data 
+      );
+      throw Exception(e.response?.data['message'] ?? "Xóa tài khoản thất bại!");
+    } catch (e, stack) {
+      AppLogger.error(
+        "Lỗi hệ thống khi xóa tài khoản: ${e.toString()}", 
+        tag: "DELETE_ACCOUNT_CRITICAL_ERROR", 
+        stackTrace: stack
+      );
+      rethrow;
+    }
+  }
 }

@@ -28,4 +28,9 @@ abstract class AuthApiService {
 
   @POST(ApiEndpoints.linkSocial)
   Future<AuthResponseDto> confirmLinkSocial(@Body() LinkSocialRequest request);
+
+  @POST(ApiEndpoints.forgotPassword)
+  Future<BaseResponseDto<void>> forgotPassword(
+    @Field("email") String email,
+  );
 }

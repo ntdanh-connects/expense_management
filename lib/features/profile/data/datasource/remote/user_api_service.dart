@@ -29,4 +29,10 @@ abstract class UserApiService {
 
   @POST(ApiEndpoints.logoutAll)
   Future<BaseResponseDto<void>> logoutAll();
+
+  @POST(ApiEndpoints.changePassword)
+  Future<BaseResponseDto<void>> changePassword(@Body() Map<String, dynamic> body);
+
+  @DELETE(ApiEndpoints.deleteAccount)
+  Future<BaseResponseDto<void>> deleteAccount();
 }

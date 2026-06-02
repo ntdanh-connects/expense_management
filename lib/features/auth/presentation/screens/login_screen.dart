@@ -211,7 +211,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ),
                                   ),
                                   TextButton(
-                                    onPressed: isLoading ? null : () {},
+                                    onPressed: () {
+                                      context.push(RoutePaths.forgotPassword);
+                                    },
                                     style: TextButton.styleFrom(
                                       padding: EdgeInsets.zero,
                                     ),
