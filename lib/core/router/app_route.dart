@@ -2,11 +2,13 @@ import 'dart:async';
 import 'package:expense_management/features/analytic/presentation/screens/analytic_screen.dart';
 import 'package:expense_management/features/auth/auth_provider.dart';
 import 'package:expense_management/features/auth/domain/auth_state.dart';
+import 'package:expense_management/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:expense_management/features/auth/presentation/screens/login_screen.dart';
 import 'package:expense_management/features/auth/presentation/screens/register_screen.dart';
 import 'package:expense_management/features/auth/presentation/screens/splash_screen.dart';
 import 'package:expense_management/features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:expense_management/features/dashboard/presentation/screens/main_shell_screen.dart';
+import 'package:expense_management/features/profile/presentation/screens/change_password_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/personal_info_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/profile_screen.dart';
 import 'package:expense_management/features/transaction/presentation/screens/transaction_history_screen.dart';
@@ -30,6 +32,9 @@ class RoutePaths {
   static const analytics = '/analytics';
   static const profile = '/profile';
   static const editProfile = '/profile/edit';
+  static const changePassword = '/profile/change-password';
+  static const forgotPassword = '/auth/forgot-password';
+  
 }
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -93,6 +98,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const RegisterScreen(),
       ),
       GoRoute(
+        path: RoutePaths.forgotPassword,
+        builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
         path: RoutePaths.wallet,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const WalletScreen(),
@@ -133,6 +142,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: 'edit',
                 parentNavigatorKey: rootNavigatorKey,
                 builder: (context, state) => const PersonalInfoScreen(),
+              ),
+              GoRoute(
+                path: 'change-password',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) => const ChangePasswordScreen(),
               ),
             ],
           ),

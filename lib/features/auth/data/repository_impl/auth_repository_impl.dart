@@ -197,4 +197,17 @@ class AuthRepositoryImpl implements AuthRepository{
     }
   }
 
+  @override
+  Future<void> forgotPassword(String email) async {
+    try {
+      await _authApiService.forgotPassword(email);
+      AppLogger.info("Đã gửi yêu cầu reset mật khẩu tới email: $email");
+    } on DioException catch (e, stackTrace) {
+      AppLogger.error("Yêu cầu quên mật khẩu thất bại: ${e.message}", tag: "Auth", stackTrace: stackTrace);
+      throw AppException(e.toNetworkFailure());
+    } catch (e, stackTrace) {
+      AppLogger.error("Lỗi không xác định khi quên mật khẩu", tag: "Auth", stackTrace: stackTrace);
+      throw AppException(NetworkFailure.unknown(message: e.toString()));
+    }
+  }
 }
