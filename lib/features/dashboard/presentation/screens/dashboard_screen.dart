@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/shared/widgets/shared_top_app_bar.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:go_router/go_router.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
+import 'package:expense_management/core/language/app_language.dart';
+
+final showBalanceProvider = StateProvider<bool>((ref) => true);
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -13,11 +17,12 @@ class DashboardScreen extends ConsumerWidget {
     final colors = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final walletState = ref.watch(walletNotifierProvider);
+    final showBalance = ref.watch(showBalanceProvider);
 
     return Scaffold(
       backgroundColor: colors.background,
-      appBar: const SharedTopAppBar(
-        hintText: 'Tìm kiếm giao dịch, ví, hũ...',
+      appBar: SharedTopAppBar(
+        hintText: 'search_hint'.tr(ref),
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -50,7 +55,7 @@ class DashboardScreen extends ConsumerWidget {
                   Row(
                     children: [
                       Text(
-                        'Tổng số dư',
+                        'total_balance'.tr(ref),
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.7),
                           fontSize: 14,
@@ -58,19 +63,36 @@ class DashboardScreen extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Icon(
-                        Icons.visibility_rounded,
-                        color: Colors.white.withOpacity(0.7),
-                        size: 16,
+                      GestureDetector(
+                        onTap: () {
+                          ref.read(showBalanceProvider.notifier).update((state) => !state);
+                        },
+                        child: Icon(
+                          ref.watch(showBalanceProvider)
+                              ? Icons.visibility_rounded
+                              : Icons.visibility_off_rounded,
+                          color: Colors.white.withOpacity(0.7),
+                          size: 18,
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   walletState.when(
                     data: (walletList) {
-                      final totalBalance = walletList.fold<double>(0, (sum, w) => sum + w.balance);
+                      final showBalance = ref.watch(showBalanceProvider);
+                      // Chỉ tính số dư từ các ví KHÔNG bị ẩn
+                      final visibleWallets = walletList.where((w) => !w.isHidden).toList();
+                      final totalBalance = visibleWallets.fold<double>(0, (sum, w) => sum + w.balance);
+                      
+                      String formatMoney(double value) {
+                        RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+                        String Function(Match) mathFunc = (Match match) => '${match[1]}.';
+                        return value.toStringAsFixed(0).replaceAllMapped(reg, mathFunc);
+                      }
+                      
                       return Text(
-                        '${(totalBalance)} đ',
+                        showBalance ? '${formatMoney(totalBalance)} đ' : '•••••• đ',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 30,
@@ -121,14 +143,14 @@ class DashboardScreen extends ConsumerWidget {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              const Column(
+                              Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'THU NHẬP',
-                                    style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold),
+                                    'income_label'.tr(ref),
+                                    style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold),
                                   ),
-                                  Text(
+                                  const Text(
                                     '+12.4M',
                                     style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                                   ),
@@ -162,14 +184,14 @@ class DashboardScreen extends ConsumerWidget {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              const Column(
+                              Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'CHI TIÊU',
-                                    style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold),
+                                    'expense_label'.tr(ref),
+                                    style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold),
                                   ),
-                                  Text(
+                                  const Text(
                                     '-5.8M',
                                     style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                                   ),
@@ -191,7 +213,7 @@ class DashboardScreen extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Ví của bạn',
+                  'wallets'.tr(ref),
                   style: TextStyle(
                     color: colors.textPrimary,
                     fontSize: 18,
@@ -203,7 +225,7 @@ class DashboardScreen extends ConsumerWidget {
                     context.push('/wallet');
                   },
                   child: Text(
-                    'Xem tất cả',
+                    'see_all'.tr(ref),
                     style: TextStyle(
                       color: colors.primary,
                       fontSize: 14,
@@ -220,10 +242,11 @@ class DashboardScreen extends ConsumerWidget {
               height: 110,
               child: walletState.when(
                 data: (walletList) {
-                  if (walletList.isEmpty) {
+                  final visibleWallets = walletList.where((w) => !w.isHidden).toList();
+                  if (visibleWallets.isEmpty) {
                     return Center(
                       child: Text(
-                        'Chưa có ví nào',
+                        'no_wallets'.tr(ref),
                         style: TextStyle(
                           color: colors.textSecondary,
                           fontSize: 13,
@@ -234,9 +257,9 @@ class DashboardScreen extends ConsumerWidget {
                   return ListView.builder(
                     scrollDirection: Axis.horizontal,
                     physics: const BouncingScrollPhysics(),
-                    itemCount: walletList.length,
+                    itemCount: visibleWallets.length,
                     itemBuilder: (context, index) {
-                      final wallet = walletList[index];
+                      final wallet = visibleWallets[index];
                       final hexColor = wallet.color.replaceAll('#', '');
                       Color itemColor;
                       try {
@@ -247,10 +270,18 @@ class DashboardScreen extends ConsumerWidget {
                         itemColor = colors.primary;
                       }
 
+                      String formatMoney(double value) {
+                        RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+                        String Function(Match) mathFunc = (Match match) => '${match[1]}.';
+                        return value.toStringAsFixed(0).replaceAllMapped(reg, mathFunc);
+                      }
+
+                      final showBalance = ref.watch(showBalanceProvider);
+
                       return _buildWalletCard(
                         context: context,
                         title: wallet.name,
-                        amount: '${(wallet.balance)} đ',
+                        amount: showBalance ? '${formatMoney(wallet.balance)} đ' : '•••••• đ',
                         icon: _getWalletIcon(wallet.type),
                         iconBgColor: itemColor.withOpacity(0.12),
                         iconColor: itemColor,
@@ -270,7 +301,7 @@ class DashboardScreen extends ConsumerWidget {
                 ),
                 error: (err, _) => Center(
                   child: Text(
-                    'Lỗi tải ví',
+                    '${'load_wallets_error'.tr(ref)}: $err',
                     style: TextStyle(color: colors.expenseRed, fontSize: 13),
                   ),
                 ),
@@ -283,7 +314,7 @@ class DashboardScreen extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Giao dịch gần đây',
+                  'recent_transactions'.tr(ref),
                   style: TextStyle(
                     color: colors.textPrimary,
                     fontSize: 18,
@@ -300,7 +331,7 @@ class DashboardScreen extends ConsumerWidget {
 
             // DANH SÁCH GIAO DỊCH GẦN ĐÂY
             Text(
-              'HÔM NAY, 24 THG 5',
+              'today_format'.tr(ref),
               style: TextStyle(
                 color: colors.textSecondary,
                 fontSize: 12,
@@ -310,8 +341,8 @@ class DashboardScreen extends ConsumerWidget {
             const SizedBox(height: 12),
             _buildRecentTransaction(
               colors: colors,
-              title: 'Ăn trưa - Phở Thìn',
-              sub: 'Ăn uống • 12:30 • Tiền mặt',
+              title: 'lunch_pho_thin'.tr(ref),
+              sub: 'lunch_sub'.tr(ref),
               amount: '-65.000đ',
               isIncome: false,
               icon: Icons.restaurant_rounded,
@@ -319,8 +350,8 @@ class DashboardScreen extends ConsumerWidget {
             ),
             _buildRecentTransaction(
               colors: colors,
-              title: 'Uniqlo Vincom',
-              sub: 'Mua sắm • 10:15 • Techcombank',
+              title: 'uniqlo_vincom'.tr(ref),
+              sub: 'uniqlo_sub'.tr(ref),
               amount: '-1.200.000đ',
               isIncome: false,
               icon: Icons.shopping_bag_rounded,
@@ -328,8 +359,8 @@ class DashboardScreen extends ConsumerWidget {
             ),
             _buildRecentTransaction(
               colors: colors,
-              title: 'Lương tháng 5',
-              sub: 'Thu nhập • 08:00 • Techcombank',
+              title: 'salary_may'.tr(ref),
+              sub: 'salary_sub'.tr(ref),
               amount: '+35.000.000đ',
               isIncome: true,
               icon: Icons.payments_rounded,
@@ -366,7 +397,7 @@ class DashboardScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Gợi ý tiết kiệm',
+                          'saving_tip'.tr(ref),
                           style: TextStyle(
                             color: colors.textPrimary,
                             fontWeight: FontWeight.bold,
@@ -375,7 +406,7 @@ class DashboardScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Bạn đã chi nhiều hơn 15% cho Ăn uống tuần này.',
+                          'saving_tip_desc'.tr(ref),
                           style: TextStyle(
                             color: colors.textSecondary,
                             fontSize: 12.5,

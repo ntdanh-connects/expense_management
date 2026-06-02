@@ -23,7 +23,7 @@ class UserRepositoryImpl implements UserRepository {
   UserRepositoryImpl(this._userApiService, this._db, this._secureStorageService);
 
   @override
-  Future<UserEntity> updateProfile({required String fullName}) async {
+  Future<UserEntity> updateProfile({String? fullName, String? language}) async {
     final userId = await _secureStorageService.get(key: AppConstant.userId);
     if (userId == null) {
       throw Exception("Không tìm thấy thông tin định danh người dùng.");
@@ -36,16 +36,20 @@ class UserRepositoryImpl implements UserRepository {
 
     // 1. Cập nhật Drift SQLite trước để giao diện (UI) cập nhật ngay lập tức
     final updatedLocalRow = currentLocalRow.copyWith(
-      fullName: fullName,
+      fullName: fullName ?? currentLocalRow.fullName,
+      language: language ?? currentLocalRow.language,
     );
     await _db.saveUserProfile(updatedLocalRow);
 
-    AppLogger.info("💾 [SQLite] [Offline-First] Cập nhật SQLite thành công! Đã lưu tạm thời tên mới: '$fullName'.", tag: "SQLite");
+    AppLogger.info("💾 [SQLite] [Offline-First] Cập nhật SQLite thành công! Đã lưu tạm thời: fullName='${fullName ?? currentLocalRow.fullName}', language='${language ?? currentLocalRow.language}'.", tag: "SQLite");
     AppLogger.debug("🌐 [Sync-Flow] Bắt đầu gửi đồng bộ thông tin mới lên Server...", tag: "Sync-Flow");
 
     // 2. Đồng bộ thông tin lên Server
     try {
-      final responseDto = await _userApiService.updateProfile(fullName);
+      final responseDto = await _userApiService.updateProfile(
+        fullName ?? currentLocalRow.fullName,
+        language ?? currentLocalRow.language,
+      );
       final freshData = responseDto.data;
       
       // Cập nhật lại cache cục bộ bằng dữ liệu chuẩn từ Backend trả về

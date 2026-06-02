@@ -55,7 +55,8 @@ class WalletRepositoryImpl  implements WalletRepository{
       AppLogger.info("💾 [SQLite] Đã lưu ví mới '${row.name}' vào SQLite local thành công!", tag: "SQLite");
     } catch (e, stackTrace) {
       if (e is DioException) {
-        AppLogger.error("🚨 [Wallet-Sync] Lỗi tạo ví trên Remote Server: ${e.message}", tag: "Wallet-Sync", stackTrace: stackTrace);
+        final serverError = e.response?.data;
+        AppLogger.error("🚨 [Wallet-Sync] Lỗi tạo ví trên Remote Server: ${e.message}. Chi tiết từ Server: $serverError", tag: "Wallet-Sync", stackTrace: stackTrace);
       } else {
         AppLogger.error("🚨 [SQLite] Lỗi lưu ví mới vào SQLite local: $e", tag: "SQLite", stackTrace: stackTrace);
       }
@@ -77,7 +78,8 @@ class WalletRepositoryImpl  implements WalletRepository{
       AppLogger.info("💾 [SQLite] Cập nhật ví '${row.name}' (ID: $id) vào SQLite local thành công!", tag: "SQLite");
     } catch (e, stackTrace) {
       if (e is DioException) {
-        AppLogger.error("🚨 [Wallet-Sync] Lỗi cập nhật ví trên Remote Server: ${e.message}", tag: "Wallet-Sync", stackTrace: stackTrace);
+        final serverError = e.response?.data;
+        AppLogger.error("🚨 [Wallet-Sync] Lỗi cập nhật ví trên Remote Server: ${e.message}. Chi tiết từ Server: $serverError", tag: "Wallet-Sync", stackTrace: stackTrace);
       } else {
         AppLogger.error("🚨 [SQLite] Lỗi cập nhật ví trong SQLite local: $e", tag: "SQLite", stackTrace: stackTrace);
       }

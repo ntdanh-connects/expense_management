@@ -23,6 +23,7 @@ class WalletMapper {
       type: row.type,
       icon: row.icon,
       color: row.color,
+      isHidden: row.isHidden,
     );
   }
 }

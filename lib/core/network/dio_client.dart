@@ -3,6 +3,7 @@ import 'package:expense_management/core/config/app_config.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/core/network/api_endpoints.dart';
 import 'package:expense_management/core/network/log_console_interceptor.dart';
+import 'package:expense_management/core/language/app_provider.dart';
 import '../storage/secure_storage_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/features/auth/auth_provider.dart';
@@ -26,7 +27,7 @@ final dioClientProvider = Provider<Dio>((ref) {
   dio.interceptors.addAll([
     AuthInterceptor(ref),
     RefreshTokenInterceptor(ref, dio),
-    ErrorHandlingInterceptor(),
+    ErrorHandlingInterceptor(ref),
   ]);
 
   if (AppConfig.enableLogging) {
@@ -83,7 +84,11 @@ class AuthInterceptor extends Interceptor {
       options.headers['User-Agent'] = _userAgent;
     }
 
-    // 2. Lấy và đính kèm Access Token nếu có
+    // 2. Đính kèm ngôn ngữ hiện tại của App qua Header Accept-Language
+    final currentLocale = ref.read(localeProvider);
+    options.headers['Accept-Language'] = currentLocale;
+
+    // 3. Lấy và đính kèm Access Token nếu có
     final storage = ref.read(secureStorageServiceProvider);
     final accessToken = await storage.get(key: AppConstant.accessToken);
 
@@ -168,20 +173,24 @@ class RefreshTokenInterceptor extends Interceptor {
 }
 
 class ErrorHandlingInterceptor extends Interceptor {
+  final Ref ref;
+  ErrorHandlingInterceptor(this.ref);
+
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    String errorMessage = 'Đã xảy ra lỗi kết nối mạng, vui lòng thử lại sau ít phút';
+    final translations = ref.read(translationsProvider);
+    String errorMessage = translations['network_error'] ?? 'Đã xảy ra lỗi kết nối mạng, vui lòng thử lại sau ít phút';
 
     if (err.type == DioExceptionType.connectionTimeout || err.type == DioExceptionType.receiveTimeout) {
-      errorMessage = 'Kết nối mạng quá hạn (Timeout). Vui lòng kiểm tra lại mạng internet của bạn !';
+      errorMessage = translations['timeout_error'] ?? 'Kết nối mạng quá hạn (Timeout). Vui lòng kiểm tra lại mạng internet của bạn !';
     } else if (err.response != null) {
       final responseData = err.response?.data;
       if (responseData is Map<String, dynamic>) {
-        errorMessage = responseData['error'] ?? responseData['message'] ?? errorMessage;
+        errorMessage = responseData['message'] ?? responseData['error'] ?? errorMessage;
       }
     }
 
-    // Trả ra một bản Exception có bọc thông báo tiếng Việt sạch sẽ
+    // Trả ra một bản Exception có bọc thông báo sạch sẽ
     return handler.reject(
       DioException(
         requestOptions: err.requestOptions,

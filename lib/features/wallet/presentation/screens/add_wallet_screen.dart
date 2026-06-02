@@ -9,6 +9,7 @@ import 'package:expense_management/features/wallet/presentation/provider/wallet_
 import 'package:expense_management/features/wallet/presentation/widget/wallet_constants.dart';
 import 'package:expense_management/features/wallet/presentation/widget/swipe_to_confirm_button.dart';
 import 'package:expense_management/features/wallet/presentation/widget/wallet_preview_card.dart';
+import 'package:expense_management/core/language/app_language.dart';
 
 class AddWalletScreen extends ConsumerStatefulWidget {
   final WalletEntity? walletToEdit;
@@ -30,8 +31,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
   String _selectedIcon = 'wallet'; // wallet, bank, card, piggy, cash, bag, car, home, food, plane
   String _selectedColor = '#4C4DDC'; // Royal Indigo làm mặc định
   bool _isLoading = false; // Trạng thái loading khi call API tạo ví
-
-
+  bool _isHidden = false; // Trạng thái ẩn ví trên Dashboard
 
   @override
   void initState() {
@@ -44,12 +44,22 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
       _selectedType = widget.walletToEdit!.type;
       _selectedIcon = widget.walletToEdit!.icon;
       _selectedColor = widget.walletToEdit!.color;
+      _isHidden = widget.walletToEdit!.isHidden;
+    } else {
+      // Đợi frame đầu tiên vẽ xong để ref đã sẵn sàng
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _walletName = 'my_new_wallet'.tr(ref);
+          });
+        }
+      });
     }
 
     _nameController.addListener(() {
       setState(() {
         _walletName = _nameController.text.trim().isEmpty
-            ? (widget.walletToEdit != null ? widget.walletToEdit!.name : 'Ví mới của tôi')
+            ? (widget.walletToEdit != null ? widget.walletToEdit!.name : 'my_new_wallet'.tr(ref))
             : _nameController.text.trim();
       });
     });
@@ -72,7 +82,6 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
     final colors = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-
     return Stack(
       children: [
         Scaffold(
@@ -89,7 +98,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
           onPressed: () => context.pop(),
         ),
         title: Text(
-          widget.walletToEdit != null ? 'Chỉnh sửa ví' : 'Thêm ví mới',
+          widget.walletToEdit != null ? 'edit_wallet'.tr(ref) : 'add_new_wallet'.tr(ref),
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.bold,
@@ -116,7 +125,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
 
             // ✍️ 2. Ô NHẬP TÊN VÍ
             Text(
-              'Tên ví',
+              'wallet_name'.tr(ref),
               style: TextStyle(
                 color: colors.textPrimary,
                 fontSize: 15,
@@ -134,7 +143,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
                 controller: _nameController,
                 style: TextStyle(color: colors.textPrimary),
                 decoration: InputDecoration(
-                  hintText: 'Nhập tên ví (ví dụ: Ví Tiền Mặt)',
+                  hintText: 'enter_wallet_name_hint'.tr(ref),
                   hintStyle: TextStyle(
                     color: colors.textSecondary.withOpacity(0.6),
                     fontSize: 14,
@@ -147,7 +156,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
 
             // 💰 3. Ô NHẬP SỐ DƯ BAN ĐẦU
             Text(
-              'Số dư ban đầu',
+              'initial_balance'.tr(ref),
               style: TextStyle(
                 color: colors.textPrimary,
                 fontSize: 15,
@@ -214,7 +223,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
 
             // 📁 4. CHỌN LOẠI VÍ
             Text(
-              'Chọn loại ví',
+              'select_wallet_type'.tr(ref),
               style: TextStyle(
                 color: colors.textPrimary,
                 fontSize: 15,
@@ -226,21 +235,21 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
               children: [
                 _buildTypeChip(
                   key: 'cash',
-                  label: 'Tiền mặt',
+                  label: 'wallet_type_cash'.tr(ref),
                   icon: Icons.payments_rounded,
                   colors: colors,
                 ),
                 const SizedBox(width: 10),
                 _buildTypeChip(
                   key: 'bank',
-                  label: 'Ngân hàng',
+                  label: 'wallet_type_bank'.tr(ref),
                   icon: Icons.account_balance_rounded,
                   colors: colors,
                 ),
                 const SizedBox(width: 10),
                 _buildTypeChip(
                   key: 'e-wallet',
-                  label: 'Ví điện tử',
+                  label: 'wallet_type_ewallet'.tr(ref),
                   icon: Icons.qr_code_scanner_rounded,
                   colors: colors,
                 ),
@@ -250,7 +259,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
 
             // 🎨 5. CHỌN BIỂU TƯỢNG (GRID 2x5)
             Text(
-              'Chọn biểu tượng',
+              'select_icon'.tr(ref),
               style: TextStyle(
                 color: colors.textPrimary,
                 fontSize: 15,
@@ -305,7 +314,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
 
             // 🔴 6. CHỌN MÀU SẮC
             Text(
-              'Chọn màu sắc',
+              'select_color'.tr(ref),
               style: TextStyle(
                 color: colors.textPrimary,
                 fontSize: 15,
@@ -360,6 +369,74 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
             ),
             const SizedBox(height: 36),
 
+            // 👁️ 6.5. ẨN VÍ KHỎI DASHBOARD (SWITCH)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: _isHidden 
+                      ? colors.primary.withOpacity(0.3) 
+                      : Colors.transparent,
+                  width: 1.5,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: _isHidden 
+                          ? colors.primary.withOpacity(0.12) 
+                          : (isDark ? Colors.white.withOpacity(0.04) : Colors.white),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _isHidden ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                      color: _isHidden ? colors.primary : colors.textSecondary,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'hide_wallet_from_dashboard'.tr(ref),
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'hide_wallet_from_dashboard_desc'.tr(ref),
+                          style: TextStyle(
+                            color: colors.textSecondary.withOpacity(0.8),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch.adaptive(
+                    value: _isHidden,
+                    activeColor: colors.primary,
+                    activeTrackColor: colors.primary.withOpacity(0.3),
+                    onChanged: (val) {
+                      setState(() {
+                        _isHidden = val;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 28),
+
              // 🚀 7. NÚT SUBMIT ⊕
             SizedBox(
               width: double.infinity,
@@ -377,7 +454,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      widget.walletToEdit != null ? 'Lưu thay đổi ' : 'Tạo ví ',
+                      widget.walletToEdit != null ? '${'save_changes'.tr(ref)} ' : '${'create_wallet'.tr(ref)} ',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 16,
@@ -427,7 +504,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                         widget.walletToEdit != null ? 'Đang thay đổi ví' : ' Đang tạo ví',
+                         widget.walletToEdit != null ? 'updating_wallet'.tr(ref) : 'creating_wallet'.tr(ref),
                         style: TextStyle(
                           color: colors.textPrimary,
                           fontSize: 14,
@@ -499,12 +576,10 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
     );
   }
 
-
-
   void _handleCreateWallet(AppColorsExtension colors) async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      _showSnackBar('Vui lòng nhập tên ví!', isError: true);
+      _showSnackBar('please_enter_wallet_name'.tr(ref), isError: true);
       return;
     }
 
@@ -553,7 +628,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
               ),
               const SizedBox(height: 20),
               Text(
-                widget.walletToEdit != null ? 'Cập nhật ví của bạn' : 'Thêm vào Ví của bạn',
+                widget.walletToEdit != null ? 'update_your_wallet'.tr(ref) : 'add_to_your_wallet'.tr(ref),
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
@@ -563,8 +638,8 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
               const SizedBox(height: 10),
               Text(
                 widget.walletToEdit != null
-                    ? 'Xác nhận thông tin thay đổi để cập nhật hệ thống'
-                    : 'Xác nhận thông tin ví mới để liên kết hệ thống',
+                    ? 'confirm_update_info_desc'.tr(ref)
+                    : 'confirm_new_wallet_desc'.tr(ref),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: colors.textSecondary,
@@ -646,7 +721,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
                     elevation: 0,
                   ),
                   child: Text(
-                    widget.walletToEdit != null ? 'Lưu thay đổi' : 'Thêm ví mới',
+                    widget.walletToEdit != null ? 'save_changes'.tr(ref) : 'add_new_wallet'.tr(ref),
                     style: TextStyle(
                       color: Theme.of(context).brightness == Brightness.dark ? Colors.black : Colors.white,
                       fontSize: 16,
@@ -659,7 +734,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
               TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: Text(
-                  'Hủy bỏ',
+                  'discard'.tr(ref),
                   style: TextStyle(color: colors.textSecondary, fontWeight: FontWeight.w600),
                 ),
               )
@@ -704,7 +779,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    widget.walletToEdit != null ? 'Xác nhận chỉnh sửa' : 'Xác nhận bảo mật',
+                    widget.walletToEdit != null ? 'confirm_edit'.tr(ref) : 'confirm_security'.tr(ref),
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ],
@@ -712,15 +787,15 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
               const SizedBox(height: 16),
               Text(
                 widget.walletToEdit != null
-                    ? 'Vui lòng vuốt thanh bên dưới từ trái sang phải để đồng ý lưu các thay đổi cho ví "$_walletName".'
-                    : 'Vui lòng vuốt thanh bên dưới từ trái sang phải để đồng ý tạo ví "$_walletName" với số dư ban đầu là ${_formatMoney(_initialBalance)} đ.',
+                    ? 'swipe_to_save_desc'.tr(ref).replaceAll('{name}', _walletName)
+                    : 'swipe_to_create_desc'.tr(ref).replaceAll('{name}', _walletName).replaceAll('{balance}', _formatMoney(_initialBalance)),
                 style: TextStyle(color: colors.textSecondary, fontSize: 14, height: 1.4),
               ),
               const SizedBox(height: 28),
               
               // 🕹️ Gọi Thanh Trượt Xác Nhận Vuốt Chống Bấm Nhầm
               SwipeToConfirmButton(
-                text: widget.walletToEdit != null ? 'Trượt để lưu thay đổi' : 'Trượt để tạo ví',
+                text: widget.walletToEdit != null ? 'swipe_to_save'.tr(ref) : 'swipe_to_create'.tr(ref),
                 activeColor: colors.primary,
                 onConfirmed: () async {
                   HapticFeedback.vibrate(); // Báo thành công bằng nhịp rung nhẹ đặc biệt
@@ -749,7 +824,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
         type: _selectedType,
         icon: _selectedIcon,
         color: _selectedColor,
-        isHidden: false,
+        isHidden: _isHidden,
         availableBalance: _initialBalance.toStringAsFixed(0),
       );
 
@@ -771,8 +846,8 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
         SnackBar(
           content: Text(
             widget.walletToEdit != null
-                ? 'Cập nhật thông tin ví thành công!'
-                : 'Tạo ví mới thành công!',
+                ? 'update_wallet_success'.tr(ref)
+                : 'create_wallet_success'.tr(ref),
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           backgroundColor: colors.incomeGreen,
@@ -800,22 +875,22 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
               Icon(Icons.error_outline_rounded, color: colors.expenseRed, size: 28),
               const SizedBox(width: 10),
               Text(
-                widget.walletToEdit != null ? 'Lỗi chỉnh sửa ví' : 'Lỗi tạo ví',
+                widget.walletToEdit != null ? 'edit_wallet_error'.tr(ref) : 'create_wallet_error'.tr(ref),
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ],
           ),
           content: Text(
             widget.walletToEdit != null
-                ? 'Không thể gửi yêu cầu chỉnh sửa thông tin ví lên Server.\n\nChi tiết lỗi từ hệ thống:\n$error'
-                : 'Không thể gửi yêu cầu tạo ví lên Server.\n\nChi tiết lỗi từ hệ thống:\n$error',
+                ? 'edit_wallet_error_desc'.tr(ref).replaceAll('{error}', error)
+                : 'create_wallet_error_desc'.tr(ref).replaceAll('{error}', error),
             style: const TextStyle(height: 1.4),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text(
-                'Đồng ý',
+                'ok'.tr(ref),
                 style: TextStyle(
                   color: colors.primary,
                   fontWeight: FontWeight.bold,
@@ -849,4 +924,3 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
     return value.toStringAsFixed(0).replaceAllMapped(reg, mathFunc);
   }
 }
-

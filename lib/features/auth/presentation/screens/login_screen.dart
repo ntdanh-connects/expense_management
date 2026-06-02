@@ -7,6 +7,7 @@ import 'package:expense_management/features/auth/domain/auth_state.dart';
 import 'package:expense_management/features/auth/presentation/widgets/auth_header_action.dart';
 import 'package:expense_management/shared/widgets/custom_text_field.dart';
 import 'package:expense_management/shared/widgets/github_logo.dart';
+import 'package:expense_management/core/language/app_language.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -49,7 +50,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         error: (message) {
           ElegantNotification.error(
             title: Text(
-              'Đăng nhập thất bại!',
+              'login_failed'.tr(ref),
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: colors.expenseRed,
@@ -137,7 +138,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       const SizedBox(height: 24),
 
                       Text(
-                        'Chào mừng trở lại',
+                        'welcome_back'.tr(ref),
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: colors.textPrimary,
@@ -145,7 +146,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Vui lòng đăng nhập để tiếp tục quản lý tài chính',
+                        'login_subtitle'.tr(ref),
                         style: TextStyle(
                           fontSize: 14,
                           color: colors.textSecondary,
@@ -179,7 +180,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Email',
+                                'email'.tr(ref),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: colors.textPrimary,
@@ -193,7 +194,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 enabled: !isLoading,
                                 validator: (val) =>
                                     (val == null || !val.contains('@'))
-                                    ? 'Email sai định dạng!'
+                                    ? 'email_invalid'.tr(ref)
                                     : null,
                               ),
                               const SizedBox(height: 20),
@@ -203,7 +204,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    'Mật khẩu',
+                                    'password'.tr(ref),
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       color: colors.textPrimary,
@@ -215,7 +216,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       padding: EdgeInsets.zero,
                                     ),
                                     child: Text(
-                                      'Quên mật khẩu?',
+                                      'forgot_password'.tr(ref),
                                       style: TextStyle(
                                         color: colors.primary,
                                         fontWeight: FontWeight.bold,
@@ -236,7 +237,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 onPressSuffixIcon: () =>  _obscurePasswordNotifier.value = !_obscurePasswordNotifier.value,
                                 validator: (val) =>
                                     (val == null || val.length < 8)
-                                    ? 'Mật khẩu phải từ 8 ký tự trở lên'
+                                    ? 'password_min_len'.tr(ref)
                                     : null,
                                 );
                               }),
@@ -279,19 +280,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                                 ),
                                           ),
                                         )
-                                      : const Row(
+                                      : Row(
                                           mainAxisAlignment:
                                               MainAxisAlignment.center,
                                           children: [
                                             Text(
-                                              'Sign In ',
-                                              style: TextStyle(
+                                              'sign_in'.tr(ref),
+                                              style: const TextStyle(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.bold,
                                                 color: Colors.white,
                                               ),
                                             ),
-                                            Icon(
+                                            const Icon(
                                               Icons.arrow_forward_rounded,
                                               color: Colors.white,
                                               size: 20,
@@ -307,7 +308,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       const SizedBox(height: 24),
 
                       Text(
-                        'Hoặc đăng nhập bằng',
+                        'or_login_with'.tr(ref),
                         style: TextStyle(color: colors.textSecondary),
                       ),
                       const SizedBox(height: 16),
@@ -338,7 +339,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Chưa có tài khoản? ',
+                            'no_account'.tr(ref),
                             style: TextStyle(color: colors.textSecondary),
                           ),
                           GestureDetector(
@@ -346,7 +347,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ? null
                                 : () => context.go(RoutePaths.register),
                             child: Text(
-                              'Đăng ký ngay',
+                              'register_now'.tr(ref),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: colors.primary,
@@ -433,9 +434,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void _showErrorNotification(String message) {
     final colors = context.colors;
     ElegantNotification.error(
-      title: const Text(
-        'Có lỗi xảy ra!',
-        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+      title: Text(
+        'error_occurred'.tr(ref),
+        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
       ),
       description: Text(
         message,

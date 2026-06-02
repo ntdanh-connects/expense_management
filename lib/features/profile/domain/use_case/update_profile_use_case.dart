@@ -6,7 +6,7 @@ class UpdateProfileUseCase {
 
   UpdateProfileUseCase(this._userRepository);
 
-  Future<UserEntity> execute({required String fullName}) async {
-    return await _userRepository.updateProfile(fullName: fullName);
+  Future<UserEntity> execute({String? fullName, String? language}) async {
+    return await _userRepository.updateProfile(fullName: fullName, language: language);
   }
 }

@@ -5,6 +5,7 @@ import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/auth/auth_provider.dart';
 import 'package:expense_management/features/auth/domain/auth_state.dart';
 import 'package:expense_management/shared/widgets/custom_text_field.dart';
+import 'package:expense_management/core/language/app_language.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -46,7 +47,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         registered: (successMessage) {
           if (successMessage != null) {
             ElegantNotification(
-            title: Text('Thành Công',style: TextStyle(color: colors.incomeGreen,fontWeight: FontWeight.bold),),
+            title: Text('success'.tr(ref),style: TextStyle(color: colors.incomeGreen,fontWeight: FontWeight.bold),),
             description: Text(successMessage,style: TextStyle(color: colors.textPrimary),),
             animationCurve: Curves.ease,
             toastDuration: const Duration(seconds: 3),
@@ -58,7 +59,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           }
         },
         error: (message) => ElegantNotification(
-            title: Text('Thất bại!',style: TextStyle(color: colors.expenseRed,fontWeight: FontWeight.bold),),
+            title: Text('error'.tr(ref),style: TextStyle(color: colors.expenseRed,fontWeight: FontWeight.bold),),
             description: Text(message,style: TextStyle(color: colors.textPrimary),),
             animationCurve: Curves.ease,
             toastDuration: const Duration(seconds: 3),
@@ -109,7 +110,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Kiểm soát tài chính, làm chủ tương lai.', 
+                    'register_subtitle'.tr(ref), 
                     style: TextStyle(fontSize: 14, color: colors.textSecondary),
                   ),
                   const SizedBox(height: 32),
@@ -137,7 +138,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         children: [
                           Center(
                             child: Text(
-                              'Hãy bắt đầu với ExpenseManagement', 
+                              'register_title'.tr(ref), 
                               style: theme.textTheme.titleLarge?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: colors.textPrimary,
@@ -148,10 +149,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
                           CustomTextField(
                             controller: _nameController, 
-                            hintText: 'Họ tên', 
+                            hintText: 'full_name'.tr(ref), 
                             prefixIcon: Icons.person_outline, 
                             enabled: !isLoading, 
-                            validator: (val) => (val == null || val.isEmpty) ? 'Hãy điền họ tên!' : null,
+                            validator: (val) => (val == null || val.isEmpty) ? 'please_enter_name'.tr(ref) : null,
                           ),
                           const SizedBox(height: 16),
                           
@@ -160,7 +161,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             hintText: 'example@gmail.com',
                             prefixIcon: Icons.email_outlined, 
                             enabled: !isLoading, 
-                            validator: (val) => (val == null || !val.contains('@')) ? 'Sai định dạng Email' : null,
+                            validator: (val) => (val == null || !val.contains('@')) ? 'email_invalid'.tr(ref) : null,
                           ),
                           const SizedBox(height: 16),
                           
@@ -169,13 +170,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             builder: (_,obscurePassword,child){
                               return CustomTextField(
                             controller: _passwordController, 
-                            hintText: 'Mật khẩu', 
+                            hintText: 'password'.tr(ref), 
                             prefixIcon: Icons.lock_outline, 
                             suffixIcon: obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                             onPressSuffixIcon: () => _obscurePasswordNotifier.value = !_obscurePasswordNotifier.value,
                             obscureText: obscurePassword, 
                             enabled: !isLoading, 
-                            validator: (val) => (val == null || val.length < 8) ? 'Mật khẩu từ 8 ký tự trở lên!' : null,
+                            validator: (val) => (val == null || val.length < 8) ? 'password_min_len'.tr(ref) : null,
                             );
                           }),
                           const SizedBox(height: 16),
@@ -185,13 +186,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           builder: (_,obscurePasswordConfirm,_){
                             return CustomTextField(
                             controller: _confirmPasswordController, 
-                            hintText: 'Điền lại mật khẩu',
+                            hintText: 'confirm_password'.tr(ref),
                             prefixIcon: Icons.refresh_outlined, 
                             suffixIcon: obscurePasswordConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                             onPressSuffixIcon: () => _obscurePasswordConfirmNotifier.value = !_obscurePasswordConfirmNotifier.value,
                             obscureText: obscurePasswordConfirm, 
                             enabled: !isLoading, 
-                            validator: (val) => val != _passwordController.text ? 'Mật khẩu không trùng khớp' : null,
+                            validator: (val) => val != _passwordController.text ? 'passwords_do_not_match'.tr(ref) : null,
                           );
                           }),
                           
@@ -208,7 +209,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                               ),
                               Expanded(
                                 child: Text(
-                                  'Tôi đồng ý với Điều khoản & Chính sách bảo mật của ExpMgmt.',
+                                  'agree_terms'.tr(ref),
                                   style: TextStyle(fontSize: 13, color: colors.textSecondary),
                                 ),
                               ),
@@ -243,11 +244,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                         valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                       ),
                                     )
-                                  : const Row(
+                                  : Row(
                                       mainAxisAlignment: MainAxisAlignment.center, 
                                       children: [
-                                        Text('Sign Up ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)), 
-                                        Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
+                                        Text('register'.tr(ref), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)), 
+                                        const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
                                       ],
                                     ),
                             ),
@@ -261,10 +262,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('Đã có tài khoản? ', style: TextStyle(color: colors.textSecondary)),
+                      Text('already_have_account'.tr(ref), style: TextStyle(color: colors.textSecondary)),
                       GestureDetector(
                         onTap: () => context.go(RoutePaths.login),
-                        child: Text('Đăng nhập ngay', style: TextStyle(fontWeight: FontWeight.bold, color: colors.primary)),
+                        child: Text('login_now'.tr(ref), style: TextStyle(fontWeight: FontWeight.bold, color: colors.primary)),
                       ),
                     ],
                   ),
