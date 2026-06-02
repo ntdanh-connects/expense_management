@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:http_parser/http_parser.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/core/error/app_exception.dart';
 import 'package:expense_management/core/network/network_exception_mapper.dart';
@@ -85,9 +86,11 @@ class UserRepositoryImpl implements UserRepository {
     try {
 
       final file = imageFile.path.split('/').last;
+      final extension = file.split('.').last.toLowerCase();
       final multipartFile = await MultipartFile.fromFile(
         imageFile.path,
         filename: file,
+        contentType: MediaType('image', extension == 'png' ? 'png' : 'jpeg'),
       );
       // 1. Gọi API gửi file ảnh lên AWS S3 (thông qua Backend)
       final responseDto = await _userApiService.updateAvatar(multipartFile);

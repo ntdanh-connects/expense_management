@@ -1,6 +1,6 @@
 class ApiEndpoints {
   static const String login = 'api/login';
-  static const String refreshToken = 'api/refresh';
+  static const String refreshToken = 'api/refresh-token';
   static const String register = 'api/register';
   static const String profile = 'api/user/profile';
   static const String updateProfile = 'api/user/profile';
