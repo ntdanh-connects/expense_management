@@ -3,6 +3,7 @@ import 'package:expense_management/features/profile/data/datasource/remote/categ
 import 'package:expense_management/features/profile/data/repository_impl/category_repository_impl.dart';
 import 'package:expense_management/features/profile/domain/repositories/category_repository.dart';
 import 'package:expense_management/features/profile/data/models/category_dto.dart';
+import 'package:expense_management/core/language/app_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final categoryApiServiceProvider = Provider<CategoryApiService>((ref) {
@@ -18,6 +19,7 @@ final categoryRepositoryProvider = Provider<CategoryRepository>((ref) {
 class CategoriesNotifier extends AsyncNotifier<List<CategoryDto>> {
   @override
   Future<List<CategoryDto>> build() async {
+    ref.watch(localeProvider); // Theo dõi ngôn ngữ để tự động tải lại danh mục khi đổi ngôn ngữ
     final repo = ref.read(categoryRepositoryProvider);
     return repo.getCategories();
   }
