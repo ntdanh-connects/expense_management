@@ -19,6 +19,7 @@ abstract class WalletRepository {
     required String toWalletId,
     required double amount,
     String? notes,
+    String? timezone,
   });
 
   // 🧾 Lấy lịch sử chuyển tiền nội bộ của tất cả các ví

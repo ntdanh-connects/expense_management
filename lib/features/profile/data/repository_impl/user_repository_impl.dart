@@ -10,6 +10,8 @@ import 'package:expense_management/core/storage/secure_storage_service.dart';
 import 'package:expense_management/core/database/app_database.dart' as db;
 import 'package:expense_management/core/utils/app_logger.dart';
 import 'package:expense_management/shared/domain/user_entity.dart';
+import 'package:expense_management/features/profile/data/models/preference_options_dto.dart';
+import 'package:expense_management/features/profile/data/models/exchange_rates_dto.dart';
 import 'package:json_annotation/json_annotation.dart';
 import '../../domain/repositories/user_repository.dart';
 import '../datasource/remote/user_api_service.dart';
@@ -210,6 +212,26 @@ class UserRepositoryImpl implements UserRepository {
         stackTrace: stack
       );
       rethrow;
+    }
+  }
+
+  @override
+  Future<PreferenceOptionsDto> getPreferenceOptions() async {
+    try {
+      final responseDto = await _userApiService.getPreferenceOptions();
+      return responseDto.data;
+    } on DioException catch (e) {
+      throw AppException(e.toNetworkFailure());
+    }
+  }
+
+  @override
+  Future<ExchangeRatesDto> getExchangeRates() async {
+    try {
+      final responseDto = await _userApiService.getExchangeRates();
+      return responseDto.data;
+    } on DioException catch (e) {
+      throw AppException(e.toNetworkFailure());
     }
   }
 }

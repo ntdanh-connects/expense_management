@@ -55,6 +55,7 @@ dependencies:
   flutter_web_auth_2: ^5.0.2
   device_info_plus: ^13.1.0
   image_picker: ^1.2.2
+  timezone: ^0.10.0
 
 dev_dependencies:
   flutter_test:

@@ -15,4 +15,6 @@ class ApiEndpoints {
   static const String forgotPassword = 'api/auth/forgot-password';
   static const String transfer = 'api/wallets/transfer';
   static const String transfers = 'api/wallets/transfers';
+  static const String preferenceOptions = 'api/user/preferences/options';
+  static const String exchangeRates = 'api/exchange-rates';
 }

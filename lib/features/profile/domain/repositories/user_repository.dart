@@ -1,4 +1,6 @@
 import 'package:expense_management/shared/domain/user_entity.dart';
+import 'package:expense_management/features/profile/data/models/preference_options_dto.dart';
+import 'package:expense_management/features/profile/data/models/exchange_rates_dto.dart';
 
 import 'dart:io';
 
@@ -22,4 +24,10 @@ abstract class UserRepository {
 
   // Xóa tài khoản
   Future<void> deleteAccount();
+
+  // Lấy các tùy chọn tiền tệ và múi giờ hệ thống
+  Future<PreferenceOptionsDto> getPreferenceOptions();
+
+  // Lấy tỷ giá hối đoái mới nhất
+  Future<ExchangeRatesDto> getExchangeRates();
 }

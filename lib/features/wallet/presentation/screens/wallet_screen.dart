@@ -15,6 +15,7 @@ import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/core/language/app_provider.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 final showHiddenWalletsProvider = StateProvider<bool>((ref) => false);
 
@@ -132,7 +133,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                           padding: const EdgeInsets.only(right: 16),
                           child: WalletCardItem(
                             wallet: wallet,
-                            currencySymbol: currencySymbol,
+                            currencySymbol: AppConstant.getCurrencySymbol(wallet.currencyCode),
                             onTap: () => context.push('/add-wallet', extra: wallet),
                           ),
                         );
@@ -272,7 +273,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                                 alignment: Alignment.centerRight,
                                 width: 20,
                                 child: Text(
-                                  currencySymbol,
+                                  _fromWallet != null ? AppConstant.getCurrencySymbol(_fromWallet!.currencyCode) : currencySymbol,
                                   style: TextStyle(
                                     color: colors.textPrimary,
                                     fontSize: 16,
@@ -361,7 +362,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   itemCount: transfers.length,
                   itemBuilder: (context, index) {
                     final tx = transfers[index];
-                    return _buildTransferHistoryItem(tx, colors);
+                    return _buildTransferHistoryItem(tx, colors, AppConstant.getCurrencySymbol(tx.currencyCode ?? 'VND'));
                   },
                 ),
               ],
@@ -513,7 +514,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   }
 
   // Dòng giao dịch lịch sử
-  Widget _buildTransferHistoryItem(InternalTransferRecord tx, AppColorsExtension colors) {
+  Widget _buildTransferHistoryItem(InternalTransferRecord tx, AppColorsExtension colors, String currencySymbol) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -553,7 +554,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _formatDate(tx.date),
+                  _formatDate(tx.date, timezoneOverride: tx.timezone),
                   style: TextStyle(
                     color: colors.textSecondary,
                     fontSize: 12,
@@ -658,47 +659,30 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     return value.toStringAsFixed(0).replaceAllMapped(reg, mathFunc);
   }
 
-  String _formatDate(DateTime date) {
+  String _formatDate(DateTime date, {String? timezoneOverride}) {
     final user = ref.read(currentUserProvider);
-    final timezone = user?.timezone ?? 'Asia/Ho_Chi_Minh';
+    final timezoneName = timezoneOverride ?? user?.timezone ?? 'Asia/Ho_Chi_Minh';
     
-    // Quy đổi offset múi giờ của User
-    Duration offsetDuration = const Duration(hours: 7); // mặc định UTC+7
-    String formattedOffset = 'UTC+07:00';
-    
-    switch (timezone) {
-      case 'Asia/Ho_Chi_Minh':
-        offsetDuration = const Duration(hours: 7);
-        formattedOffset = 'UTC+07:00';
-        break;
-      case 'Asia/Singapore':
-        offsetDuration = const Duration(hours: 8);
-        formattedOffset = 'UTC+08:00';
-        break;
-      case 'Asia/Tokyo':
-        offsetDuration = const Duration(hours: 9);
-        formattedOffset = 'UTC+09:00';
-        break;
-      case 'UTC':
-        offsetDuration = Duration.zero;
-        formattedOffset = 'UTC+00:00';
-        break;
-      case 'Europe/London':
-        offsetDuration = Duration.zero;
-        formattedOffset = 'UTC+00:00';
-        break;
-      case 'America/New_York':
-        offsetDuration = const Duration(hours: -5);
-        formattedOffset = 'UTC-05:00';
-        break;
-      case 'America/Los_Angeles':
-        offsetDuration = const Duration(hours: -8);
-        formattedOffset = 'UTC-08:00';
-        break;
+    // Sử dụng package timezone để tự động quy đổi múi giờ IANA động
+    DateTime userDate;
+    String formattedOffset = 'UTC';
+    try {
+      final location = tz.getLocation(timezoneName);
+      final tzDateTime = tz.TZDateTime.from(date.toUtc(), location);
+      userDate = tzDateTime;
+      
+      // Định dạng offset hiển thị (ví dụ: UTC+07:00 hoặc UTC-05:00)
+      final offsetMs = tzDateTime.timeZoneOffset.inMilliseconds;
+      final offsetHours = (offsetMs / 3600000).truncate();
+      final offsetMinutes = ((offsetMs.abs() % 3600000) / 60000).truncate();
+      final sign = offsetHours >= 0 ? '+' : '-';
+      final hoursStr = offsetHours.abs().toString().padLeft(2, '0');
+      final minutesStr = offsetMinutes.toString().padLeft(2, '0');
+      formattedOffset = 'UTC$sign$hoursStr:$minutesStr';
+    } catch (_) {
+      // Fallback về giờ UTC nếu có lỗi phân giải múi giờ
+      userDate = date.toUtc();
     }
-    
-    // Quy đổi date gốc (UTC) sang múi giờ của User
-    final userDate = date.toUtc().add(offsetDuration);
     
     final hour = userDate.hour.toString().padLeft(2, '0');
     final minute = userDate.minute.toString().padLeft(2, '0');

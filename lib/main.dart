@@ -13,9 +13,11 @@ import 'package:expense_management/core/storage/storage_provider.dart';
 import 'package:expense_management/core/language/app_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timezone/data/latest.dart' as tz;
 
 void main() async{
   WidgetsFlutterBinding.ensureInitialized();
+  tz.initializeTimeZones();
   final sharedPrefs = await SharedPreferences.getInstance();
 
   if (AppConfig.enableLogging) {

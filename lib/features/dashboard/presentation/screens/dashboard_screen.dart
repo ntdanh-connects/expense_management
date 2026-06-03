@@ -86,7 +86,24 @@ class DashboardScreen extends ConsumerWidget {
                       final showBalance = ref.watch(showBalanceProvider);
                       // Chỉ tính số dư từ các ví KHÔNG bị ẩn
                       final visibleWallets = walletList.where((w) => !w.isHidden).toList();
-                      final totalBalance = visibleWallets.fold<double>(0, (sum, w) => sum + w.balance);
+                      
+                      final userCurrency = ref.read(currentUserProvider)?.currency ?? 'VND';
+                      final ratesData = ref.watch(exchangeRatesProvider).asData?.value;
+
+                      double convertCurrency(double balance, String walletCurrency) {
+                        if (walletCurrency == userCurrency || ratesData == null) {
+                          return balance;
+                        }
+                        final base = ratesData.base;
+                        final rates = ratesData.rates;
+                        final fromRate = walletCurrency == base ? 1.0 : (rates[walletCurrency] ?? 1.0);
+                        final toRate = userCurrency == base ? 1.0 : (rates[userCurrency] ?? 1.0);
+                        return balance * (toRate / fromRate);
+                      }
+
+                      final totalBalance = visibleWallets.fold<double>(0, (sum, w) {
+                        return sum + convertCurrency(w.balance, w.currencyCode);
+                      });
                       
                       String formatMoney(double value) {
                         RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
@@ -284,7 +301,9 @@ class DashboardScreen extends ConsumerWidget {
                       return _buildWalletCard(
                         context: context,
                         title: wallet.name,
-                        amount: showBalance ? '${formatMoney(wallet.balance)} $currencySymbol' : '•••••• $currencySymbol',
+                        amount: showBalance 
+                            ? '${formatMoney(wallet.balance)} ${AppConstant.getCurrencySymbol(wallet.currencyCode)}' 
+                            : '•••••• ${AppConstant.getCurrencySymbol(wallet.currencyCode)}',
                         icon: _getWalletIcon(wallet.type),
                         iconBgColor: itemColor.withOpacity(0.12),
                         iconColor: itemColor,

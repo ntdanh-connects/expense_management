@@ -3,12 +3,15 @@ import 'package:expense_management/features/wallet/domain/entities/internal_tran
 import 'package:expense_management/features/wallet/domain/repository/wallet_repository.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_provider.dart';
 import 'package:expense_management/core/utils/app_logger.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
 
 class InternalTransferHistoryNotifier extends StateNotifier<List<InternalTransferRecord>> {
   final WalletRepository _repository;
+  final Ref _ref;
 
-  InternalTransferHistoryNotifier(this._repository) : super([]) {
+  InternalTransferHistoryNotifier(this._repository, this._ref) : super([]) {
     fetchTransferHistory();
   }
 
@@ -45,11 +48,14 @@ class InternalTransferHistoryNotifier extends StateNotifier<List<InternalTransfe
       return 'insufficient_balance_error';
     }
 
+    final timezone = _ref.read(currentUserProvider)?.timezone;
+
     try {
       await _repository.transferMoney(
         fromWalletId: fromWallet.id,
         toWalletId: toWallet.id,
         amount: amount,
+        timezone: timezone,
       );
 
       final newRecord = InternalTransferRecord(
@@ -58,6 +64,8 @@ class InternalTransferHistoryNotifier extends StateNotifier<List<InternalTransfe
         toWalletName: toWallet.name,
         amount: amount,
         date: DateTime.now(),
+        timezone: timezone,
+        currencyCode: fromWallet.currencyCode,
       );
       state = [newRecord, ...state];
       return null; // Thành công
@@ -70,5 +78,5 @@ class InternalTransferHistoryNotifier extends StateNotifier<List<InternalTransfe
 final internalTransferHistoryProvider =
     StateNotifierProvider<InternalTransferHistoryNotifier, List<InternalTransferRecord>>((ref) {
   final repository = ref.watch(walletRepositoryProvider);
-  return InternalTransferHistoryNotifier(repository);
+  return InternalTransferHistoryNotifier(repository, ref);
 });

@@ -4,6 +4,8 @@ class InternalTransferRecord {
   final String toWalletName;
   final double amount;
   final DateTime date;
+  final String? timezone;
+  final String? currencyCode;
 
   InternalTransferRecord({
     required this.id,
@@ -11,5 +13,7 @@ class InternalTransferRecord {
     required this.toWalletName,
     required this.amount,
     required this.date,
+    this.timezone,
+    this.currencyCode,
   });
 }

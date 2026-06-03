@@ -4,6 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:expense_management/core/network/api_endpoints.dart';
 import 'package:expense_management/core/network/base_response_dto.dart';
 import 'package:expense_management/features/auth/data/models/auth_response_dto.dart';
+import 'package:expense_management/features/profile/data/models/preference_options_dto.dart';
+import 'package:expense_management/features/profile/data/models/exchange_rates_dto.dart';
 import 'package:retrofit/retrofit.dart';
 
 part 'user_api_service.g.dart';
@@ -37,4 +39,10 @@ abstract class UserApiService {
 
   @DELETE(ApiEndpoints.deleteAccount)
   Future<BaseResponseDto<void>> deleteAccount();
+
+  @GET(ApiEndpoints.preferenceOptions)
+  Future<BaseResponseDto<PreferenceOptionsDto>> getPreferenceOptions();
+
+  @GET(ApiEndpoints.exchangeRates)
+  Future<BaseResponseDto<ExchangeRatesDto>> getExchangeRates();
 }

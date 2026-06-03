@@ -12,6 +12,7 @@ class WalletMapper {
       icon: dto.icon,
       color: dto.color,
       isHidden: dto.isHidden ?? false,
+      currencyCode: dto.currencyCode ?? 'VND',
     );
   }
 
@@ -24,6 +25,7 @@ class WalletMapper {
       icon: row.icon,
       color: row.color,
       isHidden: row.isHidden,
+      currencyCode: row.currencyCode,
     );
   }
 }

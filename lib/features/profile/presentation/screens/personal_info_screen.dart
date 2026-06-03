@@ -251,6 +251,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final optionsAsync = ref.watch(preferenceOptionsProvider);
 
     final currentUser = ref.watch(currentUserProvider);
     final displayAvatar = currentUser?.avatarUrl ?? _avatarUrl;
@@ -347,36 +348,108 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
                 readOnly: true,
               ),
 
-              // CHỌN TIỀN TỆ MẶC ĐỊNH
-              _buildDropdownField<String>(
-                label: 'default_currency_label'.tr(ref),
-                icon: Icons.monetization_on_outlined,
-                value: _selectedCurrency ?? 'VND',
-                items: AppConstant.currencies.map((c) => DropdownMenuItem<String>(
-                  value: c,
-                  child: Text(c == 'VND' ? 'VND (đ)' : c == 'USD' ? 'USD (\$)' : c == 'EUR' ? 'EUR (€)' : c == 'JPY' ? 'JPY (¥)' : 'GBP (£)'),
-                )).toList(),
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() => _selectedCurrency = val);
+              // CHỌN TIỀN TỆ MẶC ĐỊNH & MÚI GIỜ (Tải động từ Server)
+              optionsAsync.when(
+                data: (options) {
+                  // Fallback an toàn nếu giá trị hiện tại của user không nằm trong list options mới tải từ server
+                  final availableCurrencies = options.currencies.map((c) => c.code).toList();
+                  if (_selectedCurrency == null || !availableCurrencies.contains(_selectedCurrency)) {
+                    _selectedCurrency = availableCurrencies.isNotEmpty ? availableCurrencies.first : 'VND';
                   }
-                },
-              ),
 
-              // CHỌN MÚI GIỜ
-              _buildDropdownField<String>(
-                label: 'timezone_label'.tr(ref),
-                icon: Icons.public_rounded,
-                value: _selectedTimezone ?? 'Asia/Ho_Chi_Minh',
-                items: AppConstant.timezones.map((tz) => DropdownMenuItem<String>(
-                  value: tz['value']!,
-                  child: Text(tz['name']!),
-                )).toList(),
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() => _selectedTimezone = val);
+                  final availableTimezones = options.timezones;
+                  if (_selectedTimezone == null || !availableTimezones.contains(_selectedTimezone)) {
+                    _selectedTimezone = availableTimezones.contains('Asia/Ho_Chi_Minh') 
+                        ? 'Asia/Ho_Chi_Minh' 
+                        : (availableTimezones.isNotEmpty ? availableTimezones.first : 'Asia/Ho_Chi_Minh');
                   }
+
+                  return Column(
+                    children: [
+                      // Dropdown Tiền tệ
+                      _buildDropdownField<String>(
+                        label: 'default_currency_label'.tr(ref),
+                        icon: Icons.monetization_on_outlined,
+                        value: _selectedCurrency!,
+                        items: options.currencies.map((c) => DropdownMenuItem<String>(
+                          value: c.code,
+                          child: Text('${c.code} (${c.symbol}) - ${c.name}'),
+                        )).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _selectedCurrency = val);
+                          }
+                        },
+                      ),
+
+                      // Chọn Múi giờ với Searchable Bottom Sheet
+                      GestureDetector(
+                        onTap: () => _showTimezoneSearchSheet(context, options.timezones),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 20),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          decoration: BoxDecoration(
+                            color: colors.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: colors.textSecondary.withOpacity(0.15)),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.public_rounded, color: colors.textSecondary, size: 24),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'timezone_label'.tr(ref),
+                                      style: TextStyle(
+                                        color: colors.textSecondary.withOpacity(0.8),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _selectedTimezone!,
+                                      style: TextStyle(
+                                        color: colors.textPrimary,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                Icons.arrow_drop_down_rounded,
+                                color: colors.textSecondary,
+                                size: 24,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
                 },
+                loading: () => Container(
+                  height: 140,
+                  alignment: Alignment.center,
+                  child: const CircularProgressIndicator(),
+                ),
+                error: (err, _) => Container(
+                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: colors.expenseRed.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    'Lỗi tải cấu hình: $err',
+                    style: TextStyle(color: colors.expenseRed),
+                  ),
+                ),
               ),
               
               const SizedBox(height: 32),
@@ -407,6 +480,172 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showTimezoneSearchSheet(BuildContext context, List<String> timezones) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return _TimezoneSearchSheet(
+          timezones: timezones,
+          initialValue: _selectedTimezone,
+          onSelected: (tz) {
+            setState(() {
+              _selectedTimezone = tz;
+            });
+          },
+        );
+      },
+    );
+  }
+}
+
+class _TimezoneSearchSheet extends StatefulWidget {
+  final List<String> timezones;
+  final String? initialValue;
+  final ValueChanged<String> onSelected;
+
+  const _TimezoneSearchSheet({
+    required this.timezones,
+    required this.initialValue,
+    required this.onSelected,
+  });
+
+  @override
+  State<_TimezoneSearchSheet> createState() => _TimezoneSearchSheetState();
+}
+
+class _TimezoneSearchSheetState extends State<_TimezoneSearchSheet> {
+  late List<String> _filteredTimezones;
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _filteredTimezones = widget.timezones;
+    _searchController.addListener(_filterList);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterList() {
+    final query = _searchController.text.toLowerCase().trim();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredTimezones = widget.timezones;
+      } else {
+        _filteredTimezones = widget.timezones
+            .where((tz) => tz.toLowerCase().contains(query))
+            .toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final viewInsets = MediaQuery.of(context).viewInsets;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + viewInsets.bottom),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.75,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Thanh kéo ngang nhỏ phía trên sheet
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: colors.textSecondary.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Chọn Múi Giờ',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Hộp tìm kiếm
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: colors.background,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colors.textSecondary.withOpacity(0.15)),
+            ),
+            child: TextField(
+              controller: _searchController,
+              style: TextStyle(color: colors.textPrimary),
+              decoration: InputDecoration(
+                hintText: 'Tìm kiếm múi giờ...',
+                hintStyle: TextStyle(color: colors.textSecondary.withOpacity(0.6)),
+                border: InputBorder.none,
+                icon: Icon(Icons.search_rounded, color: colors.textSecondary),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear_rounded, size: 18),
+                        onPressed: () => _searchController.clear(),
+                      )
+                    : null,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Danh sách múi giờ
+          Expanded(
+            child: _filteredTimezones.isEmpty
+                ? Center(
+                    child: Text(
+                      'Không tìm thấy múi giờ nào',
+                      style: TextStyle(color: colors.textSecondary),
+                    ),
+                  )
+                : ListView.builder(
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: _filteredTimezones.length,
+                    itemBuilder: (context, index) {
+                      final tz = _filteredTimezones[index];
+                      final isSelected = tz == widget.initialValue;
+
+                      return ListTile(
+                        title: Text(
+                          tz,
+                          style: TextStyle(
+                            color: isSelected ? colors.primary : colors.textPrimary,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        trailing: isSelected
+                            ? Icon(Icons.check_circle_rounded, color: colors.primary)
+                            : null,
+                        onTap: () {
+                          widget.onSelected(tz);
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }

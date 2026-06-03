@@ -94,6 +94,7 @@ class WalletRepositoryImpl  implements WalletRepository{
     required String toWalletId,
     required double amount,
     String? notes,
+    String? timezone,
   }) async {
     AppLogger.debug("🌐 [Wallet-Sync] Bắt đầu gửi yêu cầu chuyển tiền từ ví $fromWalletId sang ví $toWalletId...", tag: "Wallet-Sync");
     try {
@@ -102,6 +103,7 @@ class WalletRepositoryImpl  implements WalletRepository{
         'to_wallet_id': toWalletId,
         'amount': amount,
         if (notes != null) 'notes': notes,
+        if (timezone != null) 'timezone': timezone,
       };
       await _apiService.transferMoney(body);
       AppLogger.info("☁️ [Wallet-Sync] Chuyển tiền thành công trên Remote Server! Tiến hành đồng bộ lại ví...", tag: "Wallet-Sync");
@@ -133,7 +135,9 @@ class WalletRepositoryImpl  implements WalletRepository{
           fromWalletName: map['from_wallet_name']?.toString() ?? '',
           toWalletName: map['to_wallet_name']?.toString() ?? '',
           amount: double.tryParse(map['amount']?.toString() ?? '0') ?? 0.0,
-          date: DateTime.parse(map['date']?.toString() ?? DateTime.now().toIso8601String()).toLocal(),
+          date: DateTime.parse(map['date']?.toString() ?? DateTime.now().toIso8601String()),
+          timezone: map['timezone']?.toString(),
+          currencyCode: map['currency_code']?.toString(),
         );
       }).toList();
     } catch (e, stackTrace) {

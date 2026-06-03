@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'wallet_constants.dart';
 
+class WalletPreviewCard extends StatelessWidget {
+  final String walletName;
+  final double balance;
+  final String selectedIcon;
+  final String selectedColor;
+  final Color primaryColor;
   final String currencySymbol;
 
   const WalletPreviewCard({
