@@ -4,7 +4,12 @@ import 'dart:io';
 
 abstract class UserRepository {
   /// Cập nhật thông tin hồ sơ của người dùng lên hệ thống
-  Future<UserEntity> updateProfile({String? fullName, String? language});
+  Future<UserEntity> updateProfile({
+    String? fullName,
+    String? language,
+    String? currency,
+    String? timezone,
+  });
 
   // Cập nhật avatar của người dùng lên hệ thống
   Future<UserEntity> updateAvatar({required File imageFile});

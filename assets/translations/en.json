@@ -71,6 +71,8 @@
   "edit_profile": "Personal Info",
   "full_name_label": "Full Name",
   "email_label": "Email Address (Cannot be changed)",
+  "default_currency_label": "Default Currency",
+  "timezone_label": "Default Timezone",
   "save_changes": "Save Changes",
   "please_enter_name": "Please enter your name",
   "update_avatar_success": "Avatar updated successfully!",

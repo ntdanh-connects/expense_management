@@ -9,6 +9,8 @@ import 'package:expense_management/features/wallet/presentation/provider/wallet_
 import 'package:expense_management/features/wallet/presentation/widget/wallet_constants.dart';
 import 'package:expense_management/features/wallet/presentation/widget/swipe_to_confirm_button.dart';
 import 'package:expense_management/features/wallet/presentation/widget/wallet_preview_card.dart';
+import 'package:expense_management/core/constants/app_constant.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/core/language/app_language.dart';
 
 class AddWalletScreen extends ConsumerStatefulWidget {
@@ -120,6 +122,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
               selectedIcon: _selectedIcon,
               selectedColor: _selectedColor,
               primaryColor: colors.primary,
+              currencySymbol: AppConstant.getCurrencySymbol(ref.watch(currentUserProvider)?.currency),
             ),
             const SizedBox(height: 28),
 
@@ -204,7 +207,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
                           const SizedBox(width: 6),
                         ],
                         Text(
-                          'đ',
+                          AppConstant.getCurrencySymbol(ref.watch(currentUserProvider)?.currency),
                           style: TextStyle(
                             color: widget.walletToEdit != null
                                 ? colors.textSecondary.withOpacity(0.8)
@@ -691,7 +694,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
                       ],
                     ),
                     Text(
-                      '${_formatMoney(_initialBalance)} đ',
+                      '${_formatMoney(_initialBalance)} ${AppConstant.getCurrencySymbol(ref.watch(currentUserProvider)?.currency)}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,

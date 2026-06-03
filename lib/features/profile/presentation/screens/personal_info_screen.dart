@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/core/language/app_language.dart';
@@ -25,12 +26,17 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
   bool _isUploadingAvatar = false;
   final ImagePicker _picker = ImagePicker();
 
+  String? _selectedCurrency;
+  String? _selectedTimezone;
+
   @override
   void initState() {
     super.initState();
     final user = ref.read(currentUserProvider);
     _nameController = TextEditingController(text: user?.fullName ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
+    _selectedCurrency = user?.currency ?? 'VND';
+    _selectedTimezone = user?.timezone ?? 'Asia/Ho_Chi_Minh';
     
     if (user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty) {
        _avatarUrl = user.avatarUrl;
@@ -95,7 +101,11 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
     
     try {
       // GỌI API UPDATE PROFILE
-      await ref.read(updateProfileUseCaseProvider).execute(fullName: fullName);
+      await ref.read(updateProfileUseCaseProvider).execute(
+        fullName: fullName,
+        currency: _selectedCurrency,
+        timezone: _selectedTimezone,
+      );
       
       if (mounted) {
         setState(() => _isSaving = false);
@@ -119,6 +129,63 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
         );
       }
     }
+  }
+
+  Widget _buildDropdownField<T>({
+    required String label,
+    required IconData icon,
+    required T value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+  }) {
+    final colors = context.colors;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.textSecondary.withOpacity(0.15)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: colors.textSecondary, size: 24),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: colors.textSecondary.withOpacity(0.8),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                DropdownButtonHideUnderline(
+                  child: DropdownButton<T>(
+                    value: value,
+                    isDense: true,
+                    isExpanded: true,
+                    dropdownColor: colors.surface,
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    items: items,
+                    onChanged: onChanged,
+                  ),
+                ),
+              ],
+            ),
+          )
+        ],
+      ),
+    );
   }
 
   Widget _buildInputField({
@@ -278,6 +345,38 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
                 icon: Icons.email_outlined,
                 controller: _emailController,
                 readOnly: true,
+              ),
+
+              // CHỌN TIỀN TỆ MẶC ĐỊNH
+              _buildDropdownField<String>(
+                label: 'default_currency_label'.tr(ref),
+                icon: Icons.monetization_on_outlined,
+                value: _selectedCurrency ?? 'VND',
+                items: AppConstant.currencies.map((c) => DropdownMenuItem<String>(
+                  value: c,
+                  child: Text(c == 'VND' ? 'VND (đ)' : c == 'USD' ? 'USD (\$)' : c == 'EUR' ? 'EUR (€)' : c == 'JPY' ? 'JPY (¥)' : 'GBP (£)'),
+                )).toList(),
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() => _selectedCurrency = val);
+                  }
+                },
+              ),
+
+              // CHỌN MÚI GIỜ
+              _buildDropdownField<String>(
+                label: 'timezone_label'.tr(ref),
+                icon: Icons.public_rounded,
+                value: _selectedTimezone ?? 'Asia/Ho_Chi_Minh',
+                items: AppConstant.timezones.map((tz) => DropdownMenuItem<String>(
+                  value: tz['value']!,
+                  child: Text(tz['name']!),
+                )).toList(),
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() => _selectedTimezone = val);
+                  }
+                },
               ),
               
               const SizedBox(height: 32),

@@ -13,4 +13,6 @@ class ApiEndpoints {
   static const String changePassword = 'api/user/change-password';
   static const String deleteAccount = 'api/user';
   static const String forgotPassword = 'api/auth/forgot-password';
+  static const String transfer = 'api/wallets/transfer';
+  static const String transfers = 'api/wallets/transfers';
 }

@@ -23,7 +23,12 @@ class UserRepositoryImpl implements UserRepository {
   UserRepositoryImpl(this._userApiService, this._db, this._secureStorageService);
 
   @override
-  Future<UserEntity> updateProfile({String? fullName, String? language}) async {
+  Future<UserEntity> updateProfile({
+    String? fullName,
+    String? language,
+    String? currency,
+    String? timezone,
+  }) async {
     final userId = await _secureStorageService.get(key: AppConstant.userId);
     if (userId == null) {
       throw Exception("Không tìm thấy thông tin định danh người dùng.");
@@ -38,10 +43,12 @@ class UserRepositoryImpl implements UserRepository {
     final updatedLocalRow = currentLocalRow.copyWith(
       fullName: fullName ?? currentLocalRow.fullName,
       language: language ?? currentLocalRow.language,
+      currency: currency ?? currentLocalRow.currency,
+      timezone: timezone ?? currentLocalRow.timezone,
     );
     await _db.saveUserProfile(updatedLocalRow);
 
-    AppLogger.info("💾 [SQLite] [Offline-First] Cập nhật SQLite thành công! Đã lưu tạm thời: fullName='${fullName ?? currentLocalRow.fullName}', language='${language ?? currentLocalRow.language}'.", tag: "SQLite");
+    AppLogger.info("💾 [SQLite] [Offline-First] Cập nhật SQLite thành công! Đã lưu tạm thời: fullName='${fullName ?? currentLocalRow.fullName}', language='${language ?? currentLocalRow.language}', currency='${currency ?? currentLocalRow.currency}', timezone='${timezone ?? currentLocalRow.timezone}'.", tag: "SQLite");
     AppLogger.debug("🌐 [Sync-Flow] Bắt đầu gửi đồng bộ thông tin mới lên Server...", tag: "Sync-Flow");
 
     // 2. Đồng bộ thông tin lên Server
@@ -49,6 +56,8 @@ class UserRepositoryImpl implements UserRepository {
       final responseDto = await _userApiService.updateProfile(
         fullName ?? currentLocalRow.fullName,
         language ?? currentLocalRow.language,
+        currency ?? currentLocalRow.currency,
+        timezone ?? currentLocalRow.timezone,
       );
       final freshData = responseDto.data;
       
@@ -61,6 +70,7 @@ class UserRepositoryImpl implements UserRepository {
         currency: freshData.preference.currency,
         language: freshData.preference.language,
         theme: freshData.preference.theme,
+        timezone: freshData.preference.timezone,
       ));
       
       AppLogger.info("☁️ [Sync-Flow] Kiểm tra Server: Đồng bộ thành công! Đã cập nhật đè dữ liệu chuẩn từ BE vào SQLite local.", tag: "Sync-Flow");
@@ -110,6 +120,7 @@ class UserRepositoryImpl implements UserRepository {
         currency: freshData.preference.currency,
         language: freshData.preference.language,
         theme: freshData.preference.theme,
+        timezone: freshData.preference.timezone
       ));
       
       return ProfileMapper.toUserEntity(freshData);

@@ -15,6 +15,7 @@ class Users extends Table {
   TextColumn get currency => text()();
   TextColumn get language => text()();
   TextColumn get theme => text()();
+  TextColumn get timezone => text().withDefault(const Constant('Asia/Ho_Chi_Minh'))();
 
   @override
   Set<Column> get primaryKey => {id}; // Đóng chặt khóa chính
@@ -39,7 +40,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(): super(_openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -49,6 +50,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 3) {
         await m.addColumn(users, users.avatarUrl);
+      }
+      if (from < 4) {
+        await m.addColumn(users, users.timezone);
       }
     },
   );

@@ -1,12 +1,7 @@
 import 'package:flutter/material.dart';
 import 'wallet_constants.dart';
 
-class WalletPreviewCard extends StatelessWidget {
-  final String walletName;
-  final double balance;
-  final String selectedIcon;
-  final String selectedColor;
-  final Color primaryColor;
+  final String currencySymbol;
 
   const WalletPreviewCard({
     super.key,
@@ -15,6 +10,7 @@ class WalletPreviewCard extends StatelessWidget {
     required this.selectedIcon,
     required this.selectedColor,
     required this.primaryColor,
+    required this.currencySymbol,
   });
 
   @override
@@ -115,7 +111,7 @@ class WalletPreviewCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${_formatMoney(balance)} đ',
+                  '${_formatMoney(balance)} $currencySymbol',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 26,

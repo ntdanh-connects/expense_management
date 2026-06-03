@@ -12,5 +12,6 @@ abstract class UserEntity with _$UserEntity {
     required String currency,
     required String language,
     required String theme,
+    required String timezone,
   }) = _UserEntity;
 }

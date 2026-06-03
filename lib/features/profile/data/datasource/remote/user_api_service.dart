@@ -16,6 +16,8 @@ abstract class UserApiService {
   Future<BaseResponseDto<UserDataDto>> updateProfile(
     @Field("full_name") String? fullName,
     @Field("language") String? language,
+    @Field("currency") String? currency,
+    @Field("timezone") String? timezone,
   );
 
   @POST(ApiEndpoints.updateAvatar)

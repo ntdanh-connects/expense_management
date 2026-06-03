@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:go_router/go_router.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:expense_management/core/language/app_language.dart';
+import 'package:expense_management/core/constants/app_constant.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
 
 final showBalanceProvider = StateProvider<bool>((ref) => true);
 
@@ -18,6 +20,7 @@ class DashboardScreen extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final walletState = ref.watch(walletNotifierProvider);
     final showBalance = ref.watch(showBalanceProvider);
+    final currencySymbol = AppConstant.getCurrencySymbol(ref.watch(currentUserProvider)?.currency);
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -92,7 +95,7 @@ class DashboardScreen extends ConsumerWidget {
                       }
                       
                       return Text(
-                        showBalance ? '${formatMoney(totalBalance)} đ' : '•••••• đ',
+                        showBalance ? '${formatMoney(totalBalance)} $currencySymbol' : '•••••• $currencySymbol',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 30,
@@ -100,17 +103,17 @@ class DashboardScreen extends ConsumerWidget {
                         ),
                       );
                     },
-                    loading: () => const Text(
-                      '... đ',
-                      style: TextStyle(
+                    loading: () => Text(
+                      '... $currencySymbol',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 30,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    error: (_, __) => const Text(
-                      '0 đ',
-                      style: TextStyle(
+                    error: (_, __) => Text(
+                      '0 $currencySymbol',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 30,
                         fontWeight: FontWeight.bold,
@@ -281,7 +284,7 @@ class DashboardScreen extends ConsumerWidget {
                       return _buildWalletCard(
                         context: context,
                         title: wallet.name,
-                        amount: showBalance ? '${formatMoney(wallet.balance)} đ' : '•••••• đ',
+                        amount: showBalance ? '${formatMoney(wallet.balance)} $currencySymbol' : '•••••• $currencySymbol',
                         icon: _getWalletIcon(wallet.type),
                         iconBgColor: itemColor.withOpacity(0.12),
                         iconColor: itemColor,
@@ -343,7 +346,7 @@ class DashboardScreen extends ConsumerWidget {
               colors: colors,
               title: 'lunch_pho_thin'.tr(ref),
               sub: 'lunch_sub'.tr(ref),
-              amount: '-65.000đ',
+              amount: '-65.000 $currencySymbol',
               isIncome: false,
               icon: Icons.restaurant_rounded,
               iconColor: Colors.orange,
@@ -352,7 +355,7 @@ class DashboardScreen extends ConsumerWidget {
               colors: colors,
               title: 'uniqlo_vincom'.tr(ref),
               sub: 'uniqlo_sub'.tr(ref),
-              amount: '-1.200.000đ',
+              amount: '-1.200.000 $currencySymbol',
               isIncome: false,
               icon: Icons.shopping_bag_rounded,
               iconColor: Colors.blue,
@@ -361,7 +364,7 @@ class DashboardScreen extends ConsumerWidget {
               colors: colors,
               title: 'salary_may'.tr(ref),
               sub: 'salary_sub'.tr(ref),
-              amount: '+35.000.000đ',
+              amount: '+35.000.000 $currencySymbol',
               isIncome: true,
               icon: Icons.payments_rounded,
               iconColor: Colors.green,

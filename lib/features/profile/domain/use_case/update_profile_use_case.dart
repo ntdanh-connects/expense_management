@@ -6,7 +6,17 @@ class UpdateProfileUseCase {
 
   UpdateProfileUseCase(this._userRepository);
 
-  Future<UserEntity> execute({String? fullName, String? language}) async {
-    return await _userRepository.updateProfile(fullName: fullName, language: language);
+  Future<UserEntity> execute({
+    String? fullName,
+    String? language,
+    String? currency,
+    String? timezone,
+  }) async {
+    return await _userRepository.updateProfile(
+      fullName: fullName,
+      language: language,
+      currency: currency,
+      timezone: timezone,
+    );
   }
 }

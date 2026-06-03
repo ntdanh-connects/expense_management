@@ -4,11 +4,13 @@ import '../../domain/entities/wallet_entity.dart';
 class WalletCardItem extends StatelessWidget {
   final WalletEntity wallet;
   final VoidCallback? onTap;
+  final String currencySymbol;
 
   const WalletCardItem({
     super.key,
     required this.wallet,
     this.onTap,
+    this.currencySymbol = 'đ',
   });
 
   @override
@@ -69,6 +71,7 @@ class WalletCardItem extends StatelessWidget {
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 1.0,
+                            
                           ),
                         ),
                       ],
@@ -92,7 +95,7 @@ class WalletCardItem extends StatelessWidget {
   
               // Số dư ví to rõ nét ở chính giữa
               Text(
-                '${_formatMoney(wallet.balance)} đ',
+                '${_formatMoney(wallet.balance)} $currencySymbol',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 26,
