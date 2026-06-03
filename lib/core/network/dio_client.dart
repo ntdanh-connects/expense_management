@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:expense_management/core/config/app_config.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
@@ -104,6 +105,8 @@ class RefreshTokenInterceptor extends Interceptor {
   final Dio mainDio;
   RefreshTokenInterceptor(this.ref, this.mainDio);
 
+  Future<String?>? _refreshFuture;
+
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
     if(response.statusCode==200 && response.data is Map<String,dynamic>){
@@ -120,7 +123,7 @@ class RefreshTokenInterceptor extends Interceptor {
               requestOptions: response.requestOptions,
               response: response,
               type: DioExceptionType.badResponse,
-              error: data['error'] ?? data['message'] ?? 'Thao tác thất bại rồi ní!',
+              error: data['error'] ?? data['message'] ?? 'Thao tác thất bại!',
             ),
           );
         }
@@ -133,18 +136,44 @@ class RefreshTokenInterceptor extends Interceptor {
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     if (err.response?.statusCode == 401) {
       final storage = ref.read(secureStorageServiceProvider);
-      final refreshToken = await storage.get(key: AppConstant.refreshToken);
       final userId = await storage.get(key: AppConstant.userId);
+
+      // Nếu đã có một tiến trình refresh token đang chạy, hãy đợi nó hoàn thành
+      if (_refreshFuture != null) {
+        try {
+          final newAccessToken = await _refreshFuture;
+          if (newAccessToken != null) {
+            err.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
+            final retryRequest = await mainDio.fetch(err.requestOptions);
+            return handler.resolve(retryRequest);
+          }
+        } catch (_) {
+          // Bỏ qua lỗi và tiếp tục xử lý lỗi 401 ban đầu
+        }
+        return handler.next(err);
+      }
+
+      final refreshToken = await storage.get(key: AppConstant.refreshToken);
       
       if (refreshToken != null) {
+        final completer = Completer<String?>();
+        _refreshFuture = completer.future;
+
         try {
-          final refreshDio = Dio(BaseOptions(baseUrl: AppConfig.baseUrl));
+          final refreshDio = Dio(BaseOptions(
+            baseUrl: AppConfig.baseUrl,
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+          ));
+          
           final response = await refreshDio.post(
             ApiEndpoints.refreshToken,
             data: {
               'user_id': userId,
               'refresh_token': refreshToken
-              },
+            },
           );
 
           if (response.statusCode == 200) {
@@ -154,17 +183,25 @@ class RefreshTokenInterceptor extends Interceptor {
             await storage.save(key: AppConstant.accessToken, value: newAccessToken);
             await storage.save(key: AppConstant.refreshToken, value: newRefreshToken);
 
+            completer.complete(newAccessToken);
+            _refreshFuture = null;
+
             err.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
 
             final retryRequest = await mainDio.fetch(err.requestOptions);
             return handler.resolve(retryRequest);
+          } else {
+            completer.complete(null);
+            _refreshFuture = null;
           }
         } catch (refreshError) {
+          completer.completeError(refreshError);
+          _refreshFuture = null;
+
           await storage.clearAll();
-            Future.microtask(() {
-              ref.read(authNotifierProvider.notifier).logout();
-            });
-          
+          Future.microtask(() {
+            ref.read(authNotifierProvider.notifier).logout();
+          });
         }
       }
     }
