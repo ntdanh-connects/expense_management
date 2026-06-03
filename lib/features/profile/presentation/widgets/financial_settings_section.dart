@@ -2,6 +2,8 @@ import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/language/app_language.dart';
+import 'package:go_router/go_router.dart';
+import 'package:expense_management/core/router/app_route.dart';
 import 'profile_menu_item.dart';
 
 class FinancialSettingsSection extends ConsumerWidget {
@@ -30,7 +32,7 @@ class FinancialSettingsSection extends ConsumerWidget {
                 icon: Icons.category_outlined,
                 iconColor: colors.profileCategory,
                 title: 'category_management'.tr(ref),
-                onTap: () {},
+                onTap: () => context.push(RoutePaths.categories),
               ),
               Divider(color: colors.textSecondary.withOpacity(0.08), height: 1, indent: 50),
               ProfileMenuItem(

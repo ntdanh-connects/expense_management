@@ -187,5 +187,22 @@
   "please_confirm_new_password": "Vui lòng xác nhận mật khẩu mới",
   "update_password": "Cập nhật mật khẩu",
   "this_month_budget": "Ngân sách tháng này",
-  "spent_amount_info": "Bạn đã chi {spent}đ / {total}đ"
+  "spent_amount_info": "Bạn đã chi {spent}đ / {total}đ",
+  "expense": "Chi tiêu",
+  "income": "Thu nhập",
+  "new_category": "Danh mục mới",
+  "create_category_success": "Tạo danh mục mới thành công!",
+  "update_category_success": "Cập nhật danh mục thành công!",
+  "delete_category_success": "Xóa danh mục thành công!",
+  "delete_category_confirm": "Bạn có chắc chắn muốn xóa danh mục này?",
+  "merge_categories": "Gộp danh mục",
+  "merge_categories_desc": "Các giao dịch thuộc danh mục này sẽ được chuyển sang danh mục đích.",
+  "select_target_category": "Chọn danh mục đích",
+  "select_parent_category": "Chọn danh mục cha",
+  "category_name": "Tên danh mục",
+  "enter_category_name": "Nhập tên danh mục",
+  "cannot_delete_default_category": "Không thể xóa danh mục mặc định!",
+  "max_category_limit_reached": "Bạn đã đạt giới hạn 20 danh mục tùy chỉnh",
+  "create_custom_category_desc": "Tạo nguồn thu nhập riêng của bạn",
+  "custom_category_count": "Danh mục mới ({count}/20)"
 }

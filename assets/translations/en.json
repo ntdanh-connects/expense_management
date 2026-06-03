@@ -187,5 +187,22 @@
   "please_confirm_new_password": "Please confirm your new password",
   "update_password": "Update Password",
   "this_month_budget": "This month's budget",
-  "spent_amount_info": "You spent {spent}đ / {total}đ"
+  "spent_amount_info": "You spent {spent}đ / {total}đ",
+  "expense": "Expense",
+  "income": "Income",
+  "new_category": "New Category",
+  "create_category_success": "Category created successfully!",
+  "update_category_success": "Category updated successfully!",
+  "delete_category_success": "Category deleted successfully!",
+  "delete_category_confirm": "Are you sure you want to delete this category?",
+  "merge_categories": "Merge Category",
+  "merge_categories_desc": "Transactions under this category will be moved to the target category.",
+  "select_target_category": "Select Target Category",
+  "select_parent_category": "Select Parent Category",
+  "category_name": "Category Name",
+  "enter_category_name": "Enter category name",
+  "cannot_delete_default_category": "Cannot delete default category!",
+  "max_category_limit_reached": "You have reached the limit of 20 custom categories",
+  "create_custom_category_desc": "Create your own source of custom category",
+  "custom_category_count": "Custom Category ({count}/20)"
 }
