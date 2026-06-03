@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
+import 'package:expense_management/shared/widgets/modern_em_logo.dart';
 
 class SharedTopAppBar extends StatelessWidget implements PreferredSizeWidget {
   final ValueChanged<String>? onSearchChanged;
@@ -33,7 +34,7 @@ class SharedTopAppBar extends StatelessWidget implements PreferredSizeWidget {
           padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
           child: Row(
             children: [
-              // 👤 1. AVATAR USER TRÒN CÓ VIỀN
+              // 👤 1. LOGO TRÒN CÓ VIỀN
               Container(
                 width: 38,
                 height: 38,
@@ -42,15 +43,7 @@ class SharedTopAppBar extends StatelessWidget implements PreferredSizeWidget {
                   border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.5),
                   color: Colors.white.withOpacity(0.2),
                 ),
-                child: ClipOval(
-                  child: Image.network(
-                    'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150',
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Icon(Icons.person_rounded, color: Colors.white);
-                    },
-                  ),
-                ),
+                child: const ModernEMLogo(size: 34, showShadow: false),
               ),
               const SizedBox(width: 12),
 

@@ -8,6 +8,7 @@ import 'package:expense_management/features/auth/presentation/widgets/auth_heade
 import 'package:expense_management/shared/widgets/custom_text_field.dart';
 import 'package:expense_management/shared/widgets/github_logo.dart';
 import 'package:expense_management/core/language/app_language.dart';
+import 'package:expense_management/shared/widgets/modern_em_logo.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -112,17 +113,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          gradient: colors.authGradient,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.account_balance_wallet_outlined,
-                          size: 44,
-                        )
-                      ),
+                      const ModernEMLogo(size: 80, showShadow: true),
                       const SizedBox(height: 16),
 
                       // Đổi tên thương hiệu chuẩn chỉ SpendWise đồng bộ với Web của ní luôn!

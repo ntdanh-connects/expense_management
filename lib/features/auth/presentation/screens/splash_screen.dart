@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/auth/auth_provider.dart';
+import 'package:expense_management/shared/widgets/modern_em_logo.dart';
 
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -60,53 +61,78 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    return AnimatedBuilder(
-      animation: _radiusAnimation,
-      builder: (context, child) {
-        // 🔮 THẦN CHÚ CẮT GỌT: Bọc CustomClipper để khoét cái lỗ tròn co rút màn hình!
-        return ClipPath(
-          clipper: CircularShrinkClipper(progress: _radiusAnimation.value),
-          child: child,
-        );
-      },
-      child: Scaffold(
-        body: Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: BoxDecoration(
-            gradient: colors.authGradient, // Nền Gradient BankDash lộng lẫy của ní
-          ),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // 👤 KHỐI TRÒN AVATAR LOGO TÂM ĐIỂM
-                Container(
-                  width: 120,
-                  height: 120,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: colors.primary.withOpacity(0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Image.asset(
-                    'assets/images/app_logo_dark.png',
-                    fit: BoxFit.contain,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'ExpenseManagement',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: colors.textPrimary,
-                    letterSpacing: 2.0,
-                  ),
-                ),
-              ],
+    return Scaffold(
+      backgroundColor: Colors.black, // Nền đen sâu làm nền phụ khi thu nhỏ
+      body: Stack(
+        children: [
+          // 1. Màn hình nền Gradient sẽ bị co rút tròn nhỏ lại biến mất
+          AnimatedBuilder(
+            animation: _radiusAnimation,
+            builder: (context, child) {
+              return ClipPath(
+                clipper: CircularShrinkClipper(progress: _radiusAnimation.value),
+                child: child,
+              );
+            },
+            child: Container(
+              width: double.infinity,
+              height: double.infinity,
+              decoration: BoxDecoration(
+                gradient: colors.authGradient,
+              ),
             ),
           ),
-        ),
+
+          // 2. Khối Logo nổi hẳn lên trên và chạy hiệu ứng scale/fade mượt mà theo tiến trình thu nhỏ
+          Center(
+            child: AnimatedBuilder(
+              animation: _radiusAnimation,
+              builder: (context, child) {
+                final double progress = _radiusAnimation.value;
+                // Logo giữ nguyên độ đậm nét 100% trong phần lớn thời gian co rút nền,
+                // và chỉ nhanh chóng mờ dần trong 20% tiến trình cuối (từ 0.2 về 0.0)
+                final double logoOpacity = (progress / 0.2).clamp(0.0, 1.0);
+                
+                // Logo sẽ phóng to (bay về phía người dùng) từ 1.0 lên 1.3 khi nền co rút nhỏ đi
+                final double logoScale = 1.3 - 0.3 * progress;
+
+                return Opacity(
+                  opacity: logoOpacity,
+                  child: Transform.scale(
+                    scale: logoScale,
+                    child: child,
+                  ),
+                );
+              },
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 140,
+                    height: 140,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.08),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.15),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: colors.primary.withOpacity(0.35),
+                          blurRadius: 30,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: const ModernEMLogo(size: 90, showShadow: true),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
