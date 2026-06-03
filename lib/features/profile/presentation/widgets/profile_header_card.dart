@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 class ProfileHeaderCard extends StatelessWidget {
   final String fullName;
   final String membershipTier;
+  final String? avatarUrl;
 
   const ProfileHeaderCard({
     super.key,
     required this.fullName,
     required this.membershipTier,
+    this.avatarUrl,
   });
 
   @override
@@ -34,22 +36,43 @@ class ProfileHeaderCard extends StatelessWidget {
             height: 72,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(0.6), width: 2.5),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.6),
+                width: 2.5,
+              ),
             ),
-            child: const CircleAvatar(
+            child: CircleAvatar(
               backgroundColor: Colors.white24,
-              child: Icon(Icons.person_rounded, size: 40, color: Colors.white),
+              backgroundImage: avatarUrl != null && avatarUrl!.isNotEmpty
+                  ? NetworkImage(avatarUrl!)
+                  : null,
+              child: avatarUrl != null && avatarUrl!.isNotEmpty
+                  ? null
+                  : const Icon(
+                      Icons.person_rounded,
+                      size: 40,
+                      color: Colors.white,
+                    ),
             ),
           ),
           const SizedBox(height: 12),
           Text(
             fullName,
-            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             membershipTier,
-            style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 12, fontWeight: FontWeight.w500, letterSpacing: 1),
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.75),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 1,
+            ),
           ),
         ],
       ),

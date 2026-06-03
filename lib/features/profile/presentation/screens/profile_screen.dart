@@ -133,6 +133,7 @@ class ProfileScreen extends ConsumerWidget {
                     ProfileHeaderCard(
                       fullName: currentUser?.fullName ?? 'unnamed_user'.tr(ref),
                       membershipTier: 'platinum_member'.tr(ref),
+                      avatarUrl: currentUser?.avatarUrl,
                     ),
                     const SizedBox(height: 12),
                     const Padding(
