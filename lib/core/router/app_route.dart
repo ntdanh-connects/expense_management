@@ -11,6 +11,7 @@ import 'package:expense_management/features/dashboard/presentation/screens/main_
 import 'package:expense_management/features/profile/presentation/screens/change_password_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/personal_info_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/profile_screen.dart';
+import 'package:expense_management/features/profile/presentation/screens/category_management_screen.dart';
 import 'package:expense_management/features/transaction/presentation/screens/transaction_history_screen.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/presentation/screens/wallet_screen.dart';
@@ -34,7 +35,7 @@ class RoutePaths {
   static const editProfile = '/profile/edit';
   static const changePassword = '/profile/change-password';
   static const forgotPassword = '/auth/forgot-password';
-  
+  static const categories = '/profile/categories';
 }
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -158,6 +159,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: 'change-password',
                 parentNavigatorKey: rootNavigatorKey,
                 builder: (context, state) => const ChangePasswordScreen(),
+              ),
+              GoRoute(
+                path: 'categories',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) => const CategoryManagementScreen(),
               ),
             ],
           ),
