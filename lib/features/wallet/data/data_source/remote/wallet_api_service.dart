@@ -22,4 +22,10 @@ abstract class WalletApiService {
     @Path('id') String id,
     @Body() CreateWalletRequest request,
   );
+
+  @POST(ApiEndpoints.transfer)
+  Future<BaseResponseDto<dynamic>> transferMoney(@Body() Map<String, dynamic> body);
+
+  @GET(ApiEndpoints.transfers)
+  Future<BaseResponseDto<List<dynamic>>> getTransfers();
 }

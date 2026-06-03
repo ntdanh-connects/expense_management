@@ -9,6 +9,7 @@ import 'package:expense_management/features/wallet/domain/repository/wallet_repo
 import 'package:expense_management/core/database/app_database.dart';
 import 'package:expense_management/core/utils/app_logger.dart';
 import '../../domain/entities/wallet_entity.dart';
+import '../../domain/entities/internal_transfer_record.dart';
 
 class WalletRepositoryImpl  implements WalletRepository{
   final WalletApiService _apiService;
@@ -83,6 +84,64 @@ class WalletRepositoryImpl  implements WalletRepository{
       } else {
         AppLogger.error("🚨 [SQLite] Lỗi cập nhật ví trong SQLite local: $e", tag: "SQLite", stackTrace: stackTrace);
       }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> transferMoney({
+    required String fromWalletId,
+    required String toWalletId,
+    required double amount,
+    String? notes,
+    String? timezone,
+  }) async {
+    AppLogger.debug("🌐 [Wallet-Sync] Bắt đầu gửi yêu cầu chuyển tiền từ ví $fromWalletId sang ví $toWalletId...", tag: "Wallet-Sync");
+    try {
+      final body = {
+        'from_wallet_id': fromWalletId,
+        'to_wallet_id': toWalletId,
+        'amount': amount,
+        if (notes != null) 'notes': notes,
+        if (timezone != null) 'timezone': timezone,
+      };
+      await _apiService.transferMoney(body);
+      AppLogger.info("☁️ [Wallet-Sync] Chuyển tiền thành công trên Remote Server! Tiến hành đồng bộ lại ví...", tag: "Wallet-Sync");
+      
+      // Đồng bộ lại danh sách ví để cập nhật số dư mới nhất vào SQLite
+      await syncWalletsImplicit();
+    } catch (e, stackTrace) {
+      if (e is DioException) {
+        final serverError = e.response?.data;
+        AppLogger.error("🚨 [Wallet-Sync] Lỗi chuyển tiền trên Remote Server: ${e.message}. Chi tiết từ Server: $serverError", tag: "Wallet-Sync", stackTrace: stackTrace);
+      } else {
+        AppLogger.error("🚨 [Wallet-Sync] Lỗi chuyển tiền cục bộ: $e", tag: "Wallet-Sync", stackTrace: stackTrace);
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<InternalTransferRecord>> getTransferHistory() async {
+    AppLogger.debug("🌐 [Wallet-Sync] Bắt đầu lấy lịch sử chuyển tiền từ Remote Server...", tag: "Wallet-Sync");
+    try {
+      final response = await _apiService.getTransfers();
+      final List<dynamic> list = response.data ?? [];
+      
+      return list.map((item) {
+        final map = item as Map<String, dynamic>;
+        return InternalTransferRecord(
+          id: map['id']?.toString() ?? '',
+          fromWalletName: map['from_wallet_name']?.toString() ?? '',
+          toWalletName: map['to_wallet_name']?.toString() ?? '',
+          amount: double.tryParse(map['amount']?.toString() ?? '0') ?? 0.0,
+          date: DateTime.parse(map['date']?.toString() ?? DateTime.now().toIso8601String()),
+          timezone: map['timezone']?.toString(),
+          currencyCode: map['currency_code']?.toString(),
+        );
+      }).toList();
+    } catch (e, stackTrace) {
+      AppLogger.error("🚨 [Wallet-Sync] Lỗi lấy lịch sử chuyển tiền: $e", tag: "Wallet-Sync", stackTrace: stackTrace);
       rethrow;
     }
   }

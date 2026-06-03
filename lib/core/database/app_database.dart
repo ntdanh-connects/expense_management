@@ -15,6 +15,7 @@ class Users extends Table {
   TextColumn get currency => text()();
   TextColumn get language => text()();
   TextColumn get theme => text()();
+  TextColumn get timezone => text().withDefault(const Constant('Asia/Ho_Chi_Minh'))();
 
   @override
   Set<Column> get primaryKey => {id}; // Đóng chặt khóa chính
@@ -25,6 +26,7 @@ class Wallets extends Table {
   TextColumn get name => text()();
   RealColumn get balance => real()();
   TextColumn get type => text()();
+  TextColumn get currencyCode => text().withDefault(const Constant('VND'))();
   TextColumn get icon => text()();
   TextColumn get color => text()();
   BoolColumn get isHidden => boolean().withDefault(const Constant(false))();
@@ -33,22 +35,43 @@ class Wallets extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-
-@DriftDatabase(tables: [Users,Wallets])
+@DriftDatabase(tables: [Users, Wallets])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(): super(_openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onUpgrade: (m, from, to) async {
       if (from < 2) {
-        await m.createTable(wallets);
+        try {
+          await m.createTable(wallets);
+        } catch (e) {
+          // Bỏ qua nếu bảng đã tồn tại
+        }
       }
       if (from < 3) {
-        await m.addColumn(users, users.avatarUrl);
+        try {
+          await m.addColumn(users, users.avatarUrl);
+        } catch (e) {
+          // Bỏ qua nếu cột đã tồn tại
+        }
+      }
+      if (from < 4) {
+        try {
+          await m.addColumn(users, users.timezone);
+        } catch (e) {
+          // Bỏ qua nếu cột đã tồn tại
+        }
+      }
+      if (from < 5) {
+        try {
+          await m.addColumn(wallets, wallets.currencyCode);
+        } catch (e) {
+          // Bỏ qua nếu cột đã tồn tại
+        }
       }
     },
   );

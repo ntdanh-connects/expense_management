@@ -11,6 +11,7 @@ class AuthMapper {
       currency: dto.preference.currency,
       language: dto.preference.language,
       theme: dto.preference.theme,
+      timezone: dto.preference.timezone,
     );
   }
 }

@@ -71,6 +71,8 @@
   "edit_profile": "Thông tin cá nhân",
   "full_name_label": "Họ và tên",
   "email_label": "Địa chỉ Email (Không thể thay đổi)",
+  "default_currency_label": "Đơn vị tiền tệ mặc định",
+  "timezone_label": "Múi giờ mặc định",
   "save_changes": "Lưu thay đổi",
   "please_enter_name": "Vui lòng nhập họ tên",
   "update_avatar_success": "Cập nhật ảnh đại diện thành công!",

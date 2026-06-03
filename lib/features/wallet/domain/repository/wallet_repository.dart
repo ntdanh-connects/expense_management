@@ -1,4 +1,5 @@
 import 'package:expense_management/features/wallet/data/models/create_wallet_request.dart';
+import 'package:expense_management/features/wallet/domain/entities/internal_transfer_record.dart';
 
 import '../../domain/entities/wallet_entity.dart';
 
@@ -12,4 +13,15 @@ abstract class WalletRepository {
   Future<void> createWallet(CreateWalletRequest request);
 
   Future<void> updateWallet(String id, CreateWalletRequest request);
+
+  Future<void> transferMoney({
+    required String fromWalletId,
+    required String toWalletId,
+    required double amount,
+    String? notes,
+    String? timezone,
+  });
+
+  // 🧾 Lấy lịch sử chuyển tiền nội bộ của tất cả các ví
+  Future<List<InternalTransferRecord>> getTransferHistory();
 }

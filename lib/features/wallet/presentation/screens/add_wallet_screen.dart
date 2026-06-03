@@ -9,6 +9,8 @@ import 'package:expense_management/features/wallet/presentation/provider/wallet_
 import 'package:expense_management/features/wallet/presentation/widget/wallet_constants.dart';
 import 'package:expense_management/features/wallet/presentation/widget/swipe_to_confirm_button.dart';
 import 'package:expense_management/features/wallet/presentation/widget/wallet_preview_card.dart';
+import 'package:expense_management/core/constants/app_constant.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/core/language/app_language.dart';
 
 class AddWalletScreen extends ConsumerStatefulWidget {
@@ -32,6 +34,8 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
   String _selectedColor = '#4C4DDC'; // Royal Indigo làm mặc định
   bool _isLoading = false; // Trạng thái loading khi call API tạo ví
   bool _isHidden = false; // Trạng thái ẩn ví trên Dashboard
+  String _selectedCurrency = 'VND';
+  bool _selectedCurrencyInitialized = false;
 
   @override
   void initState() {
@@ -45,12 +49,15 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
       _selectedIcon = widget.walletToEdit!.icon;
       _selectedColor = widget.walletToEdit!.color;
       _isHidden = widget.walletToEdit!.isHidden;
+      _selectedCurrency = widget.walletToEdit!.currencyCode;
+      _selectedCurrencyInitialized = true;
     } else {
       // Đợi frame đầu tiên vẽ xong để ref đã sẵn sàng
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           setState(() {
             _walletName = 'my_new_wallet'.tr(ref);
+            _selectedCurrency = ref.read(currentUserProvider)?.currency ?? 'VND';
           });
         }
       });
@@ -81,6 +88,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final optionsAsync = ref.watch(preferenceOptionsProvider);
 
     return Stack(
       children: [
@@ -120,6 +128,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
               selectedIcon: _selectedIcon,
               selectedColor: _selectedColor,
               primaryColor: colors.primary,
+              currencySymbol: AppConstant.getCurrencySymbol(_selectedCurrency),
             ),
             const SizedBox(height: 28),
 
@@ -204,7 +213,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
                           const SizedBox(width: 6),
                         ],
                         Text(
-                          'đ',
+                          AppConstant.getCurrencySymbol(ref.watch(currentUserProvider)?.currency),
                           style: TextStyle(
                             color: widget.walletToEdit != null
                                 ? colors.textSecondary.withOpacity(0.8)
@@ -217,6 +226,58 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
                     ),
                   ),
                 ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // 🌍 CHỌN ĐƠN VỊ TIỀN TỆ
+            optionsAsync.when(
+              data: (options) {
+                final availableCodes = options.currencies.map((c) => c.code).toList();
+                if (!_selectedCurrencyInitialized) {
+                  _selectedCurrencyInitialized = true;
+                  if (widget.walletToEdit != null) {
+                    _selectedCurrency = widget.walletToEdit!.currencyCode;
+                  } else {
+                    _selectedCurrency = ref.read(currentUserProvider)?.currency ?? 'VND';
+                  }
+                }
+                if (!availableCodes.contains(_selectedCurrency)) {
+                  _selectedCurrency = availableCodes.isNotEmpty ? availableCodes.first : 'VND';
+                }
+
+                return _buildDropdownField<String>(
+                  colors: colors,
+                  label: 'currency_label'.tr(ref),
+                  value: _selectedCurrency,
+                  items: options.currencies.map((c) => DropdownMenuItem<String>(
+                    value: c.code,
+                    child: Text('${c.code} (${c.symbol}) - ${c.name}'),
+                  )).toList(),
+                  onChanged: widget.walletToEdit != null ? null : (val) {
+                    if (val != null) {
+                      setState(() => _selectedCurrency = val);
+                    }
+                  },
+                );
+              },
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: CircularProgressIndicator(),
+              ),
+              error: (err, _) => _buildDropdownField<String>(
+                colors: colors,
+                label: 'currency_label'.tr(ref),
+                value: _selectedCurrency,
+                items: const [
+                  DropdownMenuItem(value: 'VND', child: Text('VND (đ)')),
+                  DropdownMenuItem(value: 'USD', child: Text('USD (\$)')),
+                ],
+                onChanged: widget.walletToEdit != null ? null : (val) {
+                  if (val != null) {
+                    setState(() => _selectedCurrency = val);
+                  }
+                },
               ),
             ),
             const SizedBox(height: 20),
@@ -691,7 +752,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
                       ],
                     ),
                     Text(
-                      '${_formatMoney(_initialBalance)} đ',
+                      '${_formatMoney(_initialBalance)} ${AppConstant.getCurrencySymbol(ref.watch(currentUserProvider)?.currency)}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -826,6 +887,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
         color: _selectedColor,
         isHidden: _isHidden,
         availableBalance: _initialBalance.toStringAsFixed(0),
+        currencyCode: _selectedCurrency,
       );
 
       // 🚀 Gọi API thực tế thông qua Use Cases (Tạo mới hoặc Cập nhật)
@@ -922,5 +984,62 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
     RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
     String Function(Match) mathFunc = (Match match) => '${match[1]}.';
     return value.toStringAsFixed(0).replaceAllMapped(reg, mathFunc);
+  }
+  Widget _buildDropdownField<T>({
+    required AppColorsExtension colors,
+    required String label,
+    required T value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?>? onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).brightness == Brightness.dark 
+            ? Colors.white.withOpacity(0.04) 
+            : const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.textSecondary.withOpacity(0.15)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.monetization_on_outlined, color: colors.textSecondary, size: 24),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: colors.textSecondary.withOpacity(0.8),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                DropdownButtonHideUnderline(
+                  child: DropdownButton<T>(
+                    value: value,
+                    isDense: true,
+                    isExpanded: true,
+                    disabledHint: Text(value.toString()),
+                    dropdownColor: colors.surface,
+                    style: TextStyle(
+                      color: onChanged == null ? colors.textSecondary.withOpacity(0.8) : colors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    items: items,
+                    onChanged: onChanged,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

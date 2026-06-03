@@ -1,3 +1,4 @@
+import 'package:expense_management/features/wallet/presentation/widget/wallet_preview_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -5,12 +6,16 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
+import 'package:expense_management/features/wallet/domain/entities/internal_transfer_record.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:expense_management/features/wallet/presentation/widget/wallet_card_item.dart';
 import 'package:expense_management/features/wallet/presentation/widget/wallet_screen_shimmer.dart';
 import 'package:expense_management/features/wallet/presentation/provider/internal_transfer_provider.dart';
+import 'package:expense_management/core/constants/app_constant.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/core/language/app_provider.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 final showHiddenWalletsProvider = StateProvider<bool>((ref) => false);
 
@@ -25,6 +30,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   WalletEntity? _fromWallet;
   WalletEntity? _toWallet;
   final TextEditingController _amountController = TextEditingController();
+  bool _isTransferring = false;
 
   @override
   void initState() {
@@ -47,6 +53,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final walletState = ref.watch(walletNotifierProvider);
     final transfers = ref.watch(internalTransferHistoryProvider);
+    final currencySymbol = AppConstant.getCurrencySymbol(ref.watch(currentUserProvider)?.currency);
 
     // Màn nền tím/xanh đen bóng đêm mượt mà, hoặc xám nhạt nhẹ nhàng
     final panelBg = isDark ? colors.surface.withOpacity(0.5) : const Color(0xFFF2F4FC);
@@ -126,6 +133,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                           padding: const EdgeInsets.only(right: 16),
                           child: WalletCardItem(
                             wallet: wallet,
+                            currencySymbol: AppConstant.getCurrencySymbol(wallet.currencyCode),
                             onTap: () => context.push('/add-wallet', extra: wallet),
                           ),
                         );
@@ -265,7 +273,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                                 alignment: Alignment.centerRight,
                                 width: 20,
                                 child: Text(
-                                  'đ',
+                                  _fromWallet != null ? AppConstant.getCurrencySymbol(_fromWallet!.currencyCode) : currencySymbol,
                                   style: TextStyle(
                                     color: colors.textPrimary,
                                     fontSize: 16,
@@ -283,22 +291,31 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                           width: double.infinity,
                           height: 52,
                           child: ElevatedButton(
-                            onPressed: () => _executeTransfer(colors),
+                            onPressed: _isTransferring ? null : () => _executeTransfer(colors),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: colors.primary,
+                              backgroundColor: _isTransferring ? colors.primary.withOpacity(0.5) : colors.primary,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(18),
                               ),
                             ),
-                            child: Text(
-                              'transfer_now'.tr(ref),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            child: _isTransferring
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Text(
+                                    'transfer_now'.tr(ref),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                           ),
                         ),
                       ],
@@ -345,7 +362,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   itemCount: transfers.length,
                   itemBuilder: (context, index) {
                     final tx = transfers[index];
-                    return _buildTransferHistoryItem(tx, colors);
+                    return _buildTransferHistoryItem(tx, colors, AppConstant.getCurrencySymbol(tx.currencyCode ?? 'VND'));
                   },
                 ),
               ],
@@ -497,7 +514,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   }
 
   // Dòng giao dịch lịch sử
-  Widget _buildTransferHistoryItem(InternalTransferRecord tx, AppColorsExtension colors) {
+  Widget _buildTransferHistoryItem(InternalTransferRecord tx, AppColorsExtension colors, String currencySymbol) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -537,7 +554,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _formatDate(tx.date),
+                  _formatDate(tx.date, timezoneOverride: tx.timezone),
                   style: TextStyle(
                     color: colors.textSecondary,
                     fontSize: 12,
@@ -547,7 +564,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             ),
           ),
           Text(
-            '-${_formatMoney(tx.amount)}đ',
+            '-${_formatMoney(tx.amount)}$currencySymbol',
             style: TextStyle(
               color: colors.expenseRed,
               fontSize: 15,
@@ -560,39 +577,51 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   }
 
   // Thực hiện giao dịch chuyển khoản thông qua Provider nghiệp vụ
-  void _executeTransfer(AppColorsExtension colors) {
+  void _executeTransfer(AppColorsExtension colors) async {
     final amountStr = _amountController.text.trim();
     
-    // Gọi thực thi logic ở Provider
-    final errorKey = ref.read(internalTransferHistoryProvider.notifier).executeTransfer(
-      fromWallet: _fromWallet,
-      toWallet: _toWallet,
-      amountStr: amountStr,
-    );
+    setState(() {
+      _isTransferring = true;
+    });
 
-    if (errorKey != null) {
-      String errorMsg = '';
-      if (errorKey == 'select_source_dest_wallet_error') {
-        errorMsg = 'select_source_dest_wallet_error'.tr(ref);
-      } else if (errorKey == 'same_wallet_error') {
-        errorMsg = 'same_wallet_error'.tr(ref);
-      } else if (errorKey == 'enter_amount_error') {
-        errorMsg = 'enter_amount_error'.tr(ref);
-      } else if (errorKey == 'invalid_amount_error') {
-        errorMsg = 'invalid_amount_error'.tr(ref);
-      } else if (errorKey == 'insufficient_balance_error') {
-        errorMsg = '${'insufficient_balance_error'.tr(ref)} "${_fromWallet?.name}"!';
+    try {
+      // Gọi thực thi logic ở Provider
+      final errorKey = await ref.read(internalTransferHistoryProvider.notifier).executeTransfer(
+        fromWallet: _fromWallet,
+        toWallet: _toWallet,
+        amountStr: amountStr,
+      );
+
+      if (errorKey != null) {
+        String errorMsg = '';
+        if (errorKey == 'select_source_dest_wallet_error') {
+          errorMsg = 'select_source_dest_wallet_error'.tr(ref);
+        } else if (errorKey == 'same_wallet_error') {
+          errorMsg = 'same_wallet_error'.tr(ref);
+        } else if (errorKey == 'enter_amount_error') {
+          errorMsg = 'enter_amount_error'.tr(ref);
+        } else if (errorKey == 'invalid_amount_error') {
+          errorMsg = 'invalid_amount_error'.tr(ref);
+        } else if (errorKey == 'insufficient_balance_error') {
+          errorMsg = '${'insufficient_balance_error'.tr(ref)} "${_fromWallet?.name}"!';
+        } else {
+          errorMsg = errorKey;
+        }
+        _showSnackBar(errorMsg, isError: true);
       } else {
-        errorMsg = errorKey;
+        _amountController.clear();
+        setState(() {
+          _fromWallet = null;
+          _toWallet = null;
+        });
+        _showSnackBar('transfer_success'.tr(ref), isError: false);
       }
-      _showSnackBar(errorMsg, isError: true);
-    } else {
-      _amountController.clear();
-      setState(() {
-        _fromWallet = null;
-        _toWallet = null;
-      });
-      _showSnackBar('transfer_success'.tr(ref), isError: false);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isTransferring = false;
+        });
+      }
     }
   }
 
@@ -630,17 +659,39 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     return value.toStringAsFixed(0).replaceAllMapped(reg, mathFunc);
   }
 
-  String _formatDate(DateTime date) {
-    final isEn = ref.read(translationsProvider)['add_new_wallet'] == 'Add new wallet';
-    if (isEn) {
-      final listMonths = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-      ];
-      return '${listMonths[date.month - 1]} ${date.day}, ${date.year}';
-    } else {
-      return '${date.day} tháng ${date.month}, ${date.year}';
+  String _formatDate(DateTime date, {String? timezoneOverride}) {
+    final user = ref.read(currentUserProvider);
+    final timezoneName = timezoneOverride ?? user?.timezone ?? 'Asia/Ho_Chi_Minh';
+    
+    // Sử dụng package timezone để tự động quy đổi múi giờ IANA động
+    DateTime userDate;
+    String formattedOffset = 'UTC';
+    try {
+      final location = tz.getLocation(timezoneName);
+      final tzDateTime = tz.TZDateTime.from(date.toUtc(), location);
+      userDate = tzDateTime;
+      
+      // Định dạng offset hiển thị (ví dụ: UTC+07:00 hoặc UTC-05:00)
+      final offsetMs = tzDateTime.timeZoneOffset.inMilliseconds;
+      final offsetHours = (offsetMs / 3600000).truncate();
+      final offsetMinutes = ((offsetMs.abs() % 3600000) / 60000).truncate();
+      final sign = offsetHours >= 0 ? '+' : '-';
+      final hoursStr = offsetHours.abs().toString().padLeft(2, '0');
+      final minutesStr = offsetMinutes.toString().padLeft(2, '0');
+      formattedOffset = 'UTC$sign$hoursStr:$minutesStr';
+    } catch (_) {
+      // Fallback về giờ UTC nếu có lỗi phân giải múi giờ
+      userDate = date.toUtc();
     }
+    
+    final hour = userDate.hour.toString().padLeft(2, '0');
+    final minute = userDate.minute.toString().padLeft(2, '0');
+    final second = userDate.second.toString().padLeft(2, '0');
+    final day = userDate.day.toString().padLeft(2, '0');
+    final month = userDate.month.toString().padLeft(2, '0');
+    final year = userDate.year;
+
+    return '$hour:$minute:$second $day/$month/$year ($formattedOffset)';
   }
 }
 

@@ -13,6 +13,8 @@ class WalletDto {
   final bool? isHidden;
   @JsonKey(name: 'available_balance', fromJson: _balanceFromJson)
   final double availableBalance;
+  @JsonKey(name: 'currency_code')
+  final String? currencyCode;
 
   WalletDto({
     required this.id,
@@ -22,6 +24,7 @@ class WalletDto {
     required this.color,
     this.isHidden,
     required this.availableBalance,
+    this.currencyCode,
   });
 
   static double _balanceFromJson(dynamic value) {

@@ -11,6 +11,8 @@ import 'package:expense_management/features/profile/data/repository_impl/user_re
 import 'package:expense_management/features/profile/domain/repositories/user_repository.dart';
 import 'package:expense_management/features/profile/domain/use_case/update_avatar_use_case.dart';
 import 'package:expense_management/features/profile/domain/use_case/update_profile_use_case.dart';
+import 'package:expense_management/features/profile/data/models/preference_options_dto.dart';
+import 'package:expense_management/features/profile/data/models/exchange_rates_dto.dart';
 import 'package:expense_management/shared/domain/user_entity.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -52,4 +54,14 @@ final developerToolsEnabledProvider = Provider<bool>((ref) {
 final updateAvatarUseCaseProvider = Provider<UpdateAvatarUseCase>((ref) {
   final repository = ref.watch(userRepositoryProvider);
   return UpdateAvatarUseCase(repository);
+});
+
+final preferenceOptionsProvider = FutureProvider<PreferenceOptionsDto>((ref) async {
+  final repository = ref.watch(userRepositoryProvider);
+  return repository.getPreferenceOptions();
+});
+
+final exchangeRatesProvider = FutureProvider<ExchangeRatesDto>((ref) async {
+  final repository = ref.watch(userRepositoryProvider);
+  return repository.getExchangeRates();
 });
