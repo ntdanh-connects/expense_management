@@ -40,12 +40,15 @@ class AuthRepositoryImpl implements AuthRepository{
       await _secureStorageService.save(key: AppConstant.refreshToken, value: dto.refreshToken);
       await _secureStorageService.save(key: AppConstant.userId, value: dto.data.userId);
 
-      await _localDataSource.cacheProfile(db.User(id: dto.data.userId,
-          email: dto.data.email,
-          fullName: dto.data.profile.fullName,
-          currency: dto.data.preference.currency,
-          language: dto.data.preference.language,
-          theme: dto.data.preference.theme,));
+      await _localDataSource.cacheProfile(db.User(
+        id: dto.data.userId,
+        email: dto.data.email,
+        fullName: dto.data.profile.fullName,
+        avatarUrl: dto.data.profile.avatarUrl,
+        currency: dto.data.preference.currency,
+        language: dto.data.preference.language,
+        theme: dto.data.preference.theme,
+      ));
 
       AppLogger.info("💾 [SQLite] Đã lưu cache hồ sơ đăng nhập cục bộ cho User ID: ${dto.data.userId} thành công!", tag: "SQLite");
 
@@ -85,6 +88,7 @@ class AuthRepositoryImpl implements AuthRepository{
         id: freshData.userId,
         email: freshData.email,
         fullName: freshData.profile.fullName,
+        avatarUrl: freshData.profile.avatarUrl,
         currency: freshData.preference.currency,
         language: freshData.preference.language,
         theme: freshData.preference.theme,
@@ -139,6 +143,7 @@ class AuthRepositoryImpl implements AuthRepository{
           id: response.data!.userId,
           email: response.data!.email,
           fullName: response.data!.profile.fullName,
+          avatarUrl: response.data!.profile.avatarUrl,
           currency: response.data!.preference.currency,
           language: response.data!.preference.language,
           theme: response.data!.preference.theme,
@@ -178,6 +183,7 @@ class AuthRepositoryImpl implements AuthRepository{
         id: dto.data.userId,
         email: dto.data.email,
         fullName: dto.data.profile.fullName,
+        avatarUrl: dto.data.profile.avatarUrl,
         currency: dto.data.preference.currency,
         language: dto.data.preference.language,
         theme: dto.data.preference.theme,

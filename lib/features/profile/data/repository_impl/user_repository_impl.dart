@@ -57,6 +57,7 @@ class UserRepositoryImpl implements UserRepository {
         id: freshData.userId,
         email: freshData.email,
         fullName: freshData.profile.fullName,
+        avatarUrl: freshData.profile.avatarUrl,
         currency: freshData.preference.currency,
         language: freshData.preference.language,
         theme: freshData.preference.theme,
