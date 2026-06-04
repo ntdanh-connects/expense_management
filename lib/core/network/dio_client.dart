@@ -180,14 +180,16 @@ class RefreshTokenInterceptor extends Interceptor {
             },
           );
 
-          if (response.statusCode == 200) {
-            newAccessToken = response.data['access_token'];
-            final newRefreshToken = response.data['refresh_token'];
+          if (response.statusCode == 200 && response.data != null) {
+            final String? token = response.data['access_token']?.toString();
+            final String? refresh = response.data['refresh_token']?.toString();
 
-            await storage.save(key: AppConstant.accessToken, value: newAccessToken);
-            await storage.save(key: AppConstant.refreshToken, value: newRefreshToken);
-
-            refreshSuccessful = true;
+            if (token != null && refresh != null) {
+              newAccessToken = token;
+              await storage.save(key: AppConstant.accessToken, value: token);
+              await storage.save(key: AppConstant.refreshToken, value: refresh);
+              refreshSuccessful = true;
+            }
           }
         } catch (refreshError) {
           // Chỉ giải quyết lỗi của cuộc gọi API refresh token
