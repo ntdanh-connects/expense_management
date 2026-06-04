@@ -52,7 +52,7 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
     if (customCount >= 20) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('max_category_limit_reached'.tr(ref)),
+          content: Text('max_category_limit_reached'.trRead(ref)),
           backgroundColor: Colors.red,
         ),
       );
@@ -207,7 +207,7 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
           backgroundColor: colors.surface,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(
-            'delete_category_confirm'.tr(ref),
+            'delete_category_confirm'.trRead(ref),
             style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold),
           ),
           content: Text(
@@ -217,7 +217,7 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: Text('cancel'.tr(ref), style: TextStyle(color: colors.textSecondary)),
+              child: Text('cancel'.trRead(ref), style: TextStyle(color: colors.textSecondary)),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -227,7 +227,7 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('delete_category_success'.tr(ref)),
+                        content: Text('delete_category_success'.trRead(ref)),
                         backgroundColor: Colors.green,
                       ),
                     );
@@ -244,7 +244,7 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
                 }
               },
               style: ElevatedButton.styleFrom(backgroundColor: colors.expenseRed),
-              child: Text('delete'.tr(ref), style: const TextStyle(color: Colors.white)),
+              child: Text('delete'.trRead(ref), style: const TextStyle(color: Colors.white)),
             ),
           ],
         );

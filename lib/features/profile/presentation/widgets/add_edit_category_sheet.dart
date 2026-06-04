@@ -85,7 +85,7 @@ class _AddEditCategorySheetState extends ConsumerState<AddEditCategorySheet> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('update_category_success'.tr(ref)),
+              content: Text('update_category_success'.trRead(ref)),
               backgroundColor: Colors.green,
             ),
           );
@@ -112,7 +112,7 @@ class _AddEditCategorySheetState extends ConsumerState<AddEditCategorySheet> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('create_category_success'.tr(ref)),
+              content: Text('create_category_success'.trRead(ref)),
               backgroundColor: Colors.green,
             ),
           );

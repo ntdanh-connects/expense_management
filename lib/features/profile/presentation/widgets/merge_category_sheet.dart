@@ -63,7 +63,7 @@ class _MergeCategorySheetState extends ConsumerState<MergeCategorySheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${'merge_categories'.tr(ref)} ${'success'.tr(ref).toLowerCase()}!'),
+            content: Text('${'merge_categories'.trRead(ref)} ${'success'.trRead(ref).toLowerCase()}!'),
             backgroundColor: Colors.green,
           ),
         );
