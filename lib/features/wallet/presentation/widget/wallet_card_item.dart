@@ -95,7 +95,7 @@ class WalletCardItem extends StatelessWidget {
   
               // Số dư ví to rõ nét ở chính giữa
               Text(
-                '${_formatMoney(wallet.balance)} $currencySymbol',
+                '${_formatMoney(wallet.balance, wallet.currencyCode)} $currencySymbol',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 26,
@@ -178,10 +178,24 @@ class WalletCardItem extends StatelessWidget {
     }
   }
 
-  String _formatMoney(double value) {
-    RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-    String Function(Match) mathFunc = (Match match) => '${match[1]}.';
-    return value.toStringAsFixed(0).replaceAllMapped(reg, mathFunc);
+  String _formatMoney(double value, [String? currencyCode]) {
+    final String code = (currencyCode ?? 'VND').toUpperCase();
+    final int decimals = (code == 'VND' || code == 'JPY') ? 0 : 2;
+    
+    if (decimals == 0) {
+      RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+      String Function(Match) mathFunc = (Match match) => '${match[1]}.';
+      return value.toStringAsFixed(0).replaceAllMapped(reg, mathFunc);
+    } else {
+      final parts = value.toStringAsFixed(2).split('.');
+      final String wholePart = parts[0];
+      final String decimalPart = parts[1];
+      
+      RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+      String Function(Match) mathFunc = (Match match) => '${match[1]},';
+      final String formattedWhole = wholePart.replaceAllMapped(reg, mathFunc);
+      return '$formattedWhole.$decimalPart';
+    }
   }
 
   Gradient _getGradient(String colorHex, String name) {

@@ -90,14 +90,30 @@ class DashboardScreen extends ConsumerWidget {
                       final userCurrency = ref.read(currentUserProvider)?.currency ?? 'VND';
                       final ratesData = ref.watch(exchangeRatesProvider).asData?.value;
 
+                      // Bản đồ tỷ giá dự phòng (Fallback Rates) khi API tỷ giá đang tải hoặc bị lỗi
+                      const fallbackRates = {
+                        'USD': 1.0,
+                        'VND': 25400.0,
+                        'EUR': 0.92,
+                        'GBP': 0.78,
+                        'JPY': 156.0,
+                      };
+
                       double convertCurrency(double balance, String walletCurrency) {
-                        if (walletCurrency == userCurrency || ratesData == null) {
+                        final String wCurr = walletCurrency.toUpperCase();
+                        final String uCurr = userCurrency.toUpperCase();
+                        
+                        if (wCurr == uCurr) {
                           return balance;
                         }
-                        final base = ratesData.base;
-                        final rates = ratesData.rates;
-                        final fromRate = walletCurrency == base ? 1.0 : (rates[walletCurrency] ?? 1.0);
-                        final toRate = userCurrency == base ? 1.0 : (rates[userCurrency] ?? 1.0);
+
+                        // Ưu tiên sử dụng tỷ giá thực tế từ server, nếu null thì dùng fallbackRates
+                        final base = (ratesData?.base ?? 'USD').toUpperCase();
+                        final rates = ratesData?.rates.map((k, v) => MapEntry(k.toUpperCase(), v.toDouble())) ?? fallbackRates;
+
+                        final fromRate = wCurr == base ? 1.0 : (rates[wCurr] ?? 1.0);
+                        final toRate = uCurr == base ? 1.0 : (rates[uCurr] ?? 1.0);
+                        
                         return balance * (toRate / fromRate);
                       }
 
@@ -105,14 +121,29 @@ class DashboardScreen extends ConsumerWidget {
                         return sum + convertCurrency(w.balance, w.currencyCode);
                       });
                       
-                      String formatMoney(double value) {
-                        RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-                        String Function(Match) mathFunc = (Match match) => '${match[1]}.';
-                        return value.toStringAsFixed(0).replaceAllMapped(reg, mathFunc);
+                      String formatMoney(double value, String currencyCode) {
+                        final String code = currencyCode.toUpperCase();
+                        final int decimals = (code == 'VND' || code == 'JPY') ? 0 : 2;
+                        
+                        if (decimals == 0) {
+                          RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+                          String Function(Match) mathFunc = (Match match) => '${match[1]}.';
+                          return value.toStringAsFixed(0).replaceAllMapped(reg, mathFunc);
+                        } else {
+                          // Format cho USD, EUR, GBP (ví dụ: 1,234.56)
+                          final parts = value.toStringAsFixed(2).split('.');
+                          final String wholePart = parts[0];
+                          final String decimalPart = parts[1];
+                          
+                          RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+                          String Function(Match) mathFunc = (Match match) => '${match[1]},';
+                          final String formattedWhole = wholePart.replaceAllMapped(reg, mathFunc);
+                          return '$formattedWhole.$decimalPart';
+                        }
                       }
                       
                       return Text(
-                        showBalance ? '${formatMoney(totalBalance)} $currencySymbol' : '•••••• $currencySymbol',
+                        showBalance ? '${formatMoney(totalBalance, userCurrency)} $currencySymbol' : '•••••• $currencySymbol',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 30,

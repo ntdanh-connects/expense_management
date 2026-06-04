@@ -105,7 +105,8 @@ class RefreshTokenInterceptor extends Interceptor {
   final Dio mainDio;
   RefreshTokenInterceptor(this.ref, this.mainDio);
 
-  Future<String?>? _refreshFuture;
+  bool _isRefreshing = false;
+  Completer<String?>? _refreshCompleter;
 
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
@@ -135,29 +136,32 @@ class RefreshTokenInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     if (err.response?.statusCode == 401) {
-      final storage = ref.read(secureStorageServiceProvider);
-      final userId = await storage.get(key: AppConstant.userId);
-
-      // Nếu đã có một tiến trình refresh token đang chạy, hãy đợi nó hoàn thành
-      if (_refreshFuture != null) {
+      // 1. Kiểm tra cờ đồng bộ ngay lập tức để chặn đứng các cuộc gọi đồng thời (Race Condition)
+      if (_isRefreshing) {
         try {
-          final newAccessToken = await _refreshFuture;
+          final newAccessToken = await _refreshCompleter?.future;
           if (newAccessToken != null) {
             err.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
             final retryRequest = await mainDio.fetch(err.requestOptions);
             return handler.resolve(retryRequest);
           }
         } catch (_) {
-          // Bỏ qua lỗi và tiếp tục xử lý lỗi 401 ban đầu
+          // Bỏ qua lỗi, tiếp tục trượt xuống để lan truyền lỗi 401 ban đầu
         }
         return handler.next(err);
       }
 
+      // Đánh dấu bắt đầu tiến trình gia hạn token
+      _isRefreshing = true;
+      _refreshCompleter = Completer<String?>();
+
+      final storage = ref.read(secureStorageServiceProvider);
+      final userId = await storage.get(key: AppConstant.userId);
       final refreshToken = await storage.get(key: AppConstant.refreshToken);
       
       if (refreshToken != null) {
-        final completer = Completer<String?>();
-        _refreshFuture = completer.future;
+        String? newAccessToken;
+        bool refreshSuccessful = false;
 
         try {
           final refreshDio = Dio(BaseOptions(
@@ -177,32 +181,55 @@ class RefreshTokenInterceptor extends Interceptor {
           );
 
           if (response.statusCode == 200) {
-            final newAccessToken = response.data['access_token'];
+            newAccessToken = response.data['access_token'];
             final newRefreshToken = response.data['refresh_token'];
 
             await storage.save(key: AppConstant.accessToken, value: newAccessToken);
             await storage.save(key: AppConstant.refreshToken, value: newRefreshToken);
 
-            completer.complete(newAccessToken);
-            _refreshFuture = null;
-
-            err.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
-
-            final retryRequest = await mainDio.fetch(err.requestOptions);
-            return handler.resolve(retryRequest);
-          } else {
-            completer.complete(null);
-            _refreshFuture = null;
+            refreshSuccessful = true;
           }
         } catch (refreshError) {
-          completer.completeError(refreshError);
-          _refreshFuture = null;
+          // Chỉ giải quyết lỗi của cuộc gọi API refresh token
+          _refreshCompleter?.completeError(refreshError);
+          _isRefreshing = false;
+          _refreshCompleter = null;
 
           await storage.clearAll();
           Future.microtask(() {
             ref.read(authNotifierProvider.notifier).logout();
           });
+          return handler.next(err);
         }
+
+        // Hoàn tất completer ngoài try-catch để tránh lỗi 'Future already completed' khi retry thất bại
+        if (refreshSuccessful && newAccessToken != null) {
+          _refreshCompleter?.complete(newAccessToken);
+          _isRefreshing = false;
+          _refreshCompleter = null;
+
+          // Thực hiện cuộc gọi lại (retry) và tự bắt lỗi của nó riêng biệt
+          try {
+            err.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
+            final retryRequest = await mainDio.fetch(err.requestOptions);
+            return handler.resolve(retryRequest);
+          } on DioException catch (retryError) {
+            return handler.reject(retryError);
+          } catch (retryError) {
+            return handler.next(DioException(
+              requestOptions: err.requestOptions,
+              error: retryError,
+            ));
+          }
+        } else {
+          _refreshCompleter?.complete(null);
+          _isRefreshing = false;
+          _refreshCompleter = null;
+        }
+      } else {
+        // Không tìm thấy refresh token trong bộ nhớ tạm
+        _isRefreshing = false;
+        _refreshCompleter = null;
       }
     }
     return handler.next(err); 

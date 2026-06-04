@@ -564,7 +564,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             ),
           ),
           Text(
-            '-${_formatMoney(tx.amount)}$currencySymbol',
+            '-${_formatMoney(tx.amount, tx.currencyCode)}$currencySymbol',
             style: TextStyle(
               color: colors.expenseRed,
               fontSize: 15,
@@ -653,10 +653,24 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     }
   }
 
-  String _formatMoney(double value) {
-    RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-    String Function(Match) mathFunc = (Match match) => '${match[1]}.';
-    return value.toStringAsFixed(0).replaceAllMapped(reg, mathFunc);
+  String _formatMoney(double value, [String? currencyCode]) {
+    final String code = (currencyCode ?? 'VND').toUpperCase();
+    final int decimals = (code == 'VND' || code == 'JPY') ? 0 : 2;
+    
+    if (decimals == 0) {
+      RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+      String Function(Match) mathFunc = (Match match) => '${match[1]}.';
+      return value.toStringAsFixed(0).replaceAllMapped(reg, mathFunc);
+    } else {
+      final parts = value.toStringAsFixed(2).split('.');
+      final String wholePart = parts[0];
+      final String decimalPart = parts[1];
+      
+      RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+      String Function(Match) mathFunc = (Match match) => '${match[1]},';
+      final String formattedWhole = wholePart.replaceAllMapped(reg, mathFunc);
+      return '$formattedWhole.$decimalPart';
+    }
   }
 
   String _formatDate(DateTime date, {String? timezoneOverride}) {
