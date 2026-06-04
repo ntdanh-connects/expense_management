@@ -22,4 +22,6 @@ class ApiEndpoints {
   static const String mergeCategories = 'api/categories/merge';
   static const String updateCategory = 'api/categories/{id}';
   static const String deleteCategory = 'api/categories/{id}';
+  static const String transactions = 'api/transactions';
+  static const String showTransactions = 'api/transactions';
 }

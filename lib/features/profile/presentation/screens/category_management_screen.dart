@@ -8,7 +8,7 @@ import 'package:expense_management/features/profile/category_provider.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
 import 'package:expense_management/features/profile/presentation/widgets/add_edit_category_sheet.dart';
 import 'package:expense_management/features/profile/presentation/widgets/merge_category_sheet.dart';
-import 'package:expense_management/features/profile/presentation/screens/edit_category_screen.dart';
+import 'package:expense_management/features/profile/presentation/screens/category_edit_screen.dart';
 
 class CategoryManagementScreen extends ConsumerStatefulWidget {
   const CategoryManagementScreen({super.key});
@@ -157,7 +157,7 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => EditCategoryScreen(
+                        builder: (context) => CategoryEditScreen(
                           category: category,
                           parentCategories: allCategories.where((c) => c.type == category.type).toList(),
                         ),

@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
+import 'package:expense_management/core/language/app_language.dart';
 import 'bottom_bar_config.dart';
 
-class QuickActionBottomSheet extends StatelessWidget {
+class QuickActionBottomSheet extends ConsumerWidget {
   final Color systemAccentColor;
   const QuickActionBottomSheet({super.key, required this.systemAccentColor});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final color = context.colors;
-    final actions = BottomBarConfig.getQuickActions(context, systemAccentColor);
+    final actions = BottomBarConfig.getQuickActions(context, systemAccentColor, ref);
 
     return Container(
       decoration: BoxDecoration(color: color.authCardBg, borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24))),
@@ -19,7 +21,7 @@ class QuickActionBottomSheet extends StatelessWidget {
         children: [
           Container(width: 40, height: 4, decoration: BoxDecoration(color: color.textSecondary.withOpacity(0.3), borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 24),
-          Text('TẠO TÁC VỤ MỚI', style: TextStyle(color: color.textPrimary, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+          Text('create_new_task'.tr(ref), style: TextStyle(color: color.textPrimary, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
           const SizedBox(height: 16),
           ...actions.map((act) => _buildActionBox(context, act, color)),
         ],

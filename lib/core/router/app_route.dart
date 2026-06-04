@@ -13,6 +13,7 @@ import 'package:expense_management/features/profile/presentation/screens/persona
 import 'package:expense_management/features/profile/presentation/screens/profile_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/category_management_screen.dart';
 import 'package:expense_management/features/transaction/presentation/screens/transaction_history_screen.dart';
+import 'package:expense_management/features/transaction/presentation/screens/add_transaction_screen.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/presentation/screens/wallet_screen.dart';
 import 'package:expense_management/features/wallet/presentation/screens/add_wallet_screen.dart';
@@ -29,6 +30,7 @@ class RoutePaths {
   static const dashboard = '/dashboard';
   static const wallet = '/wallet';
   static const addWallet = '/add-wallet';
+  static const addTransaction = '/add-transaction';
   static const history = '/history';
   static const analytics = '/analytics';
   static const profile = '/profile';
@@ -125,6 +127,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final wallet = state.extra as WalletEntity?;
           return AddWalletScreen(walletToEdit: wallet);
         },
+      ),
+      GoRoute(
+        path: RoutePaths.addTransaction,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AddTransactionScreen(),
       ),
 
       StatefulShellRoute.indexedStack(

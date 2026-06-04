@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:expense_management/core/language/app_language.dart';
+import 'package:go_router/go_router.dart';
 
 class BottomBarItem {
   final IconData icon;
@@ -32,16 +35,19 @@ class BottomBarConfig {
   ];
 
   // 2. 🤖 KHO CHỨA TÍNH NĂNG AI KHI BẤM NÚT DẤU (+): MỐT SCALE CHỈ CẦN THÊM DÒNG Ở ĐÂY!
-  static List<QuickActionConfig> getQuickActions(BuildContext context, Color systemAccentColor) {
+  static List<QuickActionConfig> getQuickActions(BuildContext context, Color systemAccentColor, WidgetRef ref) {
     return [
       QuickActionConfig(
         icon: Icons.edit_note_rounded,
-        title: 'Nhập bằng tay thủ công',
+        title: 'manual_input'.tr(ref),
         customColor: systemAccentColor,
+        onTap: () {
+          context.push('/add-transaction');
+        },
       ),
       QuickActionConfig(
         icon: Icons.auto_awesome_rounded,
-        title: 'Quét hóa đơn thông minh (AI)',
+        title: 'smart_scan'.tr(ref),
         customColor: const Color(0xFFFF00FF), // Màu Magenta của AI
         badgeText: '🤖 AI',
       ),
