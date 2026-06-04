@@ -1,3 +1,4 @@
+import 'package:expense_management/core/router/app_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
@@ -8,6 +9,9 @@ import 'package:expense_management/features/wallet/presentation/provider/wallet_
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
+import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
+import 'package:intl/intl.dart';
 
 final showBalanceProvider = StateProvider<bool>((ref) => true);
 
@@ -375,49 +379,75 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                 ),
                 IconButton(
-                  onPressed: () {},
-                  icon: Icon(Icons.tune_rounded, color: colors.textSecondary),
+                  onPressed: () {
+                    context.go(RoutePaths.history);
+                  },
+                  icon: Icon(Icons.arrow_forward_ios_rounded, color: colors.textSecondary, size: 18),
                 ),
               ],
             ),
             const SizedBox(height: 8),
 
             // DANH SÁCH GIAO DỊCH GẦN ĐÂY
-            Text(
-              'today_format'.tr(ref),
-              style: TextStyle(
-                color: colors.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+            ref.watch(transactionListProvider).when(
+              data: (txList) {
+                if (txList.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24.0),
+                    child: Center(
+                      child: Text(
+                        'Chưa có giao dịch nào.',
+                        style: TextStyle(color: colors.textSecondary),
+                      ),
+                    ),
+                  );
+                }
+
+                // Lấy 5 giao dịch mới nhất
+                final recentTx = txList.take(5).toList();
+
+                return Column(
+                  children: recentTx.map((tx) {
+                    final isIncome = tx.type == 'income';
+                    final sign = isIncome ? '+' : '-';
+                    final displayColor = isIncome ? colors.incomeGreen : colors.expenseRed;
+                    
+                    final categoryIcon = CategoryUIConstants.getIconData(tx.categoryIcon);
+                    final categoryColor = CategoryUIConstants.getColorFromHex(tx.categoryColor);
+
+                    String formatMoney(double value) {
+                      RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+                      String Function(Match) mathFunc = (Match match) => '${match[1]}.';
+                      return value.toStringAsFixed(0).replaceAllMapped(reg, mathFunc);
+                    }
+
+                    return _buildRecentTransaction(
+                      colors: colors,
+                      title: tx.title,
+                      sub: '${tx.walletName ?? 'Ví'} • ${DateFormat('dd/MM/yyyy HH:mm').format(tx.transactionDate)}',
+                      amount: '$sign${formatMoney(tx.amount)} $currencySymbol',
+                      isIncome: isIncome,
+                      icon: categoryIcon,
+                      iconColor: categoryColor,
+                    );
+                  }).toList(),
+                );
+              },
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24.0),
+                  child: CircularProgressIndicator(),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            _buildRecentTransaction(
-              colors: colors,
-              title: 'lunch_pho_thin'.tr(ref),
-              sub: 'lunch_sub'.tr(ref),
-              amount: '-65.000 $currencySymbol',
-              isIncome: false,
-              icon: Icons.restaurant_rounded,
-              iconColor: Colors.orange,
-            ),
-            _buildRecentTransaction(
-              colors: colors,
-              title: 'uniqlo_vincom'.tr(ref),
-              sub: 'uniqlo_sub'.tr(ref),
-              amount: '-1.200.000 $currencySymbol',
-              isIncome: false,
-              icon: Icons.shopping_bag_rounded,
-              iconColor: Colors.blue,
-            ),
-            _buildRecentTransaction(
-              colors: colors,
-              title: 'salary_may'.tr(ref),
-              sub: 'salary_sub'.tr(ref),
-              amount: '+35.000.000 $currencySymbol',
-              isIncome: true,
-              icon: Icons.payments_rounded,
-              iconColor: Colors.green,
+              error: (err, _) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24.0),
+                  child: Text(
+                    'Không thể tải giao dịch.',
+                    style: TextStyle(color: colors.expenseRed),
+                  ),
+                ),
+              ),
             ),
             const SizedBox(height: 20),
 

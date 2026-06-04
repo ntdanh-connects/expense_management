@@ -7,21 +7,21 @@ import 'package:expense_management/features/profile/category_provider.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
 import 'package:go_router/go_router.dart';
 
-class EditCategoryScreen extends ConsumerStatefulWidget {
+class CategoryEditScreen extends ConsumerStatefulWidget {
   final CategoryDto category;
   final List<CategoryDto> parentCategories;
 
-  const EditCategoryScreen({
+  const CategoryEditScreen({
     super.key,
     required this.category,
     required this.parentCategories,
   });
 
   @override
-  ConsumerState<EditCategoryScreen> createState() => _EditCategoryScreenState();
+  ConsumerState<CategoryEditScreen> createState() => _CategoryEditScreenState();
 }
 
-class _EditCategoryScreenState extends ConsumerState<EditCategoryScreen> {
+class _CategoryEditScreenState extends ConsumerState<CategoryEditScreen> {
   late TextEditingController _nameController;
   late String _selectedIconKey;
   late String _selectedColorHex;
@@ -69,7 +69,7 @@ class _EditCategoryScreenState extends ConsumerState<EditCategoryScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        context.pop();
+        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
@@ -129,7 +129,7 @@ class _EditCategoryScreenState extends ConsumerState<EditCategoryScreen> {
               backgroundColor: Colors.green,
             ),
           );
-          context.pop();
+          Navigator.pop(context);
         }
       } catch (e) {
         if (mounted) {
@@ -236,9 +236,9 @@ class _EditCategoryScreenState extends ConsumerState<EditCategoryScreen> {
                           data: (icons) {
                             final filteredIcons = icons.where((icon) {
                               if (widget.category.type == 'income') {
-                                return CategoryUIConstants.incomeIcons.contains(icon);
+                                  return CategoryUIConstants.incomeIcons.contains(icon);
                               } else {
-                                return CategoryUIConstants.expenseIcons.contains(icon);
+                                  return CategoryUIConstants.expenseIcons.contains(icon);
                               }
                             }).toList();
                             final displayIcons = filteredIcons.isNotEmpty ? filteredIcons : icons;
@@ -324,7 +324,7 @@ class _EditCategoryScreenState extends ConsumerState<EditCategoryScreen> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back_ios_new_rounded, color: colors.textPrimary),
-          onPressed: () => context.pop(),
+          onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'Chỉnh sửa danh mục',
@@ -356,9 +356,7 @@ class _EditCategoryScreenState extends ConsumerState<EditCategoryScreen> {
                 IconButton(
                   icon: const Icon(Icons.home_outlined, color: Color(0xFFD81B60), size: 20),
                   onPressed: () {
-                    while (context.canPop()) {
-                      context.pop();
-                    }
+                    Navigator.popUntil(context, (route) => route.isFirst);
                   },
                 ),
               ],
