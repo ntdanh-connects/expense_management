@@ -11,6 +11,7 @@ abstract class UserRepository {
     String? language,
     String? currency,
     String? timezone,
+    String? theme,
   });
 
   // Cập nhật avatar của người dùng lên hệ thống

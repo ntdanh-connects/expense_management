@@ -22,7 +22,9 @@ import 'package:expense_management/features/auth/domain/use_case/confirm_link_so
 import 'package:expense_management/features/auth/data/models/social_auth_models.dart';
 import 'package:expense_management/features/auth/domain/repositories/auth_repository.dart';
 import 'package:expense_management/core/language/app_provider.dart';
+import 'package:expense_management/core/theme/theme_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 class AuthNotifier extends StateNotifier<AuthState> {
@@ -56,7 +58,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final userEntity = await _loginUseCase.execute(email, password);
 
       ref.read(appLanguageProvider.notifier).changeLocale(userEntity.language);
-      // _ref.read(themeProvider.notifier).changeTheme(userEntity.theme == 'dark');
+      ref.read(themeProvider.notifier).setTheme(userEntity.theme == 'dark' ? ThemeMode.dark : ThemeMode.light);
 
       _startWatchingUser(userEntity.id);
     } on AppException catch (e) {
@@ -187,6 +189,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
         if (currentAppLocale != localUserRow.language) {
           Future.microtask(() {
             ref.read(appLanguageProvider.notifier).changeLocale(localUserRow.language);
+          });
+        }
+
+        // Tự động đồng bộ theme hiển thị của App với thiết lập trong SQLite Profile
+        final currentThemeMode = ref.read(themeProvider);
+        final userThemeMode = localUserRow.theme == 'dark' ? ThemeMode.dark : ThemeMode.light;
+        if (currentThemeMode != userThemeMode) {
+          Future.microtask(() {
+            ref.read(themeProvider.notifier).setTheme(userThemeMode);
           });
         }
 

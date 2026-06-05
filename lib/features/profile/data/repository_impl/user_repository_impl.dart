@@ -30,6 +30,7 @@ class UserRepositoryImpl implements UserRepository {
     String? language,
     String? currency,
     String? timezone,
+    String? theme,
   }) async {
     final userId = await _secureStorageService.get(key: AppConstant.userId);
     if (userId == null) {
@@ -47,10 +48,11 @@ class UserRepositoryImpl implements UserRepository {
       language: language ?? currentLocalRow.language,
       currency: currency ?? currentLocalRow.currency,
       timezone: timezone ?? currentLocalRow.timezone,
+      theme: theme ?? currentLocalRow.theme,
     );
     await _db.saveUserProfile(updatedLocalRow);
 
-    AppLogger.info("💾 [SQLite] [Offline-First] Cập nhật SQLite thành công! Đã lưu tạm thời: fullName='${fullName ?? currentLocalRow.fullName}', language='${language ?? currentLocalRow.language}', currency='${currency ?? currentLocalRow.currency}', timezone='${timezone ?? currentLocalRow.timezone}'.", tag: "SQLite");
+    AppLogger.info("💾 [SQLite] [Offline-First] Cập nhật SQLite thành công! Đã lưu tạm thời: fullName='${fullName ?? currentLocalRow.fullName}', language='${language ?? currentLocalRow.language}', currency='${currency ?? currentLocalRow.currency}', timezone='${timezone ?? currentLocalRow.timezone}', theme='${theme ?? currentLocalRow.theme}'.", tag: "SQLite");
     AppLogger.debug("🌐 [Sync-Flow] Bắt đầu gửi đồng bộ thông tin mới lên Server...", tag: "Sync-Flow");
 
     // 2. Đồng bộ thông tin lên Server
@@ -60,6 +62,7 @@ class UserRepositoryImpl implements UserRepository {
         language ?? currentLocalRow.language,
         currency ?? currentLocalRow.currency,
         timezone ?? currentLocalRow.timezone,
+        theme ?? currentLocalRow.theme,
       );
       final freshData = responseDto.data;
       

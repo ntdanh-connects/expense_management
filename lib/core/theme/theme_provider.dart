@@ -1,4 +1,5 @@
 import 'package:expense_management/core/storage/storage_provider.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -27,9 +28,16 @@ class ThemeNotifier extends Notifier<ThemeMode> {
     _syncThemeToDatabase(newTheme == ThemeMode.dark ? 'dark' : 'light');
   }
 
+  Future<void> setTheme(ThemeMode mode) async {
+    if (state == mode) return;
+    state = mode;
+    final storage = ref.read(localStoreHelperProvider);
+    storage.saveThemeIndex(mode.index);
+  }
+
   void _syncThemeToDatabase(String themeStr) {
     try {
-      // ref.read(userRepositoryProvider).updatePreferences(theme: themeStr);
+      ref.read(userRepositoryProvider).updateProfile(theme: themeStr);
     } catch (_) {
       //To be continue
     }
