@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_params.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
@@ -12,7 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 
-enum TransactionStatus { processing, success, failure }
+enum TransactionStatus { processing, success, failure, offlineSuccess }
 
 class TransactionResultScreen extends ConsumerStatefulWidget {
   final TransactionParams params;
@@ -84,6 +83,29 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
         });
       }
     } catch (e) {
+      final isNetError = e is SocketException || (e is DioException && (
+        e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.sendTimeout ||
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.connectionError ||
+        e.error is SocketException ||
+        e.message?.contains('SocketException') == true
+      ));
+
+      if (isNetError) {
+        try {
+          await ref.read(transactionListProvider.notifier).addPendingTransaction(widget.params);
+          if (mounted) {
+            setState(() {
+              _status = TransactionStatus.offlineSuccess;
+            });
+          }
+          return;
+        } catch (saveError) {
+          _errorMessage = saveError.toString();
+        }
+      }
+
       if (mounted) {
         setState(() {
           _status = TransactionStatus.failure;
@@ -153,6 +175,8 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
         return const TransactionResultShimmer();
       case TransactionStatus.success:
         return _buildSuccessView(context);
+      case TransactionStatus.offlineSuccess:
+        return _buildOfflineSuccessView(context);
       case TransactionStatus.failure:
         return _buildFailureView(context);
     }
@@ -441,6 +465,240 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
     );
   }
 
+  Widget _buildOfflineSuccessView(BuildContext context) {
+    final colors = context.colors;
+    final isIncome = widget.params.type == 'income';
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 16),
+                    TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 600),
+                      curve: Curves.elasticOut,
+                      builder: (context, value, child) {
+                        return Transform.scale(
+                          scale: value,
+                          child: child,
+                        );
+                      },
+                      child: Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: Colors.orange,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.orange.withOpacity(0.3),
+                              blurRadius: 16,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.sync_rounded,
+                          color: Colors.white,
+                          size: 45,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'offline_mode_title'.tr(ref),
+                      style: const TextStyle(
+                        color: Colors.orange,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: Column(
+                              children: [
+                                Text(
+                                  _formatAmount(widget.params.amount, widget.params.currencyCode),
+                                  style: TextStyle(
+                                    color: isIncome ? colors.incomeGreen : colors.expenseRed,
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  widget.params.title,
+                                  style: TextStyle(
+                                    color: colors.textSecondary,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                            child: DottedLine(
+                              color: colors.textSecondary.withOpacity(0.2),
+                              height: 1.5,
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: Column(
+                              children: [
+                                _buildReceiptRow(
+                                  context,
+                                  'transaction_type'.tr(ref),
+                                  isIncome ? 'income'.tr(ref) : 'expense'.tr(ref),
+                                ),
+                                _buildReceiptRow(
+                                  context,
+                                  'category_label'.tr(ref),
+                                  widget.params.categoryName,
+                                ),
+                                _buildReceiptRow(
+                                  context,
+                                  'payment_wallet'.tr(ref),
+                                  widget.params.walletName,
+                                ),
+                                _buildReceiptRow(
+                                  context,
+                                  'transaction_time'.tr(ref),
+                                  _formatDate(widget.params.transactionDate),
+                                ),
+                                _buildReceiptRow(
+                                  context,
+                                  'transaction_code'.tr(ref),
+                                  'transaction_status_pending'.tr(ref),
+                                  valueColor: Colors.orange,
+                                  isBoldValue: true,
+                                ),
+                                if (widget.params.notes != null && widget.params.notes!.isNotEmpty)
+                                  _buildReceiptRow(
+                                    context,
+                                    'description'.tr(ref),
+                                    widget.params.notes!,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.orange.withOpacity(0.15)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.cloud_off_rounded, color: Colors.orange, size: 24),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'save_transaction_offline'.tr(ref),
+                              style: const TextStyle(
+                                color: Colors.orange,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      context.pop();
+                    },
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: colors.primary, width: 1.5),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Text(
+                      'create_new_gd'.tr(ref),
+                      style: TextStyle(
+                        color: colors.primary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      while (context.canPop()) {
+                        context.pop();
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Text(
+                      'main_screen'.tr(ref),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildReceiptRow(
     BuildContext context,
     String label,
@@ -470,7 +728,7 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
               style: TextStyle(
                 color: valueColor ?? colors.textPrimary,
                 fontSize: 14,
-                fontWeight: isBoldValue ? FontWeight.bold : Alignment.center == null ? FontWeight.normal : FontWeight.w600,
+                fontWeight: isBoldValue ? FontWeight.bold : FontWeight.w600,
               ),
             ),
           ),
@@ -583,7 +841,6 @@ class TransactionResultShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final baseColor = isDark ? Colors.grey[900]! : Colors.grey[300]!;
     final highlightColor = isDark ? Colors.grey[800]! : Colors.grey[100]!;

@@ -11,6 +11,8 @@ import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
+import 'package:expense_management/features/profile/category_provider.dart';
+import 'package:expense_management/shared/widgets/transaction_list_shimmer.dart';
 import 'package:intl/intl.dart';
 
 final showBalanceProvider = StateProvider<bool>((ref) => true);
@@ -417,9 +419,15 @@ class DashboardScreen extends ConsumerWidget {
                   );
                 }
 
-                // Sắp xếp theo ngày mới nhất và lấy 5 giao dịch đầu
+                // Sắp xếp: Ưu tiên giao dịch chờ đồng bộ (pending) lên đầu, sau đó sắp xếp theo ngày mới nhất
                 final sorted = [...txList]
-                  ..sort((a, b) => b.transactionDate.compareTo(a.transactionDate));
+                  ..sort((a, b) {
+                    final aPending = a.status == 'pending';
+                    final bPending = b.status == 'pending';
+                    if (aPending && !bPending) return -1;
+                    if (!aPending && bPending) return 1;
+                    return b.transactionDate.compareTo(a.transactionDate);
+                  });
                 final recentTx = sorted.take(5).toList();
 
                 return Column(
@@ -428,8 +436,19 @@ class DashboardScreen extends ConsumerWidget {
                     final isTransfer = tx.sourceType == 'transfer';
                     final sign = isIncome ? '+' : (isTransfer ? '' : '-');
 
-                    final categoryIcon = CategoryUIConstants.getIconData(tx.categoryIcon);
-                    final categoryColor = CategoryUIConstants.getColorFromHex(tx.categoryColor);
+                    // Tra cứu động (Direction A)
+                    final wallets = walletState.asData?.value ?? [];
+                    final categories = ref.watch(categoriesNotifierProvider).asData?.value ?? [];
+
+                    final localWallet = wallets.where((w) => w.id == tx.walletId).firstOrNull;
+                    final localCategory = categories.where((c) => c.id == tx.categoryId).firstOrNull;
+
+                    final walletName = localWallet?.name ?? tx.walletName ?? 'Ví';
+                    final categoryIconStr = localCategory?.icon ?? tx.categoryIcon;
+                    final categoryColorStr = localCategory?.color ?? tx.categoryColor;
+
+                    final categoryIcon = CategoryUIConstants.getIconData(categoryIconStr);
+                    final categoryColor = CategoryUIConstants.getColorFromHex(categoryColorStr);
 
                     String formatMoney(double value) {
                       RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
@@ -438,22 +457,23 @@ class DashboardScreen extends ConsumerWidget {
                     }
 
                     return _buildRecentTransaction(
+                      ref: ref,
                       colors: colors,
                       title: tx.title,
-                      sub: '${tx.walletName ?? 'Ví'} • ${DateFormat('dd/MM/yyyy HH:mm').format(tx.transactionDate)}',
+                      sub: '$walletName • ${DateFormat('dd/MM/yyyy HH:mm').format(tx.transactionDate)}',
                       amount: '$sign${formatMoney(tx.amount)} $currencySymbol',
                       isIncome: isIncome,
                       icon: categoryIcon,
                       iconColor: categoryColor,
+                      isPending: tx.status == 'pending',
                     );
                   }).toList(),
                 );
               },
-              loading: () => const Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24.0),
-                  child: CircularProgressIndicator(),
-                ),
+              loading: () => const TransactionListShimmer(
+                itemCount: 5,
+                shrinkWrap: true,
+                physics: NeverScrollableScrollPhysics(),
               ),
               error: (err, _) => Center(
                 child: Padding(
@@ -590,6 +610,7 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildRecentTransaction({
+    required WidgetRef ref,
     required AppColorsExtension colors,
     required String title,
     required String sub,
@@ -597,6 +618,7 @@ class DashboardScreen extends ConsumerWidget {
     required bool isIncome,
     required IconData icon,
     required Color iconColor,
+    bool isPending = false,
   }) {
     final displayColor = isIncome ? colors.incomeGreen : colors.expenseRed;
 
@@ -605,9 +627,21 @@ class DashboardScreen extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: colors.surface,
+          color: colors.surface.withOpacity(isPending ? 0.85 : 1.0),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: colors.textSecondary.withOpacity(0.04)),
+          border: Border.all(
+            color: isPending
+                ? Colors.orange.withOpacity(0.4)
+                : colors.textSecondary.withOpacity(0.04),
+            width: isPending ? 1.2 : 1.0,
+          ),
+          boxShadow: isPending ? [
+            BoxShadow(
+              color: Colors.orange.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            )
+          ] : null,
         ),
         child: Row(
           children: [
@@ -642,6 +676,30 @@ class DashboardScreen extends ConsumerWidget {
                       fontSize: 12,
                     ),
                   ),
+                  if (isPending) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const SizedBox(
+                          width: 10,
+                          height: 10,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          'transaction_status_pending'.tr(ref),
+                          style: const TextStyle(
+                            color: Colors.orange,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

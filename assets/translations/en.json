@@ -255,5 +255,12 @@
   "unknown_error": "An unknown error occurred. Please check your connection.",
   "category_label": "Category",
   "payment_wallet": "Payment Wallet",
-  "transaction_time": "Time"
+  "transaction_time": "Time",
+  "save_transaction_offline": "Transaction saved offline! It will automatically sync when connection is restored.",
+  "transaction_status_pending": "Pending sync",
+  "sync_success_title": "Sync Success",
+  "sync_success_desc": "Transaction '{title}' has been synchronized successfully.",
+  "sync_failed_title": "Sync Failed",
+  "sync_failed_desc": "Failed to sync transaction '{title}'. Deleted from queue.",
+  "offline_mode_title": "Offline Mode"
 }

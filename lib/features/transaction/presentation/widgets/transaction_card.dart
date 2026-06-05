@@ -1,39 +1,62 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
+import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
+import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
+import 'package:expense_management/features/profile/category_provider.dart';
 
 /// Widget card hiển thị một giao dịch trong lịch sử
-class TransactionCard extends StatelessWidget {
+class TransactionCard extends ConsumerWidget {
   final TransactionEntity tx;
 
   const TransactionCard({super.key, required this.tx});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
 
     final isIncome = tx.type == 'income';
     final isTransfer = tx.sourceType == 'transfer';
 
+    // Tra cứu động (Direction A)
+    final wallets = ref.watch(walletNotifierProvider).asData?.value ?? [];
+    final categories = ref.watch(categoriesNotifierProvider).asData?.value ?? [];
+
+    final localWallet = wallets.where((w) => w.id == tx.walletId).firstOrNull;
+    final localCategory = categories.where((c) => c.id == tx.categoryId).firstOrNull;
+
+    final walletName = localWallet?.name ?? tx.walletName ?? '–';
+    final categoryName = localCategory?.name ?? tx.categoryName;
+    final categoryIconStr = localCategory?.icon ?? tx.categoryIcon;
+    final categoryColorStr = localCategory?.color ?? tx.categoryColor;
+
     // ── Số tiền hiển thị với màu đúng
     final amountText = _buildAmountText(isIncome, isTransfer, colors);
 
-    // ── Icon & màu danh mục (lấy thẳng từ dữ liệu category đã eager-load từ API)
-    final categoryIcon = CategoryUIConstants.getIconData(tx.categoryIcon);
-    final categoryColor = CategoryUIConstants.getColorFromHex(tx.categoryColor);
+    // ── Icon & màu danh mục (lấy từ SQLite local nếu có, fallback dữ liệu cũ)
+    final categoryIcon = CategoryUIConstants.getIconData(categoryIconStr);
+    final categoryColor = CategoryUIConstants.getColorFromHex(categoryColorStr);
+
+    final isPending = tx.status == 'pending';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: colors.surface,
+        color: colors.surface.withOpacity(isPending ? 0.85 : 1.0),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: colors.textSecondary.withValues(alpha: 0.06),
+          color: isPending
+              ? Colors.orange.withOpacity(0.4)
+              : colors.textSecondary.withValues(alpha: 0.06),
+          width: isPending ? 1.2 : 1.0,
         ),
         boxShadow: [
           BoxShadow(
-            color: colors.textPrimary.withValues(alpha: 0.03),
+            color: isPending
+                ? Colors.orange.withOpacity(0.04)
+                : colors.textPrimary.withValues(alpha: 0.03),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -79,7 +102,7 @@ class TransactionCard extends StatelessWidget {
                           size: 11, color: colors.textSecondary),
                       const SizedBox(width: 3),
                       Text(
-                        tx.walletName ?? '–',
+                        walletName,
                         style: TextStyle(
                             color: colors.textSecondary, fontSize: 12),
                       ),
@@ -91,8 +114,33 @@ class TransactionCard extends StatelessWidget {
                     ],
                   ),
 
+                  if (isPending) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const SizedBox(
+                          width: 10,
+                          height: 10,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          'transaction_status_pending'.tr(ref),
+                          style: const TextStyle(
+                            color: Colors.orange,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+
                   // Danh mục (nếu có)
-                  if (tx.categoryName != null) ...[
+                  if (categoryName != null) ...[
                     const SizedBox(height: 2),
                     Row(
                       children: [
@@ -100,7 +148,7 @@ class TransactionCard extends StatelessWidget {
                             size: 11, color: colors.textSecondary),
                         const SizedBox(width: 3),
                         Text(
-                          tx.categoryName!,
+                          categoryName,
                           style: TextStyle(
                               color: colors.textSecondary, fontSize: 12),
                         ),

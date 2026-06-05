@@ -11,6 +11,7 @@ import 'package:expense_management/features/wallet/presentation/provider/wallet_
 import 'package:expense_management/features/transaction/presentation/widgets/transaction_card.dart';
 
 import 'package:expense_management/core/language/app_language.dart';
+import 'package:expense_management/shared/widgets/transaction_list_shimmer.dart';
 import 'package:intl/intl.dart';
 
 class TransactionHistoryScreen extends ConsumerStatefulWidget {
@@ -199,8 +200,10 @@ class _TransactionHistoryScreenState
                       _buildDaySection(grouped[index], colors),
                 );
               },
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
+              loading: () => const TransactionListShimmer(
+                itemCount: 8,
+                padding: EdgeInsets.symmetric(horizontal: 16),
+              ),
               error: (err, _) => Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -810,8 +813,14 @@ class _TransactionHistoryScreenState
           matchesDate;
     }).toList();
 
-    // Sắp xếp mới nhất trước
-    result.sort((a, b) => b.transactionDate.compareTo(a.transactionDate));
+    // Sắp xếp: Ưu tiên giao dịch chờ đồng bộ (pending) lên đầu, sau đó sắp xếp theo ngày mới nhất
+    result.sort((a, b) {
+      final aPending = a.status == 'pending';
+      final bPending = b.status == 'pending';
+      if (aPending && !bPending) return -1;
+      if (!aPending && bPending) return 1;
+      return b.transactionDate.compareTo(a.transactionDate);
+    });
 
     if (_showRecentOnly) return result.take(5).toList();
     return result;

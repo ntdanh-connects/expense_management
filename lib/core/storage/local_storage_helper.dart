@@ -1,4 +1,5 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:convert';
+import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LocalStorageHelper {
@@ -43,5 +44,51 @@ class LocalStorageHelper {
 
   Future<bool> clearAll() async {
     return await _prefs.clear();
+  }
+
+  static const String _transactionsKey = 'cached_transactions';
+
+  List<TransactionEntity> getCachedTransactions() {
+    final String? jsonStr = _prefs.getString(_transactionsKey);
+    if (jsonStr == null || jsonStr.isEmpty) return [];
+    try {
+      final List<dynamic> list = json.decode(jsonStr);
+      return list.map((item) => TransactionEntity.fromJson(item as Map<String, dynamic>)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<bool> saveCachedTransactions(List<TransactionEntity> transactions) async {
+    try {
+      final List<Map<String, dynamic>> list = transactions.map((tx) => tx.toJson()).toList();
+      final String jsonStr = json.encode(list);
+      return await _prefs.setString(_transactionsKey, jsonStr);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static const String _pendingTransactionsKey = 'pending_transactions';
+
+  List<TransactionEntity> getPendingTransactions() {
+    final String? jsonStr = _prefs.getString(_pendingTransactionsKey);
+    if (jsonStr == null || jsonStr.isEmpty) return [];
+    try {
+      final List<dynamic> list = json.decode(jsonStr);
+      return list.map((item) => TransactionEntity.fromJson(item as Map<String, dynamic>)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<bool> savePendingTransactions(List<TransactionEntity> transactions) async {
+    try {
+      final List<Map<String, dynamic>> list = transactions.map((tx) => tx.toJson()).toList();
+      final String jsonStr = json.encode(list);
+      return await _prefs.setString(_pendingTransactionsKey, jsonStr);
+    } catch (_) {
+      return false;
+    }
   }
 }
