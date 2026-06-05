@@ -261,5 +261,12 @@
   "unknown_error": "Đã xảy ra lỗi không xác định. Vui lòng kiểm tra lại kết nối.",
   "category_label": "Danh mục",
   "payment_wallet": "Ví thanh toán",
-  "transaction_time": "Thời gian"
+  "transaction_time": "Thời gian",
+  "save_transaction_offline": "Giao dịch đã được lưu tạm offline! Hệ thống sẽ tự động đồng bộ khi có mạng.",
+  "transaction_status_pending": "Chờ đồng bộ",
+  "sync_success_title": "Đồng bộ thành công",
+  "sync_success_desc": "Giao dịch '{title}' đã được đồng bộ lên hệ thống.",
+  "sync_failed_title": "Đồng bộ thất bại",
+  "sync_failed_desc": "Đồng bộ giao dịch '{title}' thất bại. Đã xóa khỏi hàng đợi.",
+  "offline_mode_title": "Chế độ ngoại tuyến"
 }
