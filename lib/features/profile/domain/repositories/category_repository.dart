@@ -2,6 +2,7 @@ import 'package:expense_management/features/profile/data/models/category_dto.dar
 
 abstract class CategoryRepository {
   Future<List<CategoryDto>> getCategories();
+  Future<List<CategoryDto>> getCategoriesFromLocal();
   Future<List<String>> getSupportedIcons();
   Future<CategoryDto> createCategory({
     required String name,

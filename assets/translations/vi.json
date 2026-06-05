@@ -249,5 +249,17 @@
   "select_subcategory": "Chọn danh mục con",
   "search_subcategory_hint": "Tìm kiếm danh mục con...",
   "no_categories_found": "Không tìm thấy danh mục nào.",
-  "parent_category_label": "Danh mục cha"
+  "parent_category_label": "Danh mục cha",
+  "result_title": "Kết quả giao dịch",
+  "transaction_type": "Loại giao dịch",
+  "transaction_code": "Mã giao dịch",
+  "create_new_gd": "Tạo GD mới",
+  "main_screen": "Màn hình chính",
+  "transaction_failed": "Giao dịch thất bại",
+  "back_to_edit": "Quay lại sửa",
+  "retry": "Thử lại",
+  "unknown_error": "Đã xảy ra lỗi không xác định. Vui lòng kiểm tra lại kết nối.",
+  "category_label": "Danh mục",
+  "payment_wallet": "Ví thanh toán",
+  "transaction_time": "Thời gian"
 }

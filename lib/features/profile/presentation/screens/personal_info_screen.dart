@@ -8,6 +8,7 @@ import 'package:expense_management/core/language/app_language.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class PersonalInfoScreen extends ConsumerStatefulWidget {
   const PersonalInfoScreen({super.key});
@@ -291,7 +292,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
                       child: CircleAvatar(
                         radius: 65, 
                         backgroundColor: colors.primary.withOpacity(0.1),
-                        backgroundImage: displayAvatar != null ? NetworkImage(displayAvatar) : null,
+                        backgroundImage: displayAvatar != null ? CachedNetworkImageProvider(displayAvatar) : null,
                         child: displayAvatar == null 
                             ? Icon(Icons.person_rounded, size: 70, color: colors.primary) 
                             : null,
@@ -364,6 +365,28 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
                         : (availableTimezones.isNotEmpty ? availableTimezones.first : 'Asia/Ho_Chi_Minh');
                   }
 
+                  // Danh sách múi giờ phổ biến/nổi bật để tránh bị loãng UI
+                  final popularTimezones = const [
+                    'Asia/Ho_Chi_Minh',
+                    'Asia/Singapore',
+                    'Asia/Bangkok',
+                    'Asia/Tokyo',
+                    'Asia/Seoul',
+                    'Asia/Shanghai',
+                    'Asia/Hong_Kong',
+                    'Asia/Jakarta',
+                    'Europe/London',
+                    'Europe/Paris',
+                    'America/New_York',
+                    'America/Los_Angeles',
+                    'Australia/Sydney',
+                  ];
+
+                  // Lọc danh sách: chỉ hiện múi giờ phổ biến và luôn giữ lại múi giờ hiện tại của user để tránh bị lỗi
+                  final filteredTimezones = availableTimezones.where((tz) {
+                    return popularTimezones.contains(tz) || tz == _selectedTimezone;
+                  }).toList();
+
                   return Column(
                     children: [
                       // Dropdown Tiền tệ
@@ -384,7 +407,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
 
                       // Chọn Múi giờ với Searchable Bottom Sheet
                       GestureDetector(
-                        onTap: () => _showTimezoneSearchSheet(context, options.timezones),
+                        onTap: () => _showTimezoneSearchSheet(context, filteredTimezones),
                         child: Container(
                           margin: const EdgeInsets.only(bottom: 20),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),

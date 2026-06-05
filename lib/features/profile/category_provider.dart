@@ -4,6 +4,7 @@ import 'package:expense_management/features/profile/data/repository_impl/categor
 import 'package:expense_management/features/profile/domain/repositories/category_repository.dart';
 import 'package:expense_management/features/profile/data/models/category_dto.dart';
 import 'package:expense_management/core/language/app_provider.dart';
+import 'package:expense_management/core/database/app_database.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final categoryApiServiceProvider = Provider<CategoryApiService>((ref) {
@@ -13,7 +14,8 @@ final categoryApiServiceProvider = Provider<CategoryApiService>((ref) {
 
 final categoryRepositoryProvider = Provider<CategoryRepository>((ref) {
   final apiService = ref.watch(categoryApiServiceProvider);
-  return CategoryRepositoryImpl(apiService);
+  final db = ref.watch(appDatabaseProvider);
+  return CategoryRepositoryImpl(apiService, db);
 });
 
 class CategoriesNotifier extends AsyncNotifier<List<CategoryDto>> {
@@ -21,7 +23,26 @@ class CategoriesNotifier extends AsyncNotifier<List<CategoryDto>> {
   Future<List<CategoryDto>> build() async {
     ref.watch(localeProvider); // Theo dõi ngôn ngữ để tự động tải lại danh mục khi đổi ngôn ngữ
     final repo = ref.read(categoryRepositoryProvider);
+    
+    // Tải dữ liệu từ local database trước để UI load lập tức không bị xoay vòng xoay loading
+    final localCategories = await repo.getCategoriesFromLocal();
+    if (localCategories.isNotEmpty) {
+      _fetchRemoteInBackground();
+      return localCategories;
+    }
+    
+    // Nếu local rỗng (lần đầu dùng ứng dụng), đợi từ API
     return repo.getCategories();
+  }
+
+  Future<void> _fetchRemoteInBackground() async {
+    try {
+      final repo = ref.read(categoryRepositoryProvider);
+      final remoteCategories = await repo.getCategories();
+      state = AsyncValue.data(remoteCategories);
+    } catch (e) {
+      // Bỏ qua lỗi ngầm (ví dụ mất kết nối mạng) để giữ nguyên cache local cũ
+    }
   }
 
   Future<void> refreshCategories() async {

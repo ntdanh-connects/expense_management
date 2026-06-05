@@ -4,20 +4,85 @@ import 'package:expense_management/core/network/network_exception_mapper.dart';
 import 'package:expense_management/features/profile/data/datasource/remote/category_api_service.dart';
 import 'package:expense_management/features/profile/data/models/category_dto.dart';
 import 'package:expense_management/features/profile/domain/repositories/category_repository.dart';
+import 'package:expense_management/core/database/app_database.dart' as db;
 
 class CategoryRepositoryImpl implements CategoryRepository {
   final CategoryApiService _apiService;
+  final db.AppDatabase _db;
 
-  CategoryRepositoryImpl(this._apiService);
+  CategoryRepositoryImpl(this._apiService, this._db);
+
+  @override
+  Future<List<CategoryDto>> getCategoriesFromLocal() async {
+    final rows = await _db.getAllCategories();
+    return _reconstructTree(rows);
+  }
 
   @override
   Future<List<CategoryDto>> getCategories() async {
     try {
       final response = await _apiService.getCategories();
-      return response.data;
+      final remoteDtos = response.data;
+      
+      // Flatten the tree and save to local db
+      final flatRows = _flattenCategories(remoteDtos);
+      await _db.saveAllCategories(flatRows);
+      
+      return remoteDtos;
     } on DioException catch (e) {
       throw AppException(e.toNetworkFailure());
     }
+  }
+
+  List<db.Category> _flattenCategories(List<CategoryDto> dtos) {
+    final List<db.Category> flat = [];
+    for (final dto in dtos) {
+      flat.add(db.Category(
+        id: dto.id,
+        userId: dto.userId,
+        parentId: dto.parentId,
+        type: dto.type,
+        name: dto.name,
+        icon: dto.icon,
+        color: dto.color,
+        sortOrder: dto.sortOrder,
+        isDefault: dto.isDefault,
+      ));
+      if (dto.children != null && dto.children!.isNotEmpty) {
+        flat.addAll(_flattenCategories(dto.children!));
+      }
+    }
+    return flat;
+  }
+
+  List<CategoryDto> _reconstructTree(List<db.Category> flatRows) {
+    final Map<String?, List<db.Category>> grouped = {};
+    for (final row in flatRows) {
+      grouped.putIfAbsent(row.parentId, () => []).add(row);
+    }
+
+    CategoryDto buildDto(db.Category row) {
+      final childrenRows = grouped[row.id] ?? [];
+      childrenRows.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+      final children = childrenRows.map(buildDto).toList();
+
+      return CategoryDto(
+        id: row.id,
+        userId: row.userId,
+        parentId: row.parentId,
+        type: row.type,
+        name: row.name,
+        icon: row.icon,
+        color: row.color,
+        sortOrder: row.sortOrder,
+        isDefault: row.isDefault,
+        children: children.isEmpty ? null : children,
+      );
+    }
+
+    final rootRows = grouped[null] ?? [];
+    rootRows.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    return rootRows.map(buildDto).toList();
   }
 
   @override

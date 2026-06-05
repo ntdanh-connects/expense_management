@@ -7,6 +7,7 @@ import 'package:expense_management/features/profile/category_provider.dart';
 import 'package:expense_management/features/profile/data/models/category_dto.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
+import 'package:expense_management/features/transaction/domain/entities/transaction_params.dart';
 import 'package:expense_management/features/transaction/presentation/screens/sub_category_selection_screen.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
@@ -17,6 +18,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:shimmer/shimmer.dart';
 
 class AddTransactionScreen extends ConsumerStatefulWidget {
   const AddTransactionScreen({super.key});
@@ -38,12 +40,59 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   File? _imageFile;
   bool _isLoading = false;
 
-  final CurrencyTextInputFormatter _formatter =
-      CurrencyTextInputFormatter.currency(
-        locale: 'vi',
-        decimalDigits: 0,
-        symbol: 'đ',
-      );
+  late CurrencyTextInputFormatter _formatter;
+
+  @override
+  void initState() {
+    super.initState();
+    _formatter = CurrencyTextInputFormatter.currency(
+      locale: 'vi',
+      decimalDigits: 0,
+      symbol: 'đ',
+    );
+  }
+
+  String _getCurrencySymbol(String? currencyCode) {
+    switch (currencyCode) {
+      case 'USD':
+        return '\$';
+      case 'EUR':
+        return '€';
+      case 'VND':
+      default:
+        return 'đ';
+    }
+  }
+
+  int _getDecimalDigits(String? currencyCode) {
+    if (currencyCode == 'VND') return 0;
+    return 2;
+  }
+
+  String _getLocale(String? currencyCode) {
+    if (currencyCode == 'VND') return 'vi';
+    if (currencyCode == 'USD') return 'en_US';
+    if (currencyCode == 'EUR') return 'fr_FR';
+    return 'en';
+  }
+
+  void _updateFormatter(String? currencyCode) {
+    final symbol = _getCurrencySymbol(currencyCode);
+    final decimals = _getDecimalDigits(currencyCode);
+    final locale = _getLocale(currencyCode);
+    
+    _formatter = CurrencyTextInputFormatter.currency(
+      locale: locale,
+      decimalDigits: decimals,
+      symbol: symbol,
+    );
+    
+    final text = _amountController.text;
+    if (text.isNotEmpty) {
+      final cleanVal = _getAmount();
+      _amountController.text = _formatter.formatDouble(cleanVal);
+    }
+  }
 
   @override
   void dispose() {
@@ -56,8 +105,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   bool get _isIncome => _selectedParentCategory?.type == 'income';
 
   double _getAmount() {
-    final cleanStr = _amountController.text.replaceAll(RegExp(r'[^0-9]'), '');
-    return double.tryParse(cleanStr) ?? 0.0;
+    return _formatter.getDouble();
   }
 
   String _formatDate(DateTime date) {
@@ -185,7 +233,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                           ),
                         ),
                         subtitle: Text(
-                          '${'balance_prefix'.trRead(ref)}${NumberFormat('#,###').format(wallet.balance)} đ',
+                          '${'balance_prefix'.trRead(ref)}${NumberFormat(wallet.currencyCode == 'VND' ? '#,###' : '#,##0.00').format(wallet.balance)} ${_getCurrencySymbol(wallet.currencyCode)}',
                           style: TextStyle(
                             color: colors.textSecondary,
                             fontSize: 13,
@@ -200,6 +248,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                         onTap: () {
                           setState(() {
                             _selectedWallet = wallet;
+                            _updateFormatter(wallet.currencyCode);
                           });
                           Navigator.pop(context);
                         },
@@ -273,6 +322,9 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                       Navigator.pop(context);
                       final file = await ImagePicker().pickImage(
                         source: ImageSource.camera,
+                        maxWidth: 1024,
+                        maxHeight: 1024,
+                        imageQuality: 85,
                       );
                       if (file != null) {
                         setState(() {
@@ -289,6 +341,9 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                       Navigator.pop(context);
                       final file = await ImagePicker().pickImage(
                         source: ImageSource.gallery,
+                        maxWidth: 1024,
+                        maxHeight: 1024,
+                        imageQuality: 85,
                       );
                       if (file != null) {
                         setState(() {
@@ -381,73 +436,33 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
         ? _selectedCategory!.name
         : _titleController.text.trim();
 
-    setState(() {
-      _isLoading = true;
+    // Xác định loại giao dịch cho backend (income hoặc expense)
+    final backendType = _selectedParentCategory?.type ?? 'expense';
+
+    final params = TransactionParams(
+      walletId: _selectedWallet!.id,
+      walletName: _selectedWallet!.name,
+      categoryId: _selectedCategory!.id,
+      categoryName: _selectedCategory!.name,
+      type: backendType,
+      amount: amount,
+      title: title,
+      notes: _notesController.text.trim().isEmpty
+          ? null
+          : _notesController.text.trim(),
+      transactionDate: _selectedDate.toIso8601String(),
+      currencyCode: _selectedWallet!.currencyCode,
+      exchangeRate: 1.0,
+      timezone: 'Asia/Ho_Chi_Minh',
+      attachmentPath: _imageFile?.path,
+    );
+
+    // Chuyển hướng sang màn hình kết quả Momo-style để xử lý lưu
+    context.push(RoutePaths.transactionResult, extra: params).then((_) {
+      if (mounted) {
+        // Có thể dọn dẹp hoặc reset UI sau khi quay lại chỉnh sửa
+      }
     });
-
-    try {
-      MultipartFile? attachmentFile;
-      if (_imageFile != null) {
-        attachmentFile = await MultipartFile.fromFile(
-          _imageFile!.path,
-          filename: _imageFile!.path.split('/').last,
-        );
-      }
-
-      final addTxUseCase = ref.read(addTransactionUseCaseProvider);
-
-      // Determine the type for backend (income or expense)
-      final backendType = _selectedParentCategory?.type ?? 'expense';
-
-      await addTxUseCase.execute(
-        walletId: _selectedWallet!.id,
-        categoryId: _selectedCategory!.id,
-        type: backendType,
-        amount: amount,
-        title: title,
-        notes: _notesController.text.trim().isEmpty
-            ? null
-            : _notesController.text.trim(),
-        transactionDate: _selectedDate.toIso8601String(),
-        currencyCode: _selectedWallet!.currencyCode,
-        exchangeRate: 1.0,
-        timezone: 'Asia/Ho_Chi_Minh',
-        attachment: attachmentFile,
-      );
-
-      // Refresh wallet balances
-      await ref.read(walletNotifierProvider.notifier).refreshWallets();
-
-      // Refresh transactions list
-      await ref.read(transactionListProvider.notifier).refreshTransactions();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('save_transaction_success'.trRead(ref)),
-            backgroundColor: Colors.green,
-          ),
-        );
-        context.pop();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${'error'.trRead(ref)}: ${e.toString().replaceFirst('Exception: ', '')}',
-            ),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
   }
 
   // Helper method to resolve dynamic parent icons & colors
@@ -519,6 +534,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         setState(() {
           _selectedWallet = walletList.first;
+          _updateFormatter(_selectedWallet!.currencyCode);
         });
       });
     }
@@ -545,7 +561,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
         ),
       ),
       body: categoriesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const AddTransactionShimmer(),
         error: (error, _) => Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -609,7 +625,9 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                         ),
                         decoration: InputDecoration(
                           border: InputBorder.none,
-                          hintText: '0 đ',
+                          hintText: _selectedWallet != null
+                              ? '0 ${_getCurrencySymbol(_selectedWallet!.currencyCode)}'
+                              : '0 đ',
                           hintStyle: TextStyle(
                             fontSize: 38,
                             fontWeight: FontWeight.bold,
@@ -1165,15 +1183,32 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                               ),
                             ),
                           ),
+                          if (_isLoading)
+                            Positioned.fill(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.4),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Center(
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2.5,
+                                  ),
+                                ),
+                              ),
+                            ),
                           Positioned(
                             right: 4,
                             top: 4,
                             child: GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _imageFile = null;
-                                });
-                              },
+                              onTap: _isLoading
+                                  ? null
+                                  : () {
+                                      setState(() {
+                                        _imageFile = null;
+                                      });
+                                    },
                               child: Container(
                                 padding: const EdgeInsets.all(4),
                                 decoration: const BoxDecoration(
@@ -1242,6 +1277,144 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class AddTransactionShimmer extends StatelessWidget {
+  const AddTransactionShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseColor = isDark ? Colors.grey[900]! : Colors.grey[300]!;
+    final highlightColor = isDark ? Colors.grey[800]! : Colors.grey[100]!;
+
+    return Shimmer.fromColors(
+      baseColor: baseColor,
+      highlightColor: highlightColor,
+      period: const Duration(milliseconds: 1500),
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 💳 1. Amount Display Card Placeholder
+            Container(
+              width: double.infinity,
+              height: 140,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // 📁 2. Parent Category Label Placeholder
+            Container(
+              width: 120,
+              height: 20,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Horizontal scrolling parents list Placeholders
+            SizedBox(
+              height: 90,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: 4,
+                itemBuilder: (context, index) {
+                  return Container(
+                    width: 90,
+                    margin: const EdgeInsets.only(right: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // 📂 3. Subcategory Label Placeholder
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  width: 100,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                Container(
+                  width: 60,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Quick Subcategories Placeholders
+            SizedBox(
+              height: 100,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: 4,
+                itemBuilder: (context, index) {
+                  return Container(
+                    width: 80,
+                    margin: const EdgeInsets.only(right: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // 🖊️ 4. Form Fields Placeholders
+            for (int i = 0; i < 3; i++) ...[
+              Container(
+                width: double.infinity,
+                height: 56,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
+
+            // 💾 5. Save Button Placeholder
+            Container(
+              width: double.infinity,
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

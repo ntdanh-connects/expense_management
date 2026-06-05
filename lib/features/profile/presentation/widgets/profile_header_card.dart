@@ -1,5 +1,6 @@
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ProfileHeaderCard extends StatelessWidget {
   final String fullName;
@@ -44,7 +45,7 @@ class ProfileHeaderCard extends StatelessWidget {
             child: CircleAvatar(
               backgroundColor: Colors.white24,
               backgroundImage: avatarUrl != null && avatarUrl!.isNotEmpty
-                  ? NetworkImage(avatarUrl!)
+                  ? CachedNetworkImageProvider(avatarUrl!)
                   : null,
               child: avatarUrl != null && avatarUrl!.isNotEmpty
                   ? null

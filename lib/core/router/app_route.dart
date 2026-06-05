@@ -14,6 +14,8 @@ import 'package:expense_management/features/profile/presentation/screens/profile
 import 'package:expense_management/features/profile/presentation/screens/category_management_screen.dart';
 import 'package:expense_management/features/transaction/presentation/screens/transaction_history_screen.dart';
 import 'package:expense_management/features/transaction/presentation/screens/add_transaction_screen.dart';
+import 'package:expense_management/features/transaction/domain/entities/transaction_params.dart';
+import 'package:expense_management/features/transaction/presentation/screens/transaction_result_screen.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/presentation/screens/wallet_screen.dart';
 import 'package:expense_management/features/wallet/presentation/screens/add_wallet_screen.dart';
@@ -38,6 +40,7 @@ class RoutePaths {
   static const changePassword = '/profile/change-password';
   static const forgotPassword = '/auth/forgot-password';
   static const categories = '/profile/categories';
+  static const transactionResult = '/transaction-result';
 }
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -132,6 +135,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.addTransaction,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const AddTransactionScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.transactionResult,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final params = state.extra as TransactionParams;
+          return TransactionResultScreen(params: params);
+        },
       ),
 
       StatefulShellRoute.indexedStack(

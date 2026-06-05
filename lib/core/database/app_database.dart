@@ -35,12 +35,27 @@ class Wallets extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Users, Wallets])
+class Categories extends Table {
+  TextColumn get id => text()();
+  TextColumn get userId => text().nullable()();
+  TextColumn get parentId => text().nullable()();
+  TextColumn get type => text()();
+  TextColumn get name => text()();
+  TextColumn get icon => text().nullable()();
+  TextColumn get color => text().nullable()();
+  IntColumn get sortOrder => integer()();
+  BoolColumn get isDefault => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DriftDatabase(tables: [Users, Wallets, Categories])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(): super(_openConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -73,6 +88,13 @@ class AppDatabase extends _$AppDatabase {
           // Bỏ qua nếu cột đã tồn tại
         }
       }
+      if (from < 6) {
+        try {
+          await m.createTable(categories);
+        } catch (e) {
+          // Bỏ qua nếu bảng đã tồn tại
+        }
+      }
     },
   );
 
@@ -102,9 +124,23 @@ class AppDatabase extends _$AppDatabase {
     return select(wallets).watch();
   }
 
+  Future<void> saveAllCategories(List<Category> categoryRows) async {
+    await transaction(() async {
+      await delete(categories).go();
+      await batch((batch) {
+        batch.insertAll(categories, categoryRows);
+      });
+    });
+  }
+
+  Future<List<Category>> getAllCategories() async {
+    return await select(categories).get();
+  }
+
   Future<void> clearAuthData() async {
     await delete(users).go();
     await delete(wallets).go();
+    await delete(categories).go();
   }
 }
 

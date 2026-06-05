@@ -243,5 +243,17 @@
   "select_subcategory": "Select Subcategory",
   "search_subcategory_hint": "Search subcategories...",
   "no_categories_found": "No categories found.",
-  "parent_category_label": "Parent Category"
+  "parent_category_label": "Parent Category",
+  "result_title": "Transaction Result",
+  "transaction_type": "Transaction Type",
+  "transaction_code": "Transaction ID",
+  "create_new_gd": "New Transaction",
+  "main_screen": "Dashboard",
+  "transaction_failed": "Transaction Failed",
+  "back_to_edit": "Edit Details",
+  "retry": "Retry",
+  "unknown_error": "An unknown error occurred. Please check your connection.",
+  "category_label": "Category",
+  "payment_wallet": "Payment Wallet",
+  "transaction_time": "Time"
 }
