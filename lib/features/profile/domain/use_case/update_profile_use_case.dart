@@ -11,12 +11,14 @@ class UpdateProfileUseCase {
     String? language,
     String? currency,
     String? timezone,
+    String? theme,
   }) async {
     return await _userRepository.updateProfile(
       fullName: fullName,
       language: language,
       currency: currency,
       timezone: timezone,
+      theme: theme,
     );
   }
 }

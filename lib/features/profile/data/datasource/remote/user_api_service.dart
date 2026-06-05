@@ -20,6 +20,7 @@ abstract class UserApiService {
     @Field("language") String? language,
     @Field("currency") String? currency,
     @Field("timezone") String? timezone,
+    @Field("theme") String? theme,
   );
 
   @POST(ApiEndpoints.updateAvatar)
