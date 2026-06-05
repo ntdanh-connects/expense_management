@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/features/transaction/data/datasource/remote/transaction_remote_datasource.dart';
 import 'package:expense_management/features/transaction/data/repository_impl/transaction_repository_impl.dart';
@@ -15,7 +14,8 @@ final transactionApiServiceProvider = Provider<TransactionApiService>((ref) {
 
 final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
   final apiService = ref.watch(transactionApiServiceProvider);
-  return TransactionRepositoryImpl(apiService);
+  final dio = ref.watch(dioClientProvider);
+  return TransactionRepositoryImpl(apiService, dio);
 });
 
 final addTransactionUseCaseProvider = Provider<AddTransactionUseCase>((ref) {
@@ -32,14 +32,14 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
   @override
   Future<List<TransactionEntity>> build() async {
     final useCase = ref.watch(getTransactionsUseCaseProvider);
-    return useCase.execute(perPage: 50); // Get first 50 transactions
+    return useCase.execute(perPage: 200);
   }
 
   Future<void> refreshTransactions() async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final useCase = ref.read(getTransactionsUseCaseProvider);
-      return useCase.execute(perPage: 50);
+      return useCase.execute(perPage: 200);
     });
   }
 

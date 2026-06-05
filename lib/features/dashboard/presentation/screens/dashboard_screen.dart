@@ -378,17 +378,31 @@ class DashboardScreen extends ConsumerWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                IconButton(
+                TextButton(
                   onPressed: () {
-                    context.go(RoutePaths.history);
+                    context.go(RoutePaths.history, extra: 'recent');
                   },
-                  icon: Icon(Icons.arrow_forward_ios_rounded, color: colors.textSecondary, size: 18),
+                  child: Row(
+                    children: [
+                      Text(
+                        'see_all'.tr(ref),
+                        style: TextStyle(
+                          color: colors.primary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(Icons.arrow_forward_ios_rounded,
+                          color: colors.primary, size: 12),
+                    ],
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
 
-            // DANH SÁCH GIAO DỊCH GẦN ĐÂY
+            // DANH SÁCH GIAO DỊCH GẦN ĐÂY (5 giao dịch mới nhất)
             ref.watch(transactionListProvider).when(
               data: (txList) {
                 if (txList.isEmpty) {
@@ -403,15 +417,17 @@ class DashboardScreen extends ConsumerWidget {
                   );
                 }
 
-                // Lấy 5 giao dịch mới nhất
-                final recentTx = txList.take(5).toList();
+                // Sắp xếp theo ngày mới nhất và lấy 5 giao dịch đầu
+                final sorted = [...txList]
+                  ..sort((a, b) => b.transactionDate.compareTo(a.transactionDate));
+                final recentTx = sorted.take(5).toList();
 
                 return Column(
                   children: recentTx.map((tx) {
                     final isIncome = tx.type == 'income';
-                    final sign = isIncome ? '+' : '-';
-                    final displayColor = isIncome ? colors.incomeGreen : colors.expenseRed;
-                    
+                    final isTransfer = tx.sourceType == 'transfer';
+                    final sign = isIncome ? '+' : (isTransfer ? '' : '-');
+
                     final categoryIcon = CategoryUIConstants.getIconData(tx.categoryIcon);
                     final categoryColor = CategoryUIConstants.getColorFromHex(tx.categoryColor);
 

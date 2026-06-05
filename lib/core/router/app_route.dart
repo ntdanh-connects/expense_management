@@ -154,7 +154,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: RoutePaths.dashboard,builder: (context, state) => const DashboardScreen(),),
         ]),
         StatefulShellBranch(routes: [
-          GoRoute(path: RoutePaths.history,builder: (context, state) => const TransactionHistoryScreen(),),
+          GoRoute(
+            path: RoutePaths.history,
+            builder: (context, state) {
+              final initialFilter = state.extra as String?;
+              return TransactionHistoryScreen(initialFilter: initialFilter);
+            },
+          ),
         ]),
         StatefulShellBranch(routes: [
           GoRoute(path: RoutePaths.analytics,builder: (context, state) => const AnalyticScreen(),),
