@@ -24,4 +24,7 @@ class ApiEndpoints {
   static const String deleteCategory = 'api/categories/{id}';
   static const String transactions = 'api/transactions';
   static const String showTransactions = 'api/transactions';
+  static const String showTransaction = 'api/transactions/{id}';
+  static const String updateTransaction = 'api/transactions/{id}';
+  static const String deleteTransaction = 'api/transactions/{id}';
 }

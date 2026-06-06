@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:expense_management/core/network/api_endpoints.dart';
+import 'package:expense_management/core/utils/app_logger.dart';
+import 'package:expense_management/features/transaction/data/mappers/transaction_mapper.dart';
+import 'package:expense_management/features/transaction/data/models/transaction_dto.dart';
 import 'package:flutter/material.dart';
 import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/core/router/app_route.dart';
@@ -252,6 +256,68 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     });
 
     _syncPendingTransactions();
+  }
+
+  Future<TransactionEntity> getTransactionById(String transactionId) async {
+    final dio = ref.read(dioClientProvider);
+    final url = ApiEndpoints.showTransaction.replaceAll('{id}', transactionId);
+
+    try {
+      final response = await dio.get(url);
+      final responseData = response.data;
+      
+      if (responseData != null && responseData['data'] != null) {
+        final dto = TransactionDto.fromJson(responseData['data'] as Map<String, dynamic>);
+        return TransactionMapper.toEntity(dto);
+      } else {
+        throw Exception('Không tìm thấy dữ liệu giao dịch hợp lệ');
+      }
+    } catch (e, stackTrace) {
+      AppLogger.error(
+        '[TransactionNotifier] getTransactionById error: $e',
+        tag: 'TransactionNotifier',
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
+  }
+
+  Future<void> deleteTransaction(String transactionId) async {
+    final dio = ref.read(dioClientProvider);
+    final url = ApiEndpoints.deleteTransaction.replaceAll('{id}', transactionId);
+    await dio.delete(url);
+
+    state = await AsyncValue.guard(() async {
+      final currentList = state.value ?? [];
+      return currentList.where((tx) => tx.id != transactionId).toList();
+    });
+
+    ref.invalidate(walletNotifierProvider);
+  }
+
+  Future<void> updateTransaction({
+    required String transactionId,
+    required String title,
+    String? categoryId,
+    String? notes,
+    MultipartFile? attachment,
+  }) async {
+    final dio = ref.read(dioClientProvider);
+
+    final Map<String, dynamic> data = {
+      'title': title,
+      if (categoryId != null) 'category_id': categoryId,
+      if (notes != null) 'notes': notes,
+      if (attachment != null) 'attachment': attachment,
+    };
+
+    final formData = FormData.fromMap(data);
+    final url = ApiEndpoints.updateTransaction.replaceAll('{id}', transactionId);
+
+    await dio.post(url, data: formData);
+
+    ref.invalidate(transactionListProvider);
+    ref.invalidate(walletNotifierProvider);
   }
 }
 
