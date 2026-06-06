@@ -12,6 +12,8 @@ import 'package:expense_management/features/profile/presentation/screens/change_
 import 'package:expense_management/features/profile/presentation/screens/personal_info_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/profile_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/category_management_screen.dart';
+import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
+import 'package:expense_management/features/transaction/presentation/screens/transaction_detail_screen.dart';
 import 'package:expense_management/features/transaction/presentation/screens/transaction_history_screen.dart';
 import 'package:expense_management/features/transaction/presentation/screens/add_transaction_screen.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_params.dart';
@@ -41,6 +43,7 @@ class RoutePaths {
   static const forgotPassword = '/auth/forgot-password';
   static const categories = '/profile/categories';
   static const transactionResult = '/transaction-result';
+  static const transactionDetail = '/transaction-detail';
 }
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -142,6 +145,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final params = state.extra as TransactionParams;
           return TransactionResultScreen(params: params);
+        },
+      ),
+      GoRoute(
+        path: RoutePaths.transactionDetail,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final transaction = state.extra as TransactionEntity;
+          return TransactionDetailScreen(transaction: transaction);
         },
       ),
 
