@@ -21,7 +21,6 @@ final categoryRepositoryProvider = Provider<CategoryRepository>((ref) {
 class CategoriesNotifier extends AsyncNotifier<List<CategoryDto>> {
   @override
   Future<List<CategoryDto>> build() async {
-    ref.watch(localeProvider); // Theo dõi ngôn ngữ để tự động tải lại danh mục khi đổi ngôn ngữ
     final repo = ref.read(categoryRepositoryProvider);
     
     // Tải dữ liệu từ local database trước để UI load lập tức không bị xoay vòng xoay loading
@@ -47,10 +46,20 @@ class CategoriesNotifier extends AsyncNotifier<List<CategoryDto>> {
 
   Future<void> refreshCategories() async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
+    try {
       final repo = ref.read(categoryRepositoryProvider);
-      return repo.getCategories();
-    });
+      final remoteCategories = await repo.getCategories();
+      state = AsyncValue.data(remoteCategories);
+    } catch (e, stackTrace) {
+      // Nếu load bị lỗi (ví dụ mất mạng khi đổi ngôn ngữ), cố gắng lấy từ database local để fallback tránh màn hình trắng/lỗi
+      final repo = ref.read(categoryRepositoryProvider);
+      final localCategories = await repo.getCategoriesFromLocal();
+      if (localCategories.isNotEmpty) {
+        state = AsyncValue.data(localCategories);
+      } else {
+        state = AsyncValue.error(e, stackTrace);
+      }
+    }
   }
 
   Future<void> createCategory({

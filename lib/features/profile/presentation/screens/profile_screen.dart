@@ -6,6 +6,7 @@ import 'package:expense_management/core/utils/log_console_screen.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/core/language/app_provider.dart';
+import 'package:expense_management/features/profile/category_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -496,6 +497,8 @@ class ProfileScreen extends ConsumerWidget {
         // 2. Đồng bộ lên backend thông qua profile update
         try {
           await ref.read(updateProfileUseCaseProvider).execute(language: localeCode);
+          // 3. Làm mới danh mục để cập nhật ngôn ngữ tương ứng
+          await ref.read(categoriesNotifierProvider.notifier).refreshCategories();
         } catch (e) {
           // Bỏ qua lỗi mạng vì local đã cập nhật mượt mà
         }

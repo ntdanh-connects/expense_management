@@ -6,6 +6,7 @@ import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:flutter/material.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -456,11 +457,71 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
                     ],
                   );
                 },
-                loading: () => Container(
-                  height: 140,
-                  alignment: Alignment.center,
-                  child: const CircularProgressIndicator(),
-                ),
+                loading: () {
+                  final isDark = Theme.of(context).brightness == Brightness.dark;
+                  final baseColor = isDark ? Colors.grey[900]! : Colors.grey[300]!;
+                  final highlightColor = isDark ? Colors.grey[800]! : Colors.grey[100]!;
+
+                  Widget buildShimmerItem() {
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 20),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: colors.textSecondary.withOpacity(0.15)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 80,
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  width: 150,
+                                  height: 14,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        ],
+                      ),
+                    );
+                  }
+
+                  return Shimmer.fromColors(
+                    baseColor: baseColor,
+                    highlightColor: highlightColor,
+                    child: Column(
+                      children: [
+                        buildShimmerItem(),
+                        buildShimmerItem(),
+                      ],
+                    ),
+                  );
+                },
                 error: (err, _) => Container(
                   padding: const EdgeInsets.all(16),
                   margin: const EdgeInsets.only(bottom: 20),
