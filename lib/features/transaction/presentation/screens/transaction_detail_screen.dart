@@ -21,25 +21,29 @@ class TransactionDetailScreen extends ConsumerStatefulWidget {
   const TransactionDetailScreen({super.key, required this.transaction});
 
   @override
-  ConsumerState<TransactionDetailScreen> createState() => _TransactionDetailScreenState();
+  ConsumerState<TransactionDetailScreen> createState() =>
+      _TransactionDetailScreenState();
 }
 
-class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScreen> {
+class _TransactionDetailScreenState
+    extends ConsumerState<TransactionDetailScreen> {
   late TextEditingController _titleController;
   late TextEditingController _notesController;
-  
+
   bool _isLoadingDetail = true;
   bool _isActionLoading = false;
   TransactionEntity? _liveTransaction;
-  
-  CategoryDto? _selectedCategory; 
+
+  CategoryDto? _selectedCategory;
   final List<File> _selectedImages = [];
 
   @override
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.transaction.title);
-    _notesController = TextEditingController(text: widget.transaction.notes ?? '');
+    _notesController = TextEditingController(
+      text: widget.transaction.notes ?? '',
+    );
     _liveTransaction = widget.transaction;
 
     _initDefaultCategory();
@@ -57,7 +61,9 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
         break;
       }
       if (parent.children != null) {
-        final sub = parent.children!.where((c) => c.id == widget.transaction.categoryId).firstOrNull;
+        final sub = parent.children!
+            .where((c) => c.id == widget.transaction.categoryId)
+            .firstOrNull;
         if (sub != null) {
           _selectedCategory = sub;
           break;
@@ -90,9 +96,9 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
             errorMsg = responseData['message'];
           }
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMsg)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(errorMsg)));
         context.pop();
       }
     }
@@ -120,45 +126,51 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
   }
 
   String _formatDateTime(DateTime date, String? timezoneName) {
-    final tzName = timezoneName ?? 'Asia/Ho_Chi_Minh';
-    DateTime userDate = date;
-    String offsetStr = 'UTC';
+    final tzName = timezoneName ?? 'UTC';
+
     try {
       final location = tz.getLocation(tzName);
-      final tzDateTime = tz.TZDateTime.from(date.toUtc(), location);
-      userDate = tzDateTime;
-      final offsetMs = tzDateTime.timeZoneOffset.inMilliseconds;
-      final offsetHours = (offsetMs / 3600000).truncate();
-      final offsetMinutes = ((offsetMs.abs() % 3600000) / 60000).truncate();
-      final sign = offsetHours >= 0 ? '+' : '-';
-      final hoursStr = offsetHours.abs().toString().padLeft(2, '0');
-      final minutesStr = offsetMinutes.toString().padLeft(2, '0');
-      offsetStr = 'UTC$sign$hoursStr:$minutesStr';
+
+      // Chỉ lấy offset của timezone
+      final now = tz.TZDateTime.now(location);
+      final offset = now.timeZoneOffset;
+
+      final sign = offset.isNegative ? '-' : '+';
+      final hours = offset.inHours.abs().toString().padLeft(2, '0');
+      final minutes =
+          (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
+
+      // Giữ nguyên giờ từ backend
+      final hour = date.hour.toString().padLeft(2, '0');
+      final minute = date.minute.toString().padLeft(2, '0');
+      final second = date.second.toString().padLeft(2, '0');
+      final day = date.day.toString().padLeft(2, '0');
+      final month = date.month.toString().padLeft(2, '0');
+      final year = date.year;
+
+      return '$hour:$minute:$second '
+          '$day/$month/$year '
+          '(UTC$sign$hours:$minutes)';
     } catch (_) {
-      userDate = date.toLocal();
-      final offsetMs = userDate.timeZoneOffset.inMilliseconds;
-      final offsetHours = (offsetMs / 3600000).truncate();
-      final offsetMinutes = ((offsetMs.abs() % 3600000) / 60000).truncate();
-      final sign = offsetHours >= 0 ? '+' : '-';
-      final hoursStr = offsetHours.abs().toString().padLeft(2, '0');
-      final minutesStr = offsetMinutes.toString().padLeft(2, '0');
-      offsetStr = 'UTC$sign$hoursStr:$minutesStr';
+      final hour = date.hour.toString().padLeft(2, '0');
+      final minute = date.minute.toString().padLeft(2, '0');
+      final second = date.second.toString().padLeft(2, '0');
+      final day = date.day.toString().padLeft(2, '0');
+      final month = date.month.toString().padLeft(2, '0');
+      final year = date.year;
+
+      return '$hour:$minute:$second '
+          '$day/$month/$year '
+          '(UTC+00:00)';
     }
-
-    final hour = userDate.hour.toString().padLeft(2, '0');
-    final minute = userDate.minute.toString().padLeft(2, '0');
-    final second = userDate.second.toString().padLeft(2, '0');
-    final day = userDate.day.toString().padLeft(2, '0');
-    final month = userDate.month.toString().padLeft(2, '0');
-    final year = userDate.year;
-
-    return '$hour:$minute:$second $day/$month/$year ($offsetStr)';
   }
 
   // ── Chỉnh sửa: Hạ thấp chiều cao xuống 0.6 và bổ sung hiển thị Icon cha ──
   void _showCategorySelection() {
     final categories = ref.read(categoriesNotifierProvider).value ?? [];
-    final filteredCategories = categories.where((c) => c.type == _liveTransaction?.type).toList();
+    final filteredCategories = categories
+        .where((c) => c.type == _liveTransaction?.type)
+        .toList();
 
     showModalBottomSheet(
       context: context,
@@ -182,7 +194,7 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                 borderRadius: BorderRadius.circular(2.5),
               ),
             ),
-            
+
             // Phần Header tiêu đề bọc Icon danh mục cha hiện tại bên cạnh chữ giống Add Screen
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
@@ -191,21 +203,30 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                 children: [
                   if (_selectedCategory != null) ...[
                     Icon(
-                      CategoryUIConstants.getIconData(_selectedCategory!.icon, categoryName: _selectedCategory!.name),
-                      color: CategoryUIConstants.getColorFromHex(_selectedCategory!.color, categoryName: _selectedCategory!.name),
+                      CategoryUIConstants.getIconData(
+                        _selectedCategory!.icon,
+                        categoryName: _selectedCategory!.name,
+                      ),
+                      color: CategoryUIConstants.getColorFromHex(
+                        _selectedCategory!.color,
+                        categoryName: _selectedCategory!.name,
+                      ),
                       size: 22,
                     ),
                     const SizedBox(width: 8),
                   ],
                   Text(
                     'select_category'.tr(ref),
-                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
             ),
             const Divider(height: 1, thickness: 0.5),
-            
+
             Expanded(
               child: GridView.builder(
                 padding: const EdgeInsets.all(16),
@@ -216,11 +237,17 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                   childAspectRatio: 0.88,
                 ),
                 itemCount: filteredCategories.length,
-                itemBuilder: (context,index) {
+                itemBuilder: (context, index) {
                   // Giữ nguyên logic map IconData và Color từ dữ liệu động hệ thống
                   final cat = filteredCategories[index];
-                  final iconData = CategoryUIConstants.getIconData(cat.icon, categoryName: cat.name);
-                  final color = CategoryUIConstants.getColorFromHex(cat.color, categoryName: cat.name);
+                  final iconData = CategoryUIConstants.getIconData(
+                    cat.icon,
+                    categoryName: cat.name,
+                  );
+                  final color = CategoryUIConstants.getColorFromHex(
+                    cat.color,
+                    categoryName: cat.name,
+                  );
 
                   return InkWell(
                     borderRadius: BorderRadius.circular(12),
@@ -237,7 +264,10 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                           ),
                         ).then((selectedSub) {
                           if (selectedSub != null && mounted) {
-                            setState(() => _selectedCategory = selectedSub as CategoryDto);
+                            setState(
+                              () => _selectedCategory =
+                                  selectedSub as CategoryDto,
+                            );
                           }
                         });
                       } else {
@@ -255,7 +285,10 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                         const SizedBox(height: 7),
                         Text(
                           cat.name.tr(ref),
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
                           textAlign: TextAlign.center,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -282,7 +315,9 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
         attachments.add(await MultipartFile.fromFile(image.path));
       }
 
-      await ref.read(transactionListProvider.notifier).updateTransaction(
+      await ref
+          .read(transactionListProvider.notifier)
+          .updateTransaction(
             transactionId: widget.transaction.id,
             title: _titleController.text.trim(),
             categoryId: _selectedCategory?.id,
@@ -299,7 +334,13 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('update_transaction_failed'.trRead(ref).replaceAll('{error}', e.toString()))),
+          SnackBar(
+            content: Text(
+              'update_transaction_failed'
+                  .trRead(ref)
+                  .replaceAll('{error}', e.toString()),
+            ),
+          ),
         );
       }
     } finally {
@@ -314,7 +355,10 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
         title: Text('confirm_delete'.trRead(ref)),
         content: Text('delete_transaction_confirm_msg'.trRead(ref)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('cancel'.trRead(ref))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('cancel'.trRead(ref)),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -328,7 +372,9 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
 
     setState(() => _isActionLoading = true);
     try {
-      await ref.read(transactionListProvider.notifier).deleteTransaction(widget.transaction.id);
+      await ref
+          .read(transactionListProvider.notifier)
+          .deleteTransaction(widget.transaction.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('delete_transaction_success'.trRead(ref))),
@@ -338,7 +384,13 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('delete_transaction_failed'.trRead(ref).replaceAll('{error}', e.toString()))),
+          SnackBar(
+            content: Text(
+              'delete_transaction_failed'
+                  .trRead(ref)
+                  .replaceAll('{error}', e.toString()),
+            ),
+          ),
         );
       }
     } finally {
@@ -354,19 +406,34 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
 
     final currencySymbol = tx.currencyCode ?? 'đ';
     final reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-    final formattedAmount = tx.amount.toStringAsFixed(0).replaceAllMapped(reg, (Match m) => '${m[1]},');
+    final formattedAmount = tx.amount
+        .toStringAsFixed(0)
+        .replaceAllMapped(reg, (Match m) => '${m[1]},');
     final sign = tx.type == 'income' ? '+' : (tx.type == 'expense' ? '-' : '');
-    final amountColor = tx.type == 'income' ? colors.incomeGreen : (tx.type == 'expense' ? colors.expenseRed : colors.textSecondary);
+    final amountColor = tx.type == 'income'
+        ? colors.incomeGreen
+        : (tx.type == 'expense' ? colors.expenseRed : colors.textSecondary);
 
     return Scaffold(
       backgroundColor: colors.background,
       appBar: AppBar(
         backgroundColor: colors.background,
         elevation: 0,
-        title: Text('transaction_details'.tr(ref), style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold, fontSize: 18)),
+        title: Text(
+          'transaction_details'.tr(ref),
+          style: TextStyle(
+            color: colors.textPrimary,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
         centerTitle: true,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, color: colors.textPrimary, size: 20),
+          icon: Icon(
+            Icons.arrow_back_ios_new,
+            color: colors.textPrimary,
+            size: 20,
+          ),
           onPressed: () => context.pop(),
         ),
       ),
@@ -385,15 +452,36 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                             children: [
                               Text(
                                 '$sign$formattedAmount $currencySymbol',
-                                style: TextStyle(color: amountColor, fontSize: 36, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                style: TextStyle(
+                                  color: amountColor,
+                                  fontSize: 36,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
                               ),
                               const SizedBox(height: 6),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                decoration: BoxDecoration(color: colors.surface, borderRadius: BorderRadius.circular(20)),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colors.surface,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
                                 child: Text(
-                                  'wallet_with_name'.tr(ref).replaceAll('{name}', tx.walletName ?? 'default_label'.tr(ref)),
-                                  style: TextStyle(color: colors.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
+                                  'wallet_with_name'
+                                      .tr(ref)
+                                      .replaceAll(
+                                        '{name}',
+                                        tx.walletName ??
+                                            'default_label'.tr(ref),
+                                      ),
+                                  style: TextStyle(
+                                    color: colors.textSecondary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
                             ],
@@ -401,46 +489,104 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                         ),
                         const SizedBox(height: 28),
 
-                        Text('transaction_title_label'.tr(ref), style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
+                        Text(
+                          'transaction_title_label'.tr(ref),
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         TextField(
                           controller: _titleController,
-                          style: TextStyle(color: colors.textPrimary, fontSize: 15),
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontSize: 15,
+                          ),
                           decoration: InputDecoration(
                             hintText: 'enter_title_hint'.tr(ref),
                             filled: true,
                             fillColor: colors.surface,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 18),
 
-                        Text('spending_category'.tr(ref), style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
+                        Text(
+                          'spending_category'.tr(ref),
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         InkWell(
                           onTap: isTransfer ? null : _showCategorySelection,
                           child: Opacity(
                             opacity: isTransfer ? 0.6 : 1.0,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                              decoration: BoxDecoration(color: colors.surface, borderRadius: BorderRadius.circular(14)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colors.surface,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
                               child: Row(
                                 children: [
                                   CircleAvatar(
                                     radius: 18,
-                                    backgroundColor: CategoryUIConstants.getColorFromHex(_selectedCategory?.color, categoryName: _selectedCategory?.name).withOpacity(0.15),
-                                    child: Icon(CategoryUIConstants.getIconData(_selectedCategory?.icon, categoryName: _selectedCategory?.name), color: CategoryUIConstants.getColorFromHex(_selectedCategory?.color, categoryName: _selectedCategory?.name), size: 20),
+                                    backgroundColor:
+                                        CategoryUIConstants.getColorFromHex(
+                                          _selectedCategory?.color,
+                                          categoryName: _selectedCategory?.name,
+                                        ).withOpacity(0.15),
+                                    child: Icon(
+                                      CategoryUIConstants.getIconData(
+                                        _selectedCategory?.icon,
+                                        categoryName: _selectedCategory?.name,
+                                      ),
+                                      color:
+                                          CategoryUIConstants.getColorFromHex(
+                                            _selectedCategory?.color,
+                                            categoryName:
+                                                _selectedCategory?.name,
+                                          ),
+                                      size: 20,
+                                    ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      (_selectedCategory?.name ?? tx.categoryName)?.tr(ref) ?? 'uncategorized'.tr(ref),
-                                      style: TextStyle(color: colors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
+                                      (_selectedCategory?.name ??
+                                                  tx.categoryName)
+                                              ?.tr(ref) ??
+                                          'uncategorized'.tr(ref),
+                                      style: TextStyle(
+                                        color: colors.textPrimary,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                   ),
                                   if (!isTransfer)
-                                    Icon(Icons.arrow_forward_ios_rounded, color: colors.textSecondary.withOpacity(0.6), size: 16),
+                                    Icon(
+                                      Icons.arrow_forward_ios_rounded,
+                                      color: colors.textSecondary.withOpacity(
+                                        0.6,
+                                      ),
+                                      size: 16,
+                                    ),
                                 ],
                               ),
                             ),
@@ -448,20 +594,44 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                         ),
                         const SizedBox(height: 18),
 
-                        Text('transaction_date_time'.tr(ref), style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
+                        Text(
+                          'transaction_date_time'.tr(ref),
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          decoration: BoxDecoration(color: colors.surface, borderRadius: BorderRadius.circular(14)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.surface,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                           child: Row(
                             children: [
-                              Icon(Icons.calendar_today_rounded, color: colors.primary, size: 20),
+                              Icon(
+                                Icons.calendar_today_rounded,
+                                color: colors.primary,
+                                size: 20,
+                              ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  _formatDateTime(tx.transactionDate, tx.timezone),
-                                  style: TextStyle(color: colors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
+                                  _formatDateTime(
+                                    tx.transactionDate,
+                                    tx.timezone,
+                                  ),
+                                  style: TextStyle(
+                                    color: colors.textPrimary,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
                             ],
@@ -469,23 +639,43 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                         ),
                         const SizedBox(height: 18),
 
-                        Text('notes_description'.tr(ref), style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
+                        Text(
+                          'notes_description'.tr(ref),
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         TextField(
                           controller: _notesController,
                           maxLines: 2,
-                          style: TextStyle(color: colors.textPrimary, fontSize: 15),
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontSize: 15,
+                          ),
                           decoration: InputDecoration(
                             hintText: 'add_notes_hint'.tr(ref),
                             filled: true,
                             fillColor: colors.surface,
                             contentPadding: const EdgeInsets.all(16),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 18),
 
-                        Text('attached_receipt_image'.tr(ref), style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
+                        Text(
+                          'attached_receipt_image'.tr(ref),
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         SizedBox(
                           height: 120,
@@ -501,84 +691,118 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                                   decoration: BoxDecoration(
                                     color: colors.surface,
                                     borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(color: colors.textSecondary.withOpacity(0.1)),
+                                    border: Border.all(
+                                      color: colors.textSecondary.withOpacity(
+                                        0.1,
+                                      ),
+                                    ),
                                   ),
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.add_a_photo_rounded, color: colors.textSecondary.withOpacity(0.5), size: 28),
+                                      Icon(
+                                        Icons.add_a_photo_rounded,
+                                        color: colors.textSecondary.withOpacity(
+                                          0.5,
+                                        ),
+                                        size: 28,
+                                      ),
                                       const SizedBox(height: 6),
                                       Text(
                                         'add_photo'.tr(ref),
-                                        style: TextStyle(color: colors.textSecondary, fontSize: 11, fontWeight: FontWeight.w500),
+                                        style: TextStyle(
+                                          color: colors.textSecondary,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
                                     ],
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 10),
-                              ...tx.attachmentUrls.map((url) => Container(
-                                    width: 120,
-                                    height: 120,
-                                    margin: const EdgeInsets.only(right: 10),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(14),
-                                      border: Border.all(color: colors.textSecondary.withOpacity(0.1)),
-                                    ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(14),
-                                      child: Image.network(
-                                        url,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) {
-                                          return Container(
-                                            color: colors.surface,
-                                            child: Icon(
-                                              Icons.broken_image_rounded,
-                                              color: colors.textSecondary.withOpacity(0.5),
-                                              size: 32,
-                                            ),
-                                          );
-                                        },
+                              ...tx.attachmentUrls.map(
+                                (url) => Container(
+                                  width: 120,
+                                  height: 120,
+                                  margin: const EdgeInsets.only(right: 10),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: colors.textSecondary.withOpacity(
+                                        0.1,
                                       ),
                                     ),
-                                  )),
-                              ..._selectedImages.map((file) => Stack(
-                                    children: [
-                                      Container(
-                                        width: 120,
-                                        height: 120,
-                                        margin: const EdgeInsets.only(right: 10),
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(14),
-                                          border: Border.all(color: colors.textSecondary.withOpacity(0.1)),
-                                        ),
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(14),
-                                          child: Image.file(file, fit: BoxFit.cover),
-                                        ),
-                                      ),
-                                      Positioned(
-                                        top: 4,
-                                        right: 14,
-                                        child: GestureDetector(
-                                          onTap: () {
-                                            setState(() {
-                                              _selectedImages.remove(file);
-                                            });
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: Image.network(
+                                      url,
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                            return Container(
+                                              color: colors.surface,
+                                              child: Icon(
+                                                Icons.broken_image_rounded,
+                                                color: colors.textSecondary
+                                                    .withOpacity(0.5),
+                                                size: 32,
+                                              ),
+                                            );
                                           },
-                                          child: Container(
-                                            padding: const EdgeInsets.all(4),
-                                            decoration: const BoxDecoration(
-                                              color: Colors.black54,
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: const Icon(Icons.close, color: Colors.white, size: 14),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              ..._selectedImages.map(
+                                (file) => Stack(
+                                  children: [
+                                    Container(
+                                      width: 120,
+                                      height: 120,
+                                      margin: const EdgeInsets.only(right: 10),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(
+                                          color: colors.textSecondary
+                                              .withOpacity(0.1),
+                                        ),
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(14),
+                                        child: Image.file(
+                                          file,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      top: 4,
+                                      right: 14,
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _selectedImages.remove(file);
+                                          });
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.all(4),
+                                          decoration: const BoxDecoration(
+                                            color: Colors.black54,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.close,
+                                            color: Colors.white,
+                                            size: 14,
                                           ),
                                         ),
                                       ),
-                                    ],
-                                  )),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -589,7 +813,12 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                 ),
 
                 Padding(
-                  padding: const EdgeInsets.only(left: 16, right: 16, bottom: 24, top: 8),
+                  padding: const EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    bottom: 24,
+                    top: 8,
+                  ),
                   child: Row(
                     children: [
                       Expanded(
@@ -598,18 +827,33 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                           height: 52,
                           child: OutlinedButton.icon(
                             onPressed: _isActionLoading ? null : _handleDelete,
-                            icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-                            label: Text('delete'.tr(ref), style: const TextStyle(color: Colors.redAccent, fontSize: 16, fontWeight: FontWeight.bold)),
+                            icon: const Icon(
+                              Icons.delete_outline_rounded,
+                              color: Colors.redAccent,
+                            ),
+                            label: Text(
+                              'delete'.tr(ref),
+                              style: const TextStyle(
+                                color: Colors.redAccent,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Colors.redAccent, width: 1.2),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              side: const BorderSide(
+                                color: Colors.redAccent,
+                                width: 1.2,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
                               backgroundColor: Colors.red.withOpacity(0.02),
                             ),
                           ),
                         ),
                       ),
                       const SizedBox(width: 12),
-                      
+
                       Expanded(
                         flex: 3,
                         child: SizedBox(
@@ -618,12 +862,28 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                             onPressed: _isActionLoading ? null : _handleUpdate,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: colors.primary,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
                               elevation: 0,
                             ),
                             child: _isActionLoading
-                                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                                : Text('save_changes'.tr(ref), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2.5,
+                                    ),
+                                  )
+                                : Text(
+                                    'save_changes'.tr(ref),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                           ),
                         ),
                       ),
@@ -758,7 +1018,12 @@ class TransactionDetailShimmer extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 24, top: 8),
+            padding: const EdgeInsets.only(
+              left: 16,
+              right: 16,
+              bottom: 24,
+              top: 8,
+            ),
             child: Row(
               children: [
                 Expanded(
