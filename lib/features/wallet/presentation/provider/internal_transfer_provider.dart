@@ -7,20 +7,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
 
-class InternalTransferHistoryNotifier extends StateNotifier<List<InternalTransferRecord>> {
+class InternalTransferHistoryNotifier extends StateNotifier<AsyncValue<List<InternalTransferRecord>>> {
   final WalletRepository _repository;
   final Ref _ref;
 
-  InternalTransferHistoryNotifier(this._repository, this._ref) : super([]) {
+  InternalTransferHistoryNotifier(this._repository, this._ref) : super(const AsyncValue.loading()) {
     fetchTransferHistory();
   }
 
   Future<void> fetchTransferHistory() async {
+    state = const AsyncValue.loading();
     try {
       final history = await _repository.getTransferHistory();
-      state = history;
+      state = AsyncValue.data(history);
     } catch (e, stack) {
       AppLogger.error("🚨 [Transfer-History] Lỗi tải lịch sử chuyển tiền: $e", tag: "Transfer-History", stackTrace: stack);
+      state = AsyncValue.error(e, stack);
     }
   }
 
@@ -67,7 +69,7 @@ class InternalTransferHistoryNotifier extends StateNotifier<List<InternalTransfe
         timezone: timezone,
         currencyCode: fromWallet.currencyCode,
       );
-      state = [newRecord, ...state];
+      state = AsyncValue.data([newRecord, ...(state.value ?? [])]);
       return null; // Thành công
     } catch (e) {
       return e.toString().replaceFirst('Exception: ', '');
@@ -76,7 +78,7 @@ class InternalTransferHistoryNotifier extends StateNotifier<List<InternalTransfe
 }
 
 final internalTransferHistoryProvider =
-    StateNotifierProvider<InternalTransferHistoryNotifier, List<InternalTransferRecord>>((ref) {
+    StateNotifierProvider<InternalTransferHistoryNotifier, AsyncValue<List<InternalTransferRecord>>>((ref) {
   final repository = ref.watch(walletRepositoryProvider);
   return InternalTransferHistoryNotifier(repository, ref);
 });

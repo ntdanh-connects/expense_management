@@ -237,7 +237,7 @@ class _AddEditCategorySheetState extends ConsumerState<AddEditCategorySheet> {
                       widget.parentCategories.firstWhere(
                         (c) => c.id == _selectedParentId,
                         orElse: () => CategoryDto(id: '', name: 'Không xác định', type: 'expense', sortOrder: 0, isDefault: false),
-                      ).name,
+                      ).name.tr(ref),
                       style: TextStyle(color: colors.textSecondary.withOpacity(0.8), fontSize: 15),
                     ),
                   ),
@@ -258,7 +258,7 @@ class _AddEditCategorySheetState extends ConsumerState<AddEditCategorySheet> {
                           return DropdownMenuItem<String>(
                             value: c.id,
                             child: Text(
-                              c.name,
+                              c.name.tr(ref),
                               style: TextStyle(color: colors.textPrimary, fontSize: 15),
                             ),
                           );

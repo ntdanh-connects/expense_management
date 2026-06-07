@@ -94,7 +94,7 @@ class DashboardScreen extends ConsumerWidget {
                       final visibleWallets = walletList.where((w) => !w.isHidden).toList();
                       
                       final userCurrency = ref.read(currentUserProvider)?.currency ?? 'VND';
-                      final ratesData = ref.watch(exchangeRatesProvider).asData?.value;
+                      final ratesData = ref.watch(exchangeRatesProvider).value;
 
                       // Bản đồ tỷ giá dự phòng (Fallback Rates) khi API tỷ giá đang tải hoặc bị lỗi
                       const fallbackRates = {
@@ -437,8 +437,8 @@ class DashboardScreen extends ConsumerWidget {
                     final sign = isIncome ? '+' : (isTransfer ? '' : '-');
 
                     // Tra cứu động (Direction A)
-                    final wallets = walletState.asData?.value ?? [];
-                    final categories = ref.watch(categoriesNotifierProvider).asData?.value ?? [];
+                    final wallets = walletState.value ?? [];
+                    final categories = ref.watch(categoriesNotifierProvider).value ?? [];
 
                     final localWallet = wallets.where((w) => w.id == tx.walletId).firstOrNull;
                     final localCategory = categories.where((c) => c.id == tx.categoryId).firstOrNull;

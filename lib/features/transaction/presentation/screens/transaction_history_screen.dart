@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/shared/widgets/shared_top_app_bar.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
@@ -76,7 +77,7 @@ class _TransactionHistoryScreenState
     return Scaffold(
       backgroundColor: colors.background,
       appBar: SharedTopAppBar(
-        hintText: 'Tìm kiếm giao dịch...',
+        hintText: 'search_transactions_hint'.tr(ref),
         onSearchChanged: (val) {
           setState(() => _searchQuery = val);
         },
@@ -103,7 +104,7 @@ class _TransactionHistoryScreenState
                     ),
                     if (_showRecentOnly)
                       Text(
-                        '5 giao dịch gần nhất',
+                        'five_recent_transactions'.tr(ref),
                         style: TextStyle(
                           color: colors.primary,
                           fontSize: 12,
@@ -130,7 +131,7 @@ class _TransactionHistoryScreenState
                                   color: colors.expenseRed, size: 14),
                               const SizedBox(width: 4),
                               Text(
-                                'Xoá lọc',
+                                'clear_filters'.tr(ref),
                                 style: TextStyle(
                                   color: colors.expenseRed,
                                   fontSize: 12,
@@ -232,7 +233,7 @@ class _TransactionHistoryScreenState
 
   // ── Hàng bộ lọc nâng cao
   Widget _buildAdvancedFilterRow(AppColorsExtension colors) {
-    final categoryLabel = _selectedCategoryName ?? 'category'.tr(ref);
+    final categoryLabel = _selectedCategoryName != null ? _selectedCategoryName!.tr(ref) : 'category'.tr(ref);
     final walletLabel = _selectedWalletName ?? 'all_wallets'.tr(ref);
 
     return Padding(
@@ -275,7 +276,7 @@ class _TransactionHistoryScreenState
             // Toggle 5 gần nhất
             _buildFilterChipButton(
               icon: Icons.access_time_rounded,
-              label: '5 gần nhất',
+              label: 'five_recent_transactions'.tr(ref),
               isActive: _showRecentOnly,
               onTap: () => setState(() => _showRecentOnly = !_showRecentOnly),
               colors: colors,
@@ -347,22 +348,48 @@ class _TransactionHistoryScreenState
     );
   }
 
+  Widget _buildPickerShimmer(AppColorsExtension colors) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseColor = isDark ? Colors.grey[900]! : Colors.grey[300]!;
+    final highlightColor = isDark ? Colors.grey[800]! : Colors.grey[100]!;
+
+    return Shimmer.fromColors(
+      baseColor: baseColor,
+      highlightColor: highlightColor,
+      child: ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 5,
+        itemBuilder: (_, __) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                width: 140,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ── PICKER DANH MỤC (Cha → Con)
   void _showCategoryPicker(AppColorsExtension colors) {
-    final categoryState = ref.read(categoriesNotifierProvider);
-    final allCategories = categoryState.asData?.value ?? [];
-
-    // Tách cha (parentId == null) và xây map con
-    final parents =
-        allCategories.where((c) => c.parentId == null).toList();
-    final Map<String, List<CategoryDto>> childMap = {};
-    for (final cat in allCategories) {
-      if (cat.parentId != null) {
-        childMap.putIfAbsent(cat.parentId!, () => []).add(cat);
-      }
-    }
-
-    // Nếu đang chọn danh mục cha để thấy con
     String? _pickerSelectedParentId;
 
     showModalBottomSheet(
@@ -375,189 +402,366 @@ class _TransactionHistoryScreenState
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setSheetState) {
-            final children = _pickerSelectedParentId != null
-                ? (childMap[_pickerSelectedParentId] ?? [])
-                : <CategoryDto>[];
+            return Consumer(
+              builder: (context, ref, child) {
+                final categoryState = ref.watch(categoriesNotifierProvider);
 
-            return SafeArea(
-              child: DraggableScrollableSheet(
-                expand: false,
-                initialChildSize: 0.6,
-                maxChildSize: 0.9,
-                builder: (_, scrollCtrl) => Column(
-                  children: [
-                    // Handle
-                    const SizedBox(height: 12),
-                    Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: colors.textSecondary.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(2),
+                return categoryState.when(
+                  data: (allCategories) {
+                    final parents = allCategories.where((c) => c.parentId == null).toList();
+                    final Map<String, List<CategoryDto>> childMap = {};
+                    for (final cat in allCategories) {
+                      if (cat.parentId != null) {
+                        childMap.putIfAbsent(cat.parentId!, () => []).add(cat);
+                      }
+                    }
+
+                    final children = _pickerSelectedParentId != null
+                        ? (childMap[_pickerSelectedParentId] ?? [])
+                        : <CategoryDto>[];
+
+                    return SafeArea(
+                      child: DraggableScrollableSheet(
+                        expand: false,
+                        initialChildSize: 0.6,
+                        maxChildSize: 0.9,
+                        builder: (_, scrollCtrl) => Column(
+                          children: [
+                            // Handle
+                            const SizedBox(height: 12),
+                            Container(
+                              width: 40,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: colors.textSecondary.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Header
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              child: Row(
+                                children: [
+                                  if (_pickerSelectedParentId != null)
+                                    IconButton(
+                                      onPressed: () => setSheetState(
+                                          () => _pickerSelectedParentId = null),
+                                      icon: Icon(Icons.arrow_back_ios_rounded,
+                                          size: 18,
+                                          color: colors.textPrimary),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                    ),
+                                  if (_pickerSelectedParentId != null)
+                                    const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _pickerSelectedParentId == null
+                                          ? 'select_category'.tr(ref)
+                                          : (parents
+                                                  .firstWhere((p) =>
+                                                      p.id ==
+                                                      _pickerSelectedParentId)
+                                                  .name.tr(ref)),
+                                      style: TextStyle(
+                                        color: colors.textPrimary,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  if (_selectedCategoryId != null)
+                                    TextButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          _selectedCategoryId = null;
+                                          _selectedCategoryName = null;
+                                        });
+                                        Navigator.pop(ctx);
+                                      },
+                                      child: Text('clear'.tr(ref),
+                                          style: TextStyle(
+                                              color: colors.expenseRed)),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            const Divider(height: 1),
+
+                            // Danh sách
+                            Expanded(
+                              child: ListView(
+                                controller: scrollCtrl,
+                                children: [
+                                  // "Tất cả" option khi đang ở bước cha
+                                  if (_pickerSelectedParentId == null)
+                                    ListTile(
+                                      leading: Icon(Icons.apps_rounded,
+                                          color: _selectedCategoryId == null
+                                              ? colors.primary
+                                              : colors.textSecondary),
+                                      title: Text(
+                                        'all_categories'.tr(ref),
+                                        style: TextStyle(
+                                          color: _selectedCategoryId == null
+                                              ? colors.primary
+                                              : colors.textPrimary,
+                                          fontWeight: _selectedCategoryId == null
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                        ),
+                                      ),
+                                      trailing: _selectedCategoryId == null
+                                          ? Icon(Icons.check_circle_rounded,
+                                              color: colors.primary, size: 20)
+                                          : null,
+                                      onTap: () {
+                                        setState(() {
+                                          _selectedCategoryId = null;
+                                          _selectedCategoryName = null;
+                                        });
+                                        Navigator.pop(ctx);
+                                      },
+                                    ),
+
+                                  // Danh sách cha
+                                  if (_pickerSelectedParentId == null)
+                                    ...parents.map((parent) {
+                                      final hasChildren =
+                                          childMap.containsKey(parent.id) &&
+                                              childMap[parent.id]!.isNotEmpty;
+                                      final icon =
+                                          CategoryUIConstants.getIconData(parent.icon, categoryName: parent.name);
+                                      final color =
+                                          CategoryUIConstants.getColorFromHex(
+                                              parent.color, categoryName: parent.name);
+                                      return ListTile(
+                                        leading: Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: color.withOpacity(0.1),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child:
+                                              Icon(icon, color: color, size: 18),
+                                        ),
+                                        title: Text(
+                                          parent.name.tr(ref),
+                                          style: TextStyle(
+                                            color: colors.textPrimary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        trailing: hasChildren
+                                            ? Icon(Icons.chevron_right_rounded,
+                                                color: colors.textSecondary)
+                                            : null,
+                                        onTap: () {
+                                          if (hasChildren) {
+                                            setSheetState(() =>
+                                                _pickerSelectedParentId =
+                                                    parent.id);
+                                          } else {
+                                            setState(() {
+                                              _selectedCategoryId = parent.id;
+                                              _selectedCategoryName = parent.name;
+                                            });
+                                            Navigator.pop(ctx);
+                                          }
+                                        },
+                                      );
+                                    }),
+
+                                  // Danh sách con
+                                  if (_pickerSelectedParentId != null)
+                                    ...children.map((child) {
+                                      final isSelected =
+                                          _selectedCategoryId == child.id;
+                                      final icon = CategoryUIConstants.getIconData(
+                                          child.icon, categoryName: child.name);
+                                      final color =
+                                          CategoryUIConstants.getColorFromHex(
+                                              child.color, categoryName: child.name);
+                                      return ListTile(
+                                        leading: Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: color.withOpacity(0.1),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child:
+                                              Icon(icon, color: color, size: 18),
+                                        ),
+                                        title: Text(
+                                          child.name.tr(ref),
+                                          style: TextStyle(
+                                            color: isSelected
+                                                ? colors.primary
+                                                : colors.textPrimary,
+                                            fontWeight: isSelected
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                          ),
+                                        ),
+                                        trailing: isSelected
+                                            ? Icon(Icons.check_circle_rounded,
+                                                color: colors.primary, size: 20)
+                                            : null,
+                                        onTap: () {
+                                          setState(() {
+                                            _selectedCategoryId = child.id;
+                                            _selectedCategoryName = child.name;
+                                          });
+                                          Navigator.pop(ctx);
+                                        },
+                                      );
+                                    }),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                  loading: () => DraggableScrollableSheet(
+                    expand: false,
+                    initialChildSize: 0.6,
+                    maxChildSize: 0.9,
+                    builder: (_, scrollCtrl) => SafeArea(
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 12),
+                          Container(
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: colors.textSecondary.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Expanded(child: _buildPickerShimmer(colors)),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 12),
+                  ),
+                  error: (err, _) => Center(child: Text('load_transactions_error'.tr(ref))),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
 
-                    // Header
-                    Padding(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 20),
-                      child: Row(
-                        children: [
-                          if (_pickerSelectedParentId != null)
-                            IconButton(
-                              onPressed: () => setSheetState(
-                                  () => _pickerSelectedParentId = null),
-                              icon: Icon(Icons.arrow_back_ios_rounded,
-                                  size: 18,
-                                  color: colors.textPrimary),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                            ),
-                          if (_pickerSelectedParentId != null)
-                            const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _pickerSelectedParentId == null
-                                  ? 'Chọn danh mục'
-                                  : (parents
-                                          .firstWhere((p) =>
-                                              p.id ==
-                                              _pickerSelectedParentId)
-                                          .name),
+  // ── PICKER VÍ
+  void _showWalletPicker(AppColorsExtension colors) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: colors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Consumer(
+          builder: (context, ref, child) {
+            final walletState = ref.watch(walletNotifierProvider);
+
+            return walletState.when(
+              data: (allWallets) {
+                final wallets = allWallets.where((w) => !w.isHidden).toList();
+
+                return SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: 12),
+                      Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: colors.textSecondary.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'filter_by_wallet'.tr(ref),
                               style: TextStyle(
                                 color: colors.textPrimary,
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ),
-                          if (_selectedCategoryId != null)
-                            TextButton(
-                              onPressed: () {
-                                setState(() {
-                                  _selectedCategoryId = null;
-                                  _selectedCategoryName = null;
-                                });
-                                Navigator.pop(ctx);
-                              },
-                              child: Text('Xoá',
-                                  style: TextStyle(
-                                      color: colors.expenseRed)),
-                            ),
-                        ],
+                            if (_selectedWalletId != null)
+                              TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _selectedWalletId = null;
+                                    _selectedWalletName = null;
+                                  });
+                                  Navigator.pop(ctx);
+                                },
+                                child: Text('clear'.tr(ref),
+                                    style: TextStyle(color: colors.expenseRed)),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const Divider(height: 1),
-
-                    // Danh sách
-                    Expanded(
-                      child: ListView(
-                        controller: scrollCtrl,
-                        children: [
-                          // "Tất cả" option khi đang ở bước cha
-                          if (_pickerSelectedParentId == null)
+                      const SizedBox(height: 4),
+                      Flexible(
+                        child: ListView(
+                          shrinkWrap: true,
+                          children: [
+                            // Tất cả ví
                             ListTile(
-                              leading: Icon(Icons.apps_rounded,
-                                  color: _selectedCategoryId == null
+                              leading: Icon(Icons.account_balance_wallet_rounded,
+                                  color: _selectedWalletId == null
                                       ? colors.primary
                                       : colors.textSecondary),
                               title: Text(
-                                'Tất cả danh mục',
+                                'all_wallets'.tr(ref),
                                 style: TextStyle(
-                                  color: _selectedCategoryId == null
+                                  color: _selectedWalletId == null
                                       ? colors.primary
                                       : colors.textPrimary,
-                                  fontWeight: _selectedCategoryId == null
+                                  fontWeight: _selectedWalletId == null
                                       ? FontWeight.bold
                                       : FontWeight.normal,
                                 ),
                               ),
-                              trailing: _selectedCategoryId == null
+                              trailing: _selectedWalletId == null
                                   ? Icon(Icons.check_circle_rounded,
                                       color: colors.primary, size: 20)
                                   : null,
                               onTap: () {
                                 setState(() {
-                                  _selectedCategoryId = null;
-                                  _selectedCategoryName = null;
+                                  _selectedWalletId = null;
+                                  _selectedWalletName = null;
                                 });
                                 Navigator.pop(ctx);
                               },
                             ),
-
-                          // Danh sách cha
-                          if (_pickerSelectedParentId == null)
-                            ...parents.map((parent) {
-                              final hasChildren =
-                                  childMap.containsKey(parent.id) &&
-                                      childMap[parent.id]!.isNotEmpty;
-                              final icon =
-                                  CategoryUIConstants.getIconData(parent.icon);
-                              final color =
-                                  CategoryUIConstants.getColorFromHex(
-                                      parent.color);
+                            ...wallets.map((w) {
+                              final isSelected = _selectedWalletId == w.id;
                               return ListTile(
-                                leading: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: color.withOpacity(0.1),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child:
-                                      Icon(icon, color: color, size: 18),
+                                leading: Icon(
+                                  _getWalletIcon(w.type),
+                                  color: isSelected
+                                      ? colors.primary
+                                      : colors.textSecondary,
                                 ),
                                 title: Text(
-                                  parent.name,
-                                  style: TextStyle(
-                                    color: colors.textPrimary,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                trailing: hasChildren
-                                    ? Icon(Icons.chevron_right_rounded,
-                                        color: colors.textSecondary)
-                                    : null,
-                                onTap: () {
-                                  if (hasChildren) {
-                                    // Vào bước chọn con
-                                    setSheetState(() =>
-                                        _pickerSelectedParentId =
-                                            parent.id);
-                                  } else {
-                                    // Chọn luôn danh mục cha
-                                    setState(() {
-                                      _selectedCategoryId = parent.id;
-                                      _selectedCategoryName = parent.name;
-                                    });
-                                    Navigator.pop(ctx);
-                                  }
-                                },
-                              );
-                            }),
-
-                          // Danh sách con
-                          if (_pickerSelectedParentId != null)
-                            ...children.map((child) {
-                              final isSelected =
-                                  _selectedCategoryId == child.id;
-                              final icon = CategoryUIConstants.getIconData(
-                                  child.icon);
-                              final color =
-                                  CategoryUIConstants.getColorFromHex(
-                                      child.color);
-                              return ListTile(
-                                leading: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: color.withOpacity(0.1),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child:
-                                      Icon(icon, color: color, size: 18),
-                                ),
-                                title: Text(
-                                  child.name,
+                                  w.name,
                                   style: TextStyle(
                                     color: isSelected
                                         ? colors.primary
@@ -573,156 +777,43 @@ class _TransactionHistoryScreenState
                                     : null,
                                 onTap: () {
                                   setState(() {
-                                    _selectedCategoryId = child.id;
-                                    _selectedCategoryName = child.name;
+                                    _selectedWalletId = w.id;
+                                    _selectedWalletName = w.name;
                                   });
                                   Navigator.pop(ctx);
                                 },
                               );
                             }),
-                        ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                );
+              },
+              loading: () => SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 12),
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: colors.textSecondary.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    _buildPickerShimmer(colors),
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),
+              error: (err, _) => Center(child: Text('load_transactions_error'.tr(ref))),
             );
           },
-        );
-      },
-    );
-  }
-
-  // ── PICKER VÍ
-  void _showWalletPicker(AppColorsExtension colors) {
-    final walletState = ref.read(walletNotifierProvider);
-    final wallets = (walletState.asData?.value ?? [])
-        .where((w) => !w.isHidden)
-        .toList();
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: colors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 12),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colors.textSecondary.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Lọc theo ví',
-                      style: TextStyle(
-                        color: colors.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (_selectedWalletId != null)
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _selectedWalletId = null;
-                            _selectedWalletName = null;
-                          });
-                          Navigator.pop(ctx);
-                        },
-                        child: Text('Xoá',
-                            style:
-                                TextStyle(color: colors.expenseRed)),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 4),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: [
-                    // Tất cả ví
-                    ListTile(
-                      leading: Icon(Icons.account_balance_wallet_rounded,
-                          color: _selectedWalletId == null
-                              ? colors.primary
-                              : colors.textSecondary),
-                      title: Text(
-                        'Tất cả ví',
-                        style: TextStyle(
-                          color: _selectedWalletId == null
-                              ? colors.primary
-                              : colors.textPrimary,
-                          fontWeight: _selectedWalletId == null
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
-                      ),
-                      trailing: _selectedWalletId == null
-                          ? Icon(Icons.check_circle_rounded,
-                              color: colors.primary, size: 20)
-                          : null,
-                      onTap: () {
-                        setState(() {
-                          _selectedWalletId = null;
-                          _selectedWalletName = null;
-                        });
-                        Navigator.pop(ctx);
-                      },
-                    ),
-                    ...wallets.map((w) {
-                      final isSelected = _selectedWalletId == w.id;
-                      return ListTile(
-                        leading: Icon(
-                          _getWalletIcon(w.type),
-                          color: isSelected
-                              ? colors.primary
-                              : colors.textSecondary,
-                        ),
-                        title: Text(
-                          w.name,
-                          style: TextStyle(
-                            color: isSelected
-                                ? colors.primary
-                                : colors.textPrimary,
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
-                        ),
-                        trailing: isSelected
-                            ? Icon(Icons.check_circle_rounded,
-                                color: colors.primary, size: 20)
-                            : null,
-                        onTap: () {
-                          setState(() {
-                            _selectedWalletId = w.id;
-                            _selectedWalletName = w.name;
-                          });
-                          Navigator.pop(ctx);
-                        },
-                      );
-                    }),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
         );
       },
     );
@@ -763,6 +854,22 @@ class _TransactionHistoryScreenState
 
   // ── ÁP DỤNG BỘ LỌC
   List<TransactionEntity> _applyFilters(List<TransactionEntity> txList) {
+    List<String>? targetCategoryIds;
+    if (_selectedCategoryId != null) {
+      targetCategoryIds = [_selectedCategoryId!];
+      final categories = ref.read(categoriesNotifierProvider).value ?? [];
+      for (final parent in categories) {
+        if (parent.id == _selectedCategoryId) {
+          if (parent.children != null) {
+            for (final child in parent.children!) {
+              targetCategoryIds.add(child.id);
+            }
+          }
+          break;
+        }
+      }
+    }
+
     var result = txList.where((tx) {
       // Search
       final matchesSearch =
@@ -785,9 +892,9 @@ class _TransactionHistoryScreenState
               !isTransfer) ||
           (_selectedType == 'Transfer' && isTransfer);
 
-      // Danh mục (lọc theo ID)
-      final matchesCategory = _selectedCategoryId == null ||
-          tx.categoryId == _selectedCategoryId;
+      // Danh mục (lọc theo ID cha hoặc ID con)
+      final matchesCategory = targetCategoryIds == null ||
+          targetCategoryIds.contains(tx.categoryId);
 
       // Ví (lọc theo ID)
       final matchesWallet =
@@ -972,7 +1079,7 @@ class _TransactionHistoryScreenState
             const SizedBox(height: 8),
             TextButton(
               onPressed: _clearAllFilters,
-              child: Text('Xoá bộ lọc',
+              child: Text('clear_filters'.tr(ref),
                   style: TextStyle(color: colors.primary)),
             ),
           ],

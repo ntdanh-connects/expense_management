@@ -17,6 +17,7 @@ import 'package:expense_management/features/transaction/domain/repositories/tran
 import 'package:expense_management/features/transaction/domain/use_case/add_transaction_usecase.dart';
 import 'package:expense_management/features/transaction/domain/use_case/get_transactions_usecase.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/core/storage/storage_provider.dart';
 import 'package:elegant_notification/elegant_notification.dart';
 import 'package:elegant_notification/resources/arrays.dart';
@@ -49,9 +50,11 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
 
   @override
   Future<List<TransactionEntity>> build() async {
+    final user = ref.watch(currentUserProvider);
+    final userId = user?.id ?? '';
     final storage = ref.read(localStoreHelperProvider);
-    final cachedData = storage.getCachedTransactions();
-    final pendingData = storage.getPendingTransactions();
+    final cachedData = storage.getCachedTransactions(userId: userId);
+    final pendingData = storage.getPendingTransactions(userId: userId);
 
     final initialList = [...pendingData, ...cachedData];
     if (initialList.isNotEmpty) {
@@ -66,7 +69,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     final useCase = ref.watch(getTransactionsUseCaseProvider);
     try {
       final freshList = await useCase.execute(perPage: 200);
-      storage.saveCachedTransactions(freshList.take(20).toList());
+      storage.saveCachedTransactions(freshList.take(20).toList(), userId: userId);
 
       if (pendingData.isNotEmpty) {
         _syncPendingTransactions();
@@ -84,8 +87,9 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
   void _startSyncTimer() {
     _syncTimer?.cancel();
     _syncTimer = Timer.periodic(const Duration(seconds: 20), (timer) {
+      final userId = ref.read(currentUserProvider)?.id ?? '';
       final storage = ref.read(localStoreHelperProvider);
-      if (storage.getPendingTransactions().isNotEmpty) {
+      if (storage.getPendingTransactions(userId: userId).isNotEmpty) {
         _syncPendingTransactions();
       }
     });
@@ -112,8 +116,9 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     _isSyncing = true;
 
     try {
+      final userId = ref.read(currentUserProvider)?.id ?? '';
       final storage = ref.read(localStoreHelperProvider);
-      final pendingList = storage.getPendingTransactions();
+      final pendingList = storage.getPendingTransactions(userId: userId);
       if (pendingList.isEmpty) return;
 
       final addTxUseCase = ref.read(addTransactionUseCaseProvider);
@@ -149,7 +154,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
           );
 
           remainingPending.removeWhere((item) => item.id == tx.id);
-          await storage.savePendingTransactions(remainingPending);
+          await storage.savePendingTransactions(remainingPending, userId: userId);
           anySuccess = true;
 
           final context = rootNavigatorKey.currentContext;
@@ -171,7 +176,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
           }
           // Remove bad transaction from queue so sync isn't permanently blocked
           remainingPending.removeWhere((item) => item.id == tx.id);
-          await storage.savePendingTransactions(remainingPending);
+          await storage.savePendingTransactions(remainingPending, userId: userId);
 
           final context = rootNavigatorKey.currentContext;
           if (context != null && context.mounted) {
@@ -201,13 +206,14 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
   Future<void> refreshTransactions() async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
+      final userId = ref.read(currentUserProvider)?.id ?? '';
       final useCase = ref.read(getTransactionsUseCaseProvider);
       final freshList = await useCase.execute(perPage: 200);
 
       final storage = ref.read(localStoreHelperProvider);
-      storage.saveCachedTransactions(freshList.take(20).toList());
+      storage.saveCachedTransactions(freshList.take(20).toList(), userId: userId);
 
-      final pendingData = storage.getPendingTransactions();
+      final pendingData = storage.getPendingTransactions(userId: userId);
       if (pendingData.isNotEmpty) {
         _syncPendingTransactions();
       }
@@ -218,16 +224,18 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
 
   Future<void> addTransaction(TransactionEntity transaction) async {
     state = await AsyncValue.guard(() async {
+      final userId = ref.read(currentUserProvider)?.id ?? '';
       final currentList = state.value ?? [];
       final newList = [transaction, ...currentList];
-      ref.read(localStoreHelperProvider).saveCachedTransactions(newList.take(20).toList());
+      ref.read(localStoreHelperProvider).saveCachedTransactions(newList.take(20).toList(), userId: userId);
       return newList;
     });
   }
 
   Future<void> addPendingTransaction(TransactionParams params) async {
+    final userId = ref.read(currentUserProvider)?.id ?? '';
     final storage = ref.read(localStoreHelperProvider);
-    final currentPending = storage.getPendingTransactions();
+    final currentPending = storage.getPendingTransactions(userId: userId);
 
     final tempTx = TransactionEntity(
       id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
@@ -248,7 +256,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     );
 
     final newPending = [tempTx, ...currentPending];
-    await storage.savePendingTransactions(newPending);
+    await storage.savePendingTransactions(newPending, userId: userId);
 
     state = await AsyncValue.guard(() async {
       final currentList = state.value ?? [];
@@ -300,7 +308,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     required String title,
     String? categoryId,
     String? notes,
-    MultipartFile? attachment,
+    List<MultipartFile>? attachments,
   }) async {
     final dio = ref.read(dioClientProvider);
 
@@ -308,7 +316,10 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
       'title': title,
       if (categoryId != null) 'category_id': categoryId,
       if (notes != null) 'notes': notes,
-      if (attachment != null) 'attachment': attachment,
+      if (attachments != null && attachments.isNotEmpty) ...{
+        'attachment': attachments.first.clone(),
+        'attachments[]': attachments.map((e) => e.clone()).toList(),
+      },
     };
 
     final formData = FormData.fromMap(data);

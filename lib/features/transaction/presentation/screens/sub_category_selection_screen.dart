@@ -31,7 +31,8 @@ class _SubCategorySelectionScreenState extends ConsumerState<SubCategorySelectio
     
     // Filter children by search query
     final filteredChildren = children.where((child) {
-      return child.name.toLowerCase().contains(_searchQuery.toLowerCase());
+      return child.name.toLowerCase().contains(_searchQuery.toLowerCase()) || 
+             child.name.tr(ref).toLowerCase().contains(_searchQuery.toLowerCase());
     }).toList();
 
     // Sort children by sortOrder
@@ -115,7 +116,7 @@ class _SubCategorySelectionScreenState extends ConsumerState<SubCategorySelectio
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      widget.parentCategory.name,
+                      widget.parentCategory.name.tr(ref),
                       style: TextStyle(color: parentColor, fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 2),
@@ -206,7 +207,7 @@ class _SubCategorySelectionScreenState extends ConsumerState<SubCategorySelectio
                             const SizedBox(height: 8),
                             Expanded(
                               child: Text(
-                                category.name,
+                                category.name.tr(ref),
                                 style: TextStyle(
                                   color: isSelected ? categoryColor : colors.textPrimary,
                                   fontSize: 12,

@@ -105,7 +105,7 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          category.name,
+                          category.name.tr(ref),
                           style: TextStyle(
                             color: colors.textPrimary,
                             fontSize: 18,
@@ -212,7 +212,7 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
             style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold),
           ),
           content: Text(
-            'Hành động này sẽ xóa vĩnh viễn danh mục "${category.name}".',
+            'Hành động này sẽ xóa vĩnh viễn danh mục "${category.name.tr(ref)}".',
             style: TextStyle(color: colors.textSecondary),
           ),
           actions: [
@@ -612,7 +612,7 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        parent.name,
+                        parent.name.tr(ref),
                         style: TextStyle(
                           color: headerColor,
                           fontSize: 14,
@@ -710,7 +710,7 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
               const SizedBox(height: 8),
               Expanded(
                 child: Text(
-                  category.name,
+                  category.name.tr(ref),
                   style: TextStyle(
                     color: colors.textPrimary,
                     fontSize: 12,

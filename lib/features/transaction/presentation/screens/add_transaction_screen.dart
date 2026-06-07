@@ -672,15 +672,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                           _selectedParentCategory?.id == parent.id;
 
                       // Display translations / clean parent name
-                      String displayName = parent.name;
-                      if (displayName == 'Chi tiêu - sinh hoạt')
-                        displayName = 'Sinh hoạt';
-                      if (displayName == 'Chi phí phát sinh')
-                        displayName = 'Phát sinh';
-                      if (displayName == 'Chi phí cố định')
-                        displayName = 'Cố định';
-                      if (displayName == 'Đầu tư - tiết kiệm')
-                        displayName = 'Tiết kiệm';
+                      String displayName = parent.name.tr(ref);
 
                       return GestureDetector(
                         onTap: () {
@@ -862,7 +854,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                                       horizontal: 4.0,
                                     ),
                                     child: Text(
-                                      category.name,
+                                      category.name.tr(ref),
                                       style: TextStyle(
                                         color: isSelected
                                             ? catColor
@@ -1049,7 +1041,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                       hintText: _selectedCategory != null
                           ? 'transaction_title_default_hint'
                                 .tr(ref)
-                                .replaceAll('{name}', _selectedCategory!.name)
+                                .replaceAll('{name}', _selectedCategory!.name.tr(ref))
                           : 'transaction_title_hint'.tr(ref),
                       hintStyle: TextStyle(
                         color: colors.textSecondary.withOpacity(0.5),

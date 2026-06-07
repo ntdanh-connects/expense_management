@@ -49,8 +49,24 @@ class CategoryUIConstants {
     'hand_heart', 'spa', 'airplane', 'water_drop', 'network'
   ];
 
-  static IconData getIconData(String? iconKey) {
-    if (iconKey == null) return Icons.category_rounded;
+  static IconData getIconData(String? iconKey, {String? categoryName}) {
+    if (iconKey == null || iconKey.isEmpty) {
+      if (categoryName != null) {
+        final name = categoryName.toLowerCase();
+        if (name.contains('chi tiêu') || name.contains('living')) {
+          return Icons.restaurant_rounded;
+        } else if (name.contains('phát sinh') || name.contains('occasional')) {
+          return Icons.sports_esports_rounded;
+        } else if (name.contains('cố định') || name.contains('fixed')) {
+          return Icons.home_rounded;
+        } else if (name.contains('đầu tư') || name.contains('investment')) {
+          return Icons.insert_chart_rounded;
+        } else if (name.contains('thu nhập') || name.contains('income')) {
+          return Icons.monetization_on_rounded;
+        }
+      }
+      return Icons.category_rounded;
+    }
     switch (iconKey.toLowerCase()) {
       case 'food':
         return Icons.restaurant_rounded;
@@ -263,8 +279,24 @@ class CategoryUIConstants {
     }
   }
 
-  static Color getColorFromHex(String? hexString, {Color fallback = Colors.grey}) {
-    if (hexString == null || hexString.isEmpty) return fallback;
+  static Color getColorFromHex(String? hexString, {String? categoryName, Color fallback = Colors.grey}) {
+    if (hexString == null || hexString.isEmpty) {
+      if (categoryName != null) {
+        final name = categoryName.toLowerCase();
+        if (name.contains('chi tiêu') || name.contains('living')) {
+          return getColorFromHex('#FF8F9C');
+        } else if (name.contains('phát sinh') || name.contains('occasional')) {
+          return getColorFromHex('#E99BFF');
+        } else if (name.contains('cố định') || name.contains('fixed')) {
+          return getColorFromHex('#9BAFFF');
+        } else if (name.contains('đầu tư') || name.contains('investment')) {
+          return getColorFromHex('#9BFFB2');
+        } else if (name.contains('thu nhập') || name.contains('income')) {
+          return getColorFromHex('#9BE5FF');
+        }
+      }
+      return fallback;
+    }
     try {
       final buffer = StringBuffer();
       final cleanHex = hexString.replaceFirst('#', '');

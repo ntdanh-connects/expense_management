@@ -172,7 +172,7 @@ class _MergeCategorySheetState extends ConsumerState<MergeCategorySheet> {
                           Icon(iconData, color: color, size: 20),
                           const SizedBox(width: 10),
                           Text(
-                            c.name,
+                            c.name.tr(ref),
                             style: TextStyle(color: colors.textPrimary, fontSize: 15),
                           ),
                         ],

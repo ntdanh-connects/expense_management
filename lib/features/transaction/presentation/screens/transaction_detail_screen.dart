@@ -3,7 +3,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:timezone/timezone.dart' as tz;
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
@@ -31,7 +33,7 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
   TransactionEntity? _liveTransaction;
   
   CategoryDto? _selectedCategory; 
-  File? _selectedImage;
+  final List<File> _selectedImages = [];
 
   @override
   void initState() {
@@ -48,7 +50,7 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
   }
 
   void _initDefaultCategory() {
-    final categories = ref.read(categoriesNotifierProvider).asData?.value ?? [];
+    final categories = ref.read(categoriesNotifierProvider).value ?? [];
     for (var parent in categories) {
       if (parent.id == widget.transaction.categoryId) {
         _selectedCategory = parent;
@@ -79,7 +81,20 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
         _initDefaultCategory();
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoadingDetail = false);
+      if (mounted) {
+        setState(() => _isLoadingDetail = false);
+        String errorMsg = e.toString();
+        if (e is DioException) {
+          final responseData = e.response?.data;
+          if (responseData != null && responseData['message'] != null) {
+            errorMsg = responseData['message'];
+          }
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMsg)),
+        );
+        context.pop();
+      }
     }
   }
 
@@ -92,17 +107,57 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
+    final pickedFiles = await picker.pickMultiImage(
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
+    if (pickedFiles.isNotEmpty) {
       setState(() {
-        _selectedImage = File(pickedFile.path);
+        _selectedImages.addAll(pickedFiles.map((x) => File(x.path)));
       });
     }
   }
 
+  String _formatDateTime(DateTime date, String? timezoneName) {
+    final tzName = timezoneName ?? 'Asia/Ho_Chi_Minh';
+    DateTime userDate = date;
+    String offsetStr = 'UTC';
+    try {
+      final location = tz.getLocation(tzName);
+      final tzDateTime = tz.TZDateTime.from(date.toUtc(), location);
+      userDate = tzDateTime;
+      final offsetMs = tzDateTime.timeZoneOffset.inMilliseconds;
+      final offsetHours = (offsetMs / 3600000).truncate();
+      final offsetMinutes = ((offsetMs.abs() % 3600000) / 60000).truncate();
+      final sign = offsetHours >= 0 ? '+' : '-';
+      final hoursStr = offsetHours.abs().toString().padLeft(2, '0');
+      final minutesStr = offsetMinutes.toString().padLeft(2, '0');
+      offsetStr = 'UTC$sign$hoursStr:$minutesStr';
+    } catch (_) {
+      userDate = date.toLocal();
+      final offsetMs = userDate.timeZoneOffset.inMilliseconds;
+      final offsetHours = (offsetMs / 3600000).truncate();
+      final offsetMinutes = ((offsetMs.abs() % 3600000) / 60000).truncate();
+      final sign = offsetHours >= 0 ? '+' : '-';
+      final hoursStr = offsetHours.abs().toString().padLeft(2, '0');
+      final minutesStr = offsetMinutes.toString().padLeft(2, '0');
+      offsetStr = 'UTC$sign$hoursStr:$minutesStr';
+    }
+
+    final hour = userDate.hour.toString().padLeft(2, '0');
+    final minute = userDate.minute.toString().padLeft(2, '0');
+    final second = userDate.second.toString().padLeft(2, '0');
+    final day = userDate.day.toString().padLeft(2, '0');
+    final month = userDate.month.toString().padLeft(2, '0');
+    final year = userDate.year;
+
+    return '$hour:$minute:$second $day/$month/$year ($offsetStr)';
+  }
+
   // ── Chỉnh sửa: Hạ thấp chiều cao xuống 0.6 và bổ sung hiển thị Icon cha ──
   void _showCategorySelection() {
-    final categories = ref.read(categoriesNotifierProvider).asData?.value ?? [];
+    final categories = ref.read(categoriesNotifierProvider).value ?? [];
     final filteredCategories = categories.where((c) => c.type == _liveTransaction?.type).toList();
 
     showModalBottomSheet(
@@ -136,15 +191,15 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                 children: [
                   if (_selectedCategory != null) ...[
                     Icon(
-                      CategoryUIConstants.getIconData(_selectedCategory!.icon),
-                      color: CategoryUIConstants.getColorFromHex(_selectedCategory!.color),
+                      CategoryUIConstants.getIconData(_selectedCategory!.icon, categoryName: _selectedCategory!.name),
+                      color: CategoryUIConstants.getColorFromHex(_selectedCategory!.color, categoryName: _selectedCategory!.name),
                       size: 22,
                     ),
                     const SizedBox(width: 8),
                   ],
-                  const Text(
-                    'Chọn danh mục',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                  Text(
+                    'select_category'.tr(ref),
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -164,8 +219,8 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                 itemBuilder: (context,index) {
                   // Giữ nguyên logic map IconData và Color từ dữ liệu động hệ thống
                   final cat = filteredCategories[index];
-                  final iconData = CategoryUIConstants.getIconData(cat.icon);
-                  final color = CategoryUIConstants.getColorFromHex(cat.color);
+                  final iconData = CategoryUIConstants.getIconData(cat.icon, categoryName: cat.name);
+                  final color = CategoryUIConstants.getColorFromHex(cat.color, categoryName: cat.name);
 
                   return InkWell(
                     borderRadius: BorderRadius.circular(12),
@@ -199,7 +254,7 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                         ),
                         const SizedBox(height: 7),
                         Text(
-                          cat.name,
+                          cat.name.tr(ref),
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                           textAlign: TextAlign.center,
                           maxLines: 1,
@@ -222,9 +277,9 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
 
     setState(() => _isActionLoading = true);
     try {
-      MultipartFile? attachment;
-      if (_selectedImage != null) {
-        attachment = await MultipartFile.fromFile(_selectedImage!.path);
+      final List<MultipartFile> attachments = [];
+      for (final image in _selectedImages) {
+        attachments.add(await MultipartFile.fromFile(image.path));
       }
 
       await ref.read(transactionListProvider.notifier).updateTransaction(
@@ -232,18 +287,20 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
             title: _titleController.text.trim(),
             categoryId: _selectedCategory?.id,
             notes: _notesController.text.trim(),
-            attachment: attachment,
+            attachments: attachments,
           );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cập nhật giao dịch thành công!')),
+          SnackBar(content: Text('update_transaction_success'.trRead(ref))),
         );
         context.pop(true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Cập nhật thất bại: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('update_transaction_failed'.trRead(ref).replaceAll('{error}', e.toString()))),
+        );
       }
     } finally {
       if (mounted) setState(() => _isActionLoading = false);
@@ -254,14 +311,14 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: const Text('Bạn có chắc chắn muốn xóa giao dịch này không? Số dư ví sẽ được hoàn tác.'),
+        title: Text('confirm_delete'.trRead(ref)),
+        content: Text('delete_transaction_confirm_msg'.trRead(ref)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('cancel'.trRead(ref))),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Xóa'),
+            child: Text('delete'.trRead(ref)),
           ),
         ],
       ),
@@ -274,13 +331,15 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
       await ref.read(transactionListProvider.notifier).deleteTransaction(widget.transaction.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã xóa giao dịch thành công!')),
+          SnackBar(content: Text('delete_transaction_success'.trRead(ref))),
         );
         context.pop(true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Xóa thất bại: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('delete_transaction_failed'.trRead(ref).replaceAll('{error}', e.toString()))),
+        );
       }
     } finally {
       if (mounted) setState(() => _isActionLoading = false);
@@ -291,6 +350,7 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
   Widget build(BuildContext context) {
     final colors = context.colors;
     final tx = _liveTransaction ?? widget.transaction;
+    final isTransfer = tx.sourceType == 'transfer';
 
     final currencySymbol = tx.currencyCode ?? 'đ';
     final reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
@@ -303,7 +363,7 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
       appBar: AppBar(
         backgroundColor: colors.background,
         elevation: 0,
-        title: Text('Chi tiết giao dịch', style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold, fontSize: 18)),
+        title: Text('transaction_details'.tr(ref), style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold, fontSize: 18)),
         centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.arrow_back_ios_new, color: colors.textPrimary, size: 20),
@@ -311,7 +371,7 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
         ),
       ),
       body: _isLoadingDetail
-          ? const Center(child: CircularProgressIndicator())
+          ? const TransactionDetailShimmer()
           : Column(
               children: [
                 Expanded(
@@ -331,20 +391,23 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                                 decoration: BoxDecoration(color: colors.surface, borderRadius: BorderRadius.circular(20)),
-                                child: Text('Ví: ${tx.walletName ?? "Mặc định"}', style: TextStyle(color: colors.textSecondary, fontSize: 13, fontWeight: FontWeight.w500)),
+                                child: Text(
+                                  'wallet_with_name'.tr(ref).replaceAll('{name}', tx.walletName ?? 'default_label'.tr(ref)),
+                                  style: TextStyle(color: colors.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
+                                ),
                               ),
                             ],
                           ),
                         ),
                         const SizedBox(height: 28),
 
-                        Text('Tiêu đề giao dịch', style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
+                        Text('transaction_title_label'.tr(ref), style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
                         const SizedBox(height: 8),
                         TextField(
                           controller: _titleController,
                           style: TextStyle(color: colors.textPrimary, fontSize: 15),
                           decoration: InputDecoration(
-                            hintText: 'Nhập tên hoặc tiêu đề...',
+                            hintText: 'enter_title_hint'.tr(ref),
                             filled: true,
                             fillColor: colors.surface,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -353,42 +416,67 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                         ),
                         const SizedBox(height: 18),
 
-                        Text('Danh mục chi tiêu', style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
+                        Text('spending_category'.tr(ref), style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
                         const SizedBox(height: 8),
                         InkWell(
-                          onTap: _showCategorySelection,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            decoration: BoxDecoration(color: colors.surface, borderRadius: BorderRadius.circular(14)),
-                            child: Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 18,
-                                  backgroundColor: CategoryUIConstants.getColorFromHex(_selectedCategory?.color).withOpacity(0.15),
-                                  child: Icon(CategoryUIConstants.getIconData(_selectedCategory?.icon), color: CategoryUIConstants.getColorFromHex(_selectedCategory?.color), size: 20),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    _selectedCategory?.name ?? tx.categoryName ?? 'Chưa phân loại',
-                                    style: TextStyle(color: colors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
+                          onTap: isTransfer ? null : _showCategorySelection,
+                          child: Opacity(
+                            opacity: isTransfer ? 0.6 : 1.0,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              decoration: BoxDecoration(color: colors.surface, borderRadius: BorderRadius.circular(14)),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 18,
+                                    backgroundColor: CategoryUIConstants.getColorFromHex(_selectedCategory?.color, categoryName: _selectedCategory?.name).withOpacity(0.15),
+                                    child: Icon(CategoryUIConstants.getIconData(_selectedCategory?.icon, categoryName: _selectedCategory?.name), color: CategoryUIConstants.getColorFromHex(_selectedCategory?.color, categoryName: _selectedCategory?.name), size: 20),
                                   ),
-                                ),
-                                Icon(Icons.arrow_forward_ios_rounded, color: colors.textSecondary.withOpacity(0.6), size: 16),
-                              ],
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      (_selectedCategory?.name ?? tx.categoryName)?.tr(ref) ?? 'uncategorized'.tr(ref),
+                                      style: TextStyle(color: colors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
+                                    ),
+                                  ),
+                                  if (!isTransfer)
+                                    Icon(Icons.arrow_forward_ios_rounded, color: colors.textSecondary.withOpacity(0.6), size: 16),
+                                ],
+                              ),
                             ),
                           ),
                         ),
                         const SizedBox(height: 18),
 
-                        Text('Ghi chú / Mô tả', style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
+                        Text('transaction_date_time'.tr(ref), style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(color: colors.surface, borderRadius: BorderRadius.circular(14)),
+                          child: Row(
+                            children: [
+                              Icon(Icons.calendar_today_rounded, color: colors.primary, size: 20),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  _formatDateTime(tx.transactionDate, tx.timezone),
+                                  style: TextStyle(color: colors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+
+                        Text('notes_description'.tr(ref), style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
                         const SizedBox(height: 8),
                         TextField(
                           controller: _notesController,
                           maxLines: 2,
                           style: TextStyle(color: colors.textPrimary, fontSize: 15),
                           decoration: InputDecoration(
-                            hintText: 'Thêm chi tiết ghi chú...',
+                            hintText: 'add_notes_hint'.tr(ref),
                             filled: true,
                             fillColor: colors.surface,
                             contentPadding: const EdgeInsets.all(16),
@@ -397,32 +485,101 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                         ),
                         const SizedBox(height: 18),
 
-                        Text('Ảnh hóa đơn đính kèm', style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
+                        Text('attached_receipt_image'.tr(ref), style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
                         const SizedBox(height: 8),
-                        GestureDetector(
-                          onTap: _pickImage,
-                          child: Container(
-                            width: double.infinity,
-                            height: 160,
-                            decoration: BoxDecoration(
-                              color: colors.surface,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: colors.textSecondary.withOpacity(0.1)),
-                            ),
-                            child: _selectedImage != null
-                                ? ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.file(_selectedImage!, fit: BoxFit.cover))
-                                : (tx.attachmentUrls.isNotEmpty
-                                    ? ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.network(tx.attachmentUrls.first, fit: BoxFit.cover))
-                                    : Center(
-                                        child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(Icons.add_a_photo_rounded, color: colors.textSecondary.withOpacity(0.5), size: 32),
-                                            const SizedBox(height: 6),
-                                            Text('Thay đổi hoặc thêm ảnh biên nhận', style: TextStyle(color: colors.textSecondary, fontSize: 13)),
-                                          ],
+                        SizedBox(
+                          height: 120,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            physics: const BouncingScrollPhysics(),
+                            children: [
+                              GestureDetector(
+                                onTap: _pickImage,
+                                child: Container(
+                                  width: 120,
+                                  height: 120,
+                                  decoration: BoxDecoration(
+                                    color: colors.surface,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: colors.textSecondary.withOpacity(0.1)),
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.add_a_photo_rounded, color: colors.textSecondary.withOpacity(0.5), size: 28),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        'add_photo'.tr(ref),
+                                        style: TextStyle(color: colors.textSecondary, fontSize: 11, fontWeight: FontWeight.w500),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              ...tx.attachmentUrls.map((url) => Container(
+                                    width: 120,
+                                    height: 120,
+                                    margin: const EdgeInsets.only(right: 10),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(color: colors.textSecondary.withOpacity(0.1)),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(14),
+                                      child: Image.network(
+                                        url,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Container(
+                                            color: colors.surface,
+                                            child: Icon(
+                                              Icons.broken_image_rounded,
+                                              color: colors.textSecondary.withOpacity(0.5),
+                                              size: 32,
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  )),
+                              ..._selectedImages.map((file) => Stack(
+                                    children: [
+                                      Container(
+                                        width: 120,
+                                        height: 120,
+                                        margin: const EdgeInsets.only(right: 10),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(14),
+                                          border: Border.all(color: colors.textSecondary.withOpacity(0.1)),
                                         ),
-                                      )),
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(14),
+                                          child: Image.file(file, fit: BoxFit.cover),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        top: 4,
+                                        right: 14,
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            setState(() {
+                                              _selectedImages.remove(file);
+                                            });
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.all(4),
+                                            decoration: const BoxDecoration(
+                                              color: Colors.black54,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(Icons.close, color: Colors.white, size: 14),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  )),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 24),
@@ -442,7 +599,7 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                           child: OutlinedButton.icon(
                             onPressed: _isActionLoading ? null : _handleDelete,
                             icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-                            label: const Text('Xóa', style: TextStyle(color: Colors.redAccent, fontSize: 16, fontWeight: FontWeight.bold)),
+                            label: Text('delete'.tr(ref), style: const TextStyle(color: Colors.redAccent, fontSize: 16, fontWeight: FontWeight.bold)),
                             style: OutlinedButton.styleFrom(
                               side: const BorderSide(color: Colors.redAccent, width: 1.2),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -466,7 +623,7 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                             ),
                             child: _isActionLoading
                                 ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                                : const Text('Lưu thay đổi', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                                : Text('save_changes'.tr(ref), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                           ),
                         ),
                       ),
@@ -475,6 +632,161 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                 ),
               ],
             ),
+    );
+  }
+}
+
+class TransactionDetailShimmer extends StatelessWidget {
+  const TransactionDetailShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseColor = isDark ? Colors.grey[900]! : Colors.grey[300]!;
+    final highlightColor = isDark ? Colors.grey[800]! : Colors.grey[100]!;
+
+    return Shimmer.fromColors(
+      baseColor: baseColor,
+      highlightColor: highlightColor,
+      child: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 16),
+                  Center(
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 180,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Container(
+                          width: 100,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  Container(
+                    width: 120,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    width: 120,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    width: 120,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    width: 120,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    height: 160,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 24, top: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 3,
+                  child: Container(
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

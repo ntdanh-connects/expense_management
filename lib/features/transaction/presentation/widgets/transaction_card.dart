@@ -24,8 +24,8 @@ class TransactionCard extends ConsumerWidget {
     final isTransfer = tx.sourceType == 'transfer';
 
     // Tra cứu động (Direction A)
-    final wallets = ref.watch(walletNotifierProvider).asData?.value ?? [];
-    final categories = ref.watch(categoriesNotifierProvider).asData?.value ?? [];
+    final wallets = ref.watch(walletNotifierProvider).value ?? [];
+    final categories = ref.watch(categoriesNotifierProvider).value ?? [];
 
     final localWallet = wallets.where((w) => w.id == tx.walletId).firstOrNull;
     final localCategory = categories.where((c) => c.id == tx.categoryId).firstOrNull;
@@ -159,11 +159,11 @@ class TransactionCard extends ConsumerWidget {
                       const SizedBox(height: 2),
                       Row(
                         children: [
-                          Icon(Icons.label_outline_rounded,
-                              size: 11, color: colors.textSecondary),
+                          Icon(categoryIcon,
+                              size: 11, color: categoryColor),
                           const SizedBox(width: 3),
                           Text(
-                            categoryName,
+                            categoryName.tr(ref),
                             style: TextStyle(
                                 color: colors.textSecondary, fontSize: 12),
                           ),

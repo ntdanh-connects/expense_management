@@ -48,8 +48,9 @@ class LocalStorageHelper {
 
   static const String _transactionsKey = 'cached_transactions';
 
-  List<TransactionEntity> getCachedTransactions() {
-    final String? jsonStr = _prefs.getString(_transactionsKey);
+  List<TransactionEntity> getCachedTransactions({String userId = ''}) {
+    final key = userId.isEmpty ? _transactionsKey : 'cached_transactions_$userId';
+    final String? jsonStr = _prefs.getString(key);
     if (jsonStr == null || jsonStr.isEmpty) return [];
     try {
       final List<dynamic> list = json.decode(jsonStr);
@@ -59,11 +60,12 @@ class LocalStorageHelper {
     }
   }
 
-  Future<bool> saveCachedTransactions(List<TransactionEntity> transactions) async {
+  Future<bool> saveCachedTransactions(List<TransactionEntity> transactions, {String userId = ''}) async {
     try {
+      final key = userId.isEmpty ? _transactionsKey : 'cached_transactions_$userId';
       final List<Map<String, dynamic>> list = transactions.map((tx) => tx.toJson()).toList();
       final String jsonStr = json.encode(list);
-      return await _prefs.setString(_transactionsKey, jsonStr);
+      return await _prefs.setString(key, jsonStr);
     } catch (_) {
       return false;
     }
@@ -71,8 +73,9 @@ class LocalStorageHelper {
 
   static const String _pendingTransactionsKey = 'pending_transactions';
 
-  List<TransactionEntity> getPendingTransactions() {
-    final String? jsonStr = _prefs.getString(_pendingTransactionsKey);
+  List<TransactionEntity> getPendingTransactions({String userId = ''}) {
+    final key = userId.isEmpty ? _pendingTransactionsKey : 'pending_transactions_$userId';
+    final String? jsonStr = _prefs.getString(key);
     if (jsonStr == null || jsonStr.isEmpty) return [];
     try {
       final List<dynamic> list = json.decode(jsonStr);
@@ -82,11 +85,12 @@ class LocalStorageHelper {
     }
   }
 
-  Future<bool> savePendingTransactions(List<TransactionEntity> transactions) async {
+  Future<bool> savePendingTransactions(List<TransactionEntity> transactions, {String userId = ''}) async {
     try {
+      final key = userId.isEmpty ? _pendingTransactionsKey : 'pending_transactions_$userId';
       final List<Map<String, dynamic>> list = transactions.map((tx) => tx.toJson()).toList();
       final String jsonStr = json.encode(list);
-      return await _prefs.setString(_pendingTransactionsKey, jsonStr);
+      return await _prefs.setString(key, jsonStr);
     } catch (_) {
       return false;
     }
