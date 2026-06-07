@@ -14,6 +14,8 @@ import 'package:expense_management/features/transaction/presentation/widgets/tra
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/shared/widgets/transaction_list_shimmer.dart';
 import 'package:intl/intl.dart';
+import 'package:expense_management/core/constants/app_constant.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
 
 class TransactionHistoryScreen extends ConsumerStatefulWidget {
   /// Nếu 'recent' → chỉ hiện 5 giao dịch mới nhất (từ dashboard)
@@ -73,7 +75,10 @@ class _TransactionHistoryScreenState
   Widget build(BuildContext context) {
     final colors = context.colors;
     final transactionState = ref.watch(transactionListProvider);
-
+    final userCurrency = ref.watch(currentUserProvider)?.currency ?? 'VND';
+    final currencySymbol = AppConstant.getCurrencySymbol(userCurrency);
+    final ratesData = ref.watch(exchangeRatesProvider).value;
+    
     return Scaffold(
       backgroundColor: colors.background,
       appBar: SharedTopAppBar(
@@ -198,7 +203,7 @@ class _TransactionHistoryScreenState
                   physics: const BouncingScrollPhysics(),
                   itemCount: grouped.length,
                   itemBuilder: (context, index) =>
-                      _buildDaySection(grouped[index], colors),
+                      _buildDaySection(grouped[index], colors,userCurrency,currencySymbol,ratesData),
                 );
               },
               loading: () => const TransactionListShimmer(
@@ -964,16 +969,28 @@ class _TransactionHistoryScreenState
   Widget _buildDaySection(
     MapEntry<String, List<TransactionEntity>> group,
     AppColorsExtension colors,
+    String userCurrency,
+    String currencySymbol,
+    dynamic ratesData,
   ) {
     final txList = group.value;
 
-    double dayIncome = 0;
+    double dayIncome  = 0;
     double dayExpense = 0;
+
     for (final tx in txList) {
-      if (tx.type == 'income' && tx.sourceType != 'transfer') {
-        dayIncome += tx.amount;
-      } else if (tx.type == 'expense' && tx.sourceType != 'transfer') {
-        dayExpense += tx.amount;
+      if (tx.sourceType == 'transfer') continue;
+      final txCurrency = (tx.currencyCode ?? 'VND').toUpperCase();
+
+      // Quy đổi về tiền tệ profile trước khi cộng vào tổng
+      final converted = _convertToUserCurrency(
+        tx.amount, txCurrency, userCurrency, ratesData,
+      );
+
+      if (tx.type == 'income') {
+        dayIncome += converted;
+      } else if (tx.type == 'expense') {
+        dayExpense += converted;
       }
     }
 
@@ -998,7 +1015,7 @@ class _TransactionHistoryScreenState
                 children: [
                   if (dayIncome > 0)
                     Text(
-                      '+${_fmt(dayIncome)} đ',
+                      '+${_fmt(dayIncome, userCurrency)} $currencySymbol',
                       style: TextStyle(
                         color: colors.incomeGreen,
                         fontSize: 11.5,
@@ -1006,13 +1023,16 @@ class _TransactionHistoryScreenState
                       ),
                     ),
                   if (dayIncome > 0 && dayExpense > 0)
-                    Text('  |  ',
-                        style: TextStyle(
-                            color: colors.textSecondary.withOpacity(0.4),
-                            fontSize: 11)),
+                    Text(
+                      '  |  ',
+                      style: TextStyle(
+                        color: colors.textSecondary.withOpacity(0.4),
+                        fontSize: 11,
+                      ),
+                    ),
                   if (dayExpense > 0)
                     Text(
-                      '-${_fmt(dayExpense)} đ',
+                      '-${_fmt(dayExpense, userCurrency)} $currencySymbol',
                       style: TextStyle(
                         color: colors.expenseRed,
                         fontSize: 11.5,
@@ -1102,10 +1122,49 @@ class _TransactionHistoryScreenState
   }
 
 
-  String _fmt(double value) {
-    RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-    return value
-        .toStringAsFixed(0)
-        .replaceAllMapped(reg, (m) => '${m[1]},');
+  String _fmt(double value,String currencyCode) {
+    final String code = currencyCode.toUpperCase();
+    final int decimals = (code == 'VND' || code == 'JPY') ? 0 : 2;
+
+    if (decimals == 0) {
+      RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+      return value
+          .toStringAsFixed(0)
+          .replaceAllMapped(reg, (m) => '${m[1]},');
+    } else {
+      final parts = value.toStringAsFixed(2).split('.');
+      final wholePart = parts[0];
+      final decimalPart = parts[1];
+      RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+      final formattedWhole = wholePart
+          .replaceAllMapped(reg, (m) => '${m[1]},');
+      return '$formattedWhole.$decimalPart';
+    }
+  }
+
+  double _convertToUserCurrency(
+    double amount,
+    String fromCurrency,
+    String userCurrency,
+    dynamic ratesData,
+  ) {
+    final from = fromCurrency.toUpperCase();
+    final to = userCurrency.toUpperCase();
+    if (from == to) return amount;
+
+    const fallbackRates = {
+      'USD': 1.0, 'VND': 25400.0, 'EUR': 0.92,
+      'GBP': 0.78, 'JPY': 156.0,
+    };
+
+    final base = (ratesData?.base ?? 'USD').toUpperCase();
+    final rates = ratesData?.rates.map(
+      (k, v) => MapEntry(k.toUpperCase(), v.toDouble()),
+    ) ?? fallbackRates;
+
+    final fromRate = from == base ? 1.0 : (rates[from] ?? 1.0);
+    final toRate   = to == base   ? 1.0 : (rates[to]   ?? 1.0);
+
+    return amount * (toRate / fromRate);
   }
 }
