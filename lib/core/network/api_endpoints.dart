@@ -27,4 +27,9 @@ class ApiEndpoints {
   static const String showTransaction = 'api/transactions/{id}';
   static const String updateTransaction = 'api/transactions/{id}';
   static const String deleteTransaction = 'api/transactions/{id}';
+  static const String recurringRules = 'api/recurring-rules';
+  static const String recurringRulesCreate = 'api/recurring-rules';
+  static const String recurringRulesUpdate = 'api/recurring-rules/{id}';
+  static const String recurringRulesDelete = 'api/recurring-rules/{id}';
+  static const String recurringRulesToggle = 'api/recurring-rules/{id}/toggle';
 }

@@ -8,6 +8,8 @@ import 'package:expense_management/features/auth/presentation/screens/register_s
 import 'package:expense_management/features/auth/presentation/screens/splash_screen.dart';
 import 'package:expense_management/features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:expense_management/features/dashboard/presentation/screens/main_shell_screen.dart';
+import 'package:expense_management/features/dashboard/presentation/screens/recurring_create_screen.dart';
+import 'package:expense_management/features/dashboard/presentation/screens/recurring_list_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/change_password_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/personal_info_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/profile_screen.dart';
@@ -44,6 +46,10 @@ class RoutePaths {
   static const categories = '/profile/categories';
   static const transactionResult = '/transaction-result';
   static const transactionDetail = '/transaction-detail';
+  static const recurringCreate = '/dashboard/recurring/create';
+  // static const recurringEdit = '/recurring/edit';
+  static const recurringList = '/dashboard/recurring';
+  // static const recurringDetail = '/recurring/detail';
 }
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -162,7 +168,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }  ,
       branches:[
         StatefulShellBranch(routes: [
-          GoRoute(path: RoutePaths.dashboard,builder: (context, state) => const DashboardScreen(),),
+          GoRoute(path: RoutePaths.dashboard,builder: (context, state) => const DashboardScreen(),
+          routes: [
+            GoRoute(
+              path: 'recurring',
+              parentNavigatorKey: rootNavigatorKey,
+              builder: (context, state) => const RecurringListScreen(),
+            ),
+            GoRoute(
+              path: 'recurring/create',
+              parentNavigatorKey: rootNavigatorKey,
+              builder: (context, state) => const RecurringCreateScreen(),
+            ),
+            // GoRoute(
+            //   path: RoutePaths.recurringEdit,
+            //   builder: (context, state) => const RecurringEditScreen(),
+            // ),
+          ],
+          ),
         ]),
         StatefulShellBranch(routes: [
           GoRoute(
