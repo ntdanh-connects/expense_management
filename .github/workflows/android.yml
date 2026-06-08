@@ -58,6 +58,11 @@ jobs:
         run: |
           echo '${{ secrets.ENV_DEV }}' > .env.dev
 
+      # 6.6. Khôi phục Release Keystore từ GitHub Secrets (base64)
+      - name: Decode Release Keystore
+        run: |
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > android/app/release-keystore.jks
+
       # 7. Chạy Fastlane để tự build APK & Deploy lên Firebase
       - name: Run Fastlane Android Deploy
         run: |
