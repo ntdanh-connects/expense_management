@@ -65,3 +65,4 @@ jobs:
           bundle exec fastlane android distribute_firebase env:dev
         env:
           FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          GOOGLE_APPLICATION_CREDENTIALS: "fastlane/firebase-credentials.json"
