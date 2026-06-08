@@ -48,6 +48,11 @@ jobs:
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > android/fastlane/firebase-credentials.json
 
+      # 6.5. Tạo lại file .env.dev từ GitHub Secrets (vì file này bị .gitignore chặn)
+      - name: Create env.dev file
+        run: |
+          echo '${{ secrets.ENV_DEV }}' > .env.dev
+
       # 7. Chạy Fastlane để tự build APK & Deploy lên Firebase
       - name: Run Fastlane Android Deploy
         run: |
