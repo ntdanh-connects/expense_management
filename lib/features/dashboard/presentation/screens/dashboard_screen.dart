@@ -265,6 +265,61 @@ class DashboardScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
 
+            // 🚀 1.5 THANH PHÍM TẮT MOMO-STYLE (QUICK ACTIONS)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildQuickActionItem(
+                    context: context,
+                    icon: Icons.autorenew_rounded,
+                    label: 'Lịch định kỳ',
+                    iconColor: const Color(0xFFF97316),
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('Tính năng Giao dịch định kỳ đang được phát triển UI!'),
+                          backgroundColor: colors.primary,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                  ),
+                  _buildQuickActionItem(
+                    context: context,
+                    icon: Icons.swap_horiz_rounded,
+                    label: 'Chuyển tiền',
+                    iconColor: const Color(0xFFEC4899),
+                    onTap: () => context.push(RoutePaths.wallet),
+                  ),
+                  _buildQuickActionItem(
+                    context: context,
+                    icon: Icons.track_changes_rounded,
+                    label: 'Hạn mức chi',
+                    iconColor: const Color(0xFFEF4444),
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('Tính năng Hạn mức chi tiêu đang được phát triển UI!'),
+                          backgroundColor: colors.primary,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                  ),
+                  _buildQuickActionItem(
+                    context: context,
+                    icon: Icons.category_rounded,
+                    label: 'Danh mục',
+                    iconColor: const Color(0xFF10B981),
+                    onTap: () => context.push(RoutePaths.categories),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
             // 💼 2. VÍ CỦA BẠN ROW
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -728,5 +783,58 @@ class DashboardScreen extends ConsumerWidget {
       default:
         return Icons.credit_card_rounded;
     }
+  }
+
+  Widget _buildQuickActionItem({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required Color iconColor,
+    required VoidCallback onTap,
+  }) {
+    final colors = context.colors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: isDark ? colors.surface : Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: iconColor.withValues(alpha: 0.15),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: iconColor.withValues(alpha: 0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(
+              icon,
+              color: iconColor,
+              size: 26,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

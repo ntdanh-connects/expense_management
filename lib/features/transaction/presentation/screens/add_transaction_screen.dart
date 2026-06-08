@@ -7,6 +7,7 @@ import 'package:expense_management/features/profile/category_provider.dart';
 import 'package:expense_management/features/profile/data/models/category_dto.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_params.dart';
 import 'package:expense_management/features/transaction/presentation/screens/sub_category_selection_screen.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
@@ -453,7 +454,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       transactionDate: _selectedDate.toIso8601String(),
       currencyCode: _selectedWallet!.currencyCode,
       exchangeRate: 1.0,
-      timezone: 'Asia/Ho_Chi_Minh',
+      timezone: ref.read(currentUserProvider)?.timezone ?? 'Asia/Ho_Chi_Minh',
       attachmentPath: _imageFile?.path,
     );
 

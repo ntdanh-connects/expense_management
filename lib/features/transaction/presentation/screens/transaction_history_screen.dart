@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
@@ -30,17 +31,13 @@ class TransactionHistoryScreen extends ConsumerStatefulWidget {
 
 class _TransactionHistoryScreenState
     extends ConsumerState<TransactionHistoryScreen> {
-  String _searchQuery = '';
-  String _selectedType = 'All'; // All, Expense, Income, Transfer
-
-  // Bộ lọc nâng cao
-  String? _selectedCategoryId; // ID danh mục con đang chọn
-  String? _selectedCategoryName; // Tên hiển thị
-  String? _selectedWalletId; // ID ví
-  String? _selectedWalletName; // Tên ví hiển thị
-  DateTime? _startDate;
-  DateTime? _endDate;
+  // Tên hiển thị tạm trên chip (vì filter lưu ID)
+  String? _selectedCategoryName;
+  String? _selectedWalletName;
   bool _showRecentOnly = false; // 5 giao dịch gần nhất
+
+  late final ScrollController _scrollController;
+  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -48,27 +45,45 @@ class _TransactionHistoryScreenState
     if (widget.initialFilter == 'recent') {
       _showRecentOnly = true;
     }
+    _scrollController = ScrollController()..addListener(_onScroll);
   }
 
-  bool get _hasActiveFilters =>
-      _selectedCategoryId != null ||
-      _selectedWalletId != null ||
-      _startDate != null ||
-      _endDate != null ||
-      _selectedType != 'All' ||
-      _showRecentOnly;
+  void _onScroll() {
+    if (_showRecentOnly) return;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.position.pixels;
+    const threshold = 200.0;
+    if (maxScroll - currentScroll <= threshold) {
+      ref.read(transactionListProvider.notifier).loadMoreTransactions();
+    }
+  }
+
+  void _onSearchChanged(String val) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      ref.read(transactionFilterProvider.notifier).update((state) => state.copyWith(search: val));
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
+  bool get _hasActiveFilters {
+    final filter = ref.read(transactionFilterProvider);
+    return !filter.isEmpty || _showRecentOnly;
+  }
 
   void _clearAllFilters() {
     setState(() {
-      _selectedType = 'All';
-      _selectedCategoryId = null;
       _selectedCategoryName = null;
-      _selectedWalletId = null;
       _selectedWalletName = null;
-      _startDate = null;
-      _endDate = null;
       _showRecentOnly = false;
     });
+    ref.read(transactionFilterProvider.notifier).state = TransactionFilter();
   }
 
   @override
@@ -83,9 +98,7 @@ class _TransactionHistoryScreenState
       backgroundColor: colors.background,
       appBar: SharedTopAppBar(
         hintText: 'search_transactions_hint'.tr(ref),
-        onSearchChanged: (val) {
-          setState(() => _searchQuery = val);
-        },
+        onSearchChanged: _onSearchChanged,
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,20 +203,44 @@ class _TransactionHistoryScreenState
             child: transactionState.when(
               data: (txList) {
                 final filtered = _applyFilters(txList);
+                final pagination = ref.watch(transactionPaginationProvider);
 
                 if (filtered.isEmpty) {
-                  return _buildEmptyState(colors);
+                  return _buildEmptyState(colors, pagination.hasMore, pagination.isLoadingMore);
                 }
 
                 // Nhóm theo ngày
                 final grouped = _groupByDate(filtered);
 
                 return ListView.builder(
+                  controller: _scrollController,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   physics: const BouncingScrollPhysics(),
-                  itemCount: grouped.length,
-                  itemBuilder: (context, index) =>
-                      _buildDaySection(grouped[index], colors,userCurrency,currencySymbol,ratesData),
+                  itemCount: grouped.length + (pagination.hasMore && !_showRecentOnly ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == grouped.length) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Center(
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                    return _buildDaySection(
+                      grouped[index],
+                      colors,
+                      userCurrency,
+                      currencySymbol,
+                      ratesData,
+                    );
+                  },
                 );
               },
               loading: () => const TransactionListShimmer(
@@ -238,6 +275,7 @@ class _TransactionHistoryScreenState
 
   // ── Hàng bộ lọc nâng cao
   Widget _buildAdvancedFilterRow(AppColorsExtension colors) {
+    final filter = ref.watch(transactionFilterProvider);
     final categoryLabel = _selectedCategoryName != null ? _selectedCategoryName!.tr(ref) : 'category'.tr(ref);
     final walletLabel = _selectedWalletName ?? 'all_wallets'.tr(ref);
 
@@ -252,7 +290,7 @@ class _TransactionHistoryScreenState
             _buildFilterChipButton(
               icon: Icons.category_rounded,
               label: categoryLabel,
-              isActive: _selectedCategoryId != null,
+              isActive: filter.categoryId != null,
               onTap: () => _showCategoryPicker(colors),
               colors: colors,
             ),
@@ -262,7 +300,7 @@ class _TransactionHistoryScreenState
             _buildFilterChipButton(
               icon: Icons.account_balance_wallet_rounded,
               label: walletLabel,
-              isActive: _selectedWalletId != null,
+              isActive: filter.walletId != null,
               onTap: () => _showWalletPicker(colors),
               colors: colors,
             ),
@@ -271,9 +309,29 @@ class _TransactionHistoryScreenState
             // Lọc ngày
             _buildFilterChipButton(
               icon: Icons.calendar_month_rounded,
-              label: _buildDateLabel(),
-              isActive: _startDate != null || _endDate != null,
+              label: _buildDateLabel(filter),
+              isActive: filter.startDate != null || filter.endDate != null,
               onTap: () => _showDateRangePicker(colors),
+              colors: colors,
+            ),
+            const SizedBox(width: 8),
+
+            // Lọc khoảng số tiền
+            _buildFilterChipButton(
+              icon: Icons.monetization_on_rounded,
+              label: _buildAmountLabel(filter),
+              isActive: filter.minAmount != null || filter.maxAmount != null,
+              onTap: () => _showAmountRangeDialog(colors),
+              colors: colors,
+            ),
+            const SizedBox(width: 8),
+
+            // Sắp xếp
+            _buildFilterChipButton(
+              icon: Icons.sort_rounded,
+              label: _buildSortLabel(filter),
+              isActive: filter.sortBy != 'date' || filter.sortOrder != 'desc',
+              onTap: () => _showSortBottomSheet(colors),
               colors: colors,
             ),
             const SizedBox(width: 8),
@@ -292,15 +350,243 @@ class _TransactionHistoryScreenState
     );
   }
 
-  String _buildDateLabel() {
-    if (_startDate != null && _endDate != null) {
-      return '${DateFormat('dd/MM').format(_startDate!)} – ${DateFormat('dd/MM').format(_endDate!)}';
-    } else if (_startDate != null) {
-      return 'Từ ${DateFormat('dd/MM').format(_startDate!)}';
-    } else if (_endDate != null) {
-      return 'Đến ${DateFormat('dd/MM').format(_endDate!)}';
+  String _buildDateLabel(TransactionFilter filter) {
+    final startDate = filter.startDate != null ? DateTime.parse(filter.startDate!) : null;
+    final endDate = filter.endDate != null ? DateTime.parse(filter.endDate!) : null;
+    if (startDate != null && endDate != null) {
+      return '${DateFormat('dd/MM').format(startDate)} – ${DateFormat('dd/MM').format(endDate)}';
+    } else if (startDate != null) {
+      return 'Từ ${DateFormat('dd/MM').format(startDate)}';
+    } else if (endDate != null) {
+      return 'Đến ${DateFormat('dd/MM').format(endDate)}';
     }
     return 'this_month'.tr(ref);
+  }
+
+  String _buildAmountLabel(TransactionFilter filter) {
+    if (filter.minAmount != null && filter.maxAmount != null) {
+      return '${_fmtSimple(filter.minAmount!)} – ${_fmtSimple(filter.maxAmount!)}';
+    } else if (filter.minAmount != null) {
+      return '>= ${_fmtSimple(filter.minAmount!)}';
+    } else if (filter.maxAmount != null) {
+      return '<= ${_fmtSimple(filter.maxAmount!)}';
+    }
+    return 'Khoảng số tiền';
+  }
+
+  String _fmtSimple(double value) {
+    if (value >= 1000000) {
+      return '${(value / 1000000).toStringAsFixed(1).replaceAll('.0', '')}M';
+    } else if (value >= 1000) {
+      return '${(value / 1000).toStringAsFixed(0)}k';
+    }
+    return value.toStringAsFixed(0);
+  }
+
+  String _buildSortLabel(TransactionFilter filter) {
+    String criterion = 'Ngày';
+    if (filter.sortBy == 'amount') criterion = 'Số tiền';
+    if (filter.sortBy == 'category') criterion = 'Danh mục';
+
+    String direction = filter.sortOrder == 'asc' ? '↑' : '↓';
+    return '$criterion $direction';
+  }
+
+  void _showAmountRangeDialog(AppColorsExtension colors) {
+    final filter = ref.read(transactionFilterProvider);
+    final minController = TextEditingController(
+      text: filter.minAmount != null ? filter.minAmount!.toStringAsFixed(0) : '',
+    );
+    final maxController = TextEditingController(
+      text: filter.maxAmount != null ? filter.maxAmount!.toStringAsFixed(0) : '',
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: colors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Lọc khoảng số tiền',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: minController,
+              keyboardType: TextInputType.number,
+              style: TextStyle(color: colors.textPrimary),
+              decoration: InputDecoration(
+                labelText: 'Số tiền tối thiểu',
+                labelStyle: TextStyle(color: colors.textSecondary),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.textSecondary.withOpacity(0.3))),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.primary)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: maxController,
+              keyboardType: TextInputType.number,
+              style: TextStyle(color: colors.textPrimary),
+              decoration: InputDecoration(
+                labelText: 'Số tiền tối đa',
+                labelStyle: TextStyle(color: colors.textSecondary),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.textSecondary.withOpacity(0.3))),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.primary)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              ref.read(transactionFilterProvider.notifier).update(
+                (state) => state.copyWith(clearAmount: true),
+              );
+              Navigator.pop(ctx);
+            },
+            child: Text('Xoá lọc', style: TextStyle(color: colors.expenseRed)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Huỷ', style: TextStyle(color: colors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () {
+              final minVal = double.tryParse(minController.text.trim());
+              final maxVal = double.tryParse(maxController.text.trim());
+              ref.read(transactionFilterProvider.notifier).update(
+                (state) => state.copyWith(
+                  minAmount: minVal,
+                  maxAmount: maxVal,
+                  clearAmount: minVal == null && maxVal == null,
+                ),
+              );
+              Navigator.pop(ctx);
+            },
+            child: Text('Áp dụng', style: TextStyle(color: colors.primary, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSortBottomSheet(AppColorsExtension colors) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: colors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Consumer(
+          builder: (ctx, ref, child) {
+            final filter = ref.watch(transactionFilterProvider);
+
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      child: Text(
+                        'Sắp xếp theo',
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    RadioListTile<String>(
+                      title: Text('Ngày giao dịch', style: TextStyle(color: colors.textPrimary)),
+                      value: 'date',
+                      groupValue: filter.sortBy,
+                      activeColor: colors.primary,
+                      onChanged: (val) {
+                        if (val != null) {
+                          ref.read(transactionFilterProvider.notifier).update(
+                                (state) => state.copyWith(sortBy: val),
+                              );
+                        }
+                      },
+                    ),
+                    RadioListTile<String>(
+                      title: Text('Số tiền', style: TextStyle(color: colors.textPrimary)),
+                      value: 'amount',
+                      groupValue: filter.sortBy,
+                      activeColor: colors.primary,
+                      onChanged: (val) {
+                        if (val != null) {
+                          ref.read(transactionFilterProvider.notifier).update(
+                                (state) => state.copyWith(sortBy: val),
+                              );
+                        }
+                      },
+                    ),
+                    RadioListTile<String>(
+                      title: Text('Danh mục', style: TextStyle(color: colors.textPrimary)),
+                      value: 'category',
+                      groupValue: filter.sortBy,
+                      activeColor: colors.primary,
+                      onChanged: (val) {
+                        if (val != null) {
+                          ref.read(transactionFilterProvider.notifier).update(
+                                (state) => state.copyWith(sortBy: val),
+                              );
+                        }
+                      },
+                    ),
+                    const Divider(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      child: Text(
+                        'Thứ tự sắp xếp',
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    RadioListTile<String>(
+                      title: Text('Giảm dần (Mới nhất/Lớn nhất/A-Z)', style: TextStyle(color: colors.textPrimary)),
+                      value: 'desc',
+                      groupValue: filter.sortOrder,
+                      activeColor: colors.primary,
+                      onChanged: (val) {
+                        if (val != null) {
+                          ref.read(transactionFilterProvider.notifier).update(
+                                (state) => state.copyWith(sortOrder: val),
+                              );
+                        }
+                      },
+                    ),
+                    RadioListTile<String>(
+                      title: Text('Tăng dần (Cũ nhất/Nhỏ nhất/Z-A)', style: TextStyle(color: colors.textPrimary)),
+                      value: 'asc',
+                      groupValue: filter.sortOrder,
+                      activeColor: colors.primary,
+                      onChanged: (val) {
+                        if (val != null) {
+                          ref.read(transactionFilterProvider.notifier).update(
+                                (state) => state.copyWith(sortOrder: val),
+                              );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Widget _buildFilterChipButton({
@@ -410,6 +696,7 @@ class _TransactionHistoryScreenState
             return Consumer(
               builder: (context, ref, child) {
                 final categoryState = ref.watch(categoriesNotifierProvider);
+                final filter = ref.watch(transactionFilterProvider);
 
                 return categoryState.when(
                   data: (allCategories) {
@@ -477,13 +764,15 @@ class _TransactionHistoryScreenState
                                       ),
                                     ),
                                   ),
-                                  if (_selectedCategoryId != null)
+                                  if (filter.categoryId != null)
                                     TextButton(
                                       onPressed: () {
                                         setState(() {
-                                          _selectedCategoryId = null;
                                           _selectedCategoryName = null;
                                         });
+                                        ref.read(transactionFilterProvider.notifier).update(
+                                          (state) => state.copyWith(clearCategory: true),
+                                        );
                                         Navigator.pop(ctx);
                                       },
                                       child: Text('clear'.tr(ref),
@@ -504,29 +793,31 @@ class _TransactionHistoryScreenState
                                   if (_pickerSelectedParentId == null)
                                     ListTile(
                                       leading: Icon(Icons.apps_rounded,
-                                          color: _selectedCategoryId == null
+                                          color: filter.categoryId == null
                                               ? colors.primary
                                               : colors.textSecondary),
                                       title: Text(
                                         'all_categories'.tr(ref),
                                         style: TextStyle(
-                                          color: _selectedCategoryId == null
+                                          color: filter.categoryId == null
                                               ? colors.primary
                                               : colors.textPrimary,
-                                          fontWeight: _selectedCategoryId == null
+                                          fontWeight: filter.categoryId == null
                                               ? FontWeight.bold
                                               : FontWeight.normal,
                                         ),
                                       ),
-                                      trailing: _selectedCategoryId == null
+                                      trailing: filter.categoryId == null
                                           ? Icon(Icons.check_circle_rounded,
                                               color: colors.primary, size: 20)
                                           : null,
                                       onTap: () {
                                         setState(() {
-                                          _selectedCategoryId = null;
                                           _selectedCategoryName = null;
                                         });
+                                        ref.read(transactionFilterProvider.notifier).update(
+                                          (state) => state.copyWith(clearCategory: true),
+                                        );
                                         Navigator.pop(ctx);
                                       },
                                     ),
@@ -570,9 +861,11 @@ class _TransactionHistoryScreenState
                                                     parent.id);
                                           } else {
                                             setState(() {
-                                              _selectedCategoryId = parent.id;
                                               _selectedCategoryName = parent.name;
                                             });
+                                            ref.read(transactionFilterProvider.notifier).update(
+                                              (state) => state.copyWith(categoryId: parent.id),
+                                            );
                                             Navigator.pop(ctx);
                                           }
                                         },
@@ -583,7 +876,7 @@ class _TransactionHistoryScreenState
                                   if (_pickerSelectedParentId != null)
                                     ...children.map((child) {
                                       final isSelected =
-                                          _selectedCategoryId == child.id;
+                                          filter.categoryId == child.id;
                                       final icon = CategoryUIConstants.getIconData(
                                           child.icon, categoryName: child.name);
                                       final color =
@@ -616,9 +909,11 @@ class _TransactionHistoryScreenState
                                             : null,
                                         onTap: () {
                                           setState(() {
-                                            _selectedCategoryId = child.id;
                                             _selectedCategoryName = child.name;
                                           });
+                                          ref.read(transactionFilterProvider.notifier).update(
+                                            (state) => state.copyWith(categoryId: child.id),
+                                          );
                                           Navigator.pop(ctx);
                                         },
                                       );
@@ -675,6 +970,7 @@ class _TransactionHistoryScreenState
         return Consumer(
           builder: (context, ref, child) {
             final walletState = ref.watch(walletNotifierProvider);
+            final filter = ref.watch(transactionFilterProvider);
 
             return walletState.when(
               data: (allWallets) {
@@ -707,13 +1003,15 @@ class _TransactionHistoryScreenState
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            if (_selectedWalletId != null)
+                            if (filter.walletId != null)
                               TextButton(
                                 onPressed: () {
                                   setState(() {
-                                    _selectedWalletId = null;
                                     _selectedWalletName = null;
                                   });
+                                  ref.read(transactionFilterProvider.notifier).update(
+                                    (state) => state.copyWith(clearWallet: true),
+                                  );
                                   Navigator.pop(ctx);
                                 },
                                 child: Text('clear'.tr(ref),
@@ -730,34 +1028,36 @@ class _TransactionHistoryScreenState
                             // Tất cả ví
                             ListTile(
                               leading: Icon(Icons.account_balance_wallet_rounded,
-                                  color: _selectedWalletId == null
+                                  color: filter.walletId == null
                                       ? colors.primary
                                       : colors.textSecondary),
                               title: Text(
                                 'all_wallets'.tr(ref),
                                 style: TextStyle(
-                                  color: _selectedWalletId == null
+                                  color: filter.walletId == null
                                       ? colors.primary
                                       : colors.textPrimary,
-                                  fontWeight: _selectedWalletId == null
+                                  fontWeight: filter.walletId == null
                                       ? FontWeight.bold
                                       : FontWeight.normal,
                                 ),
                               ),
-                              trailing: _selectedWalletId == null
+                              trailing: filter.walletId == null
                                   ? Icon(Icons.check_circle_rounded,
                                       color: colors.primary, size: 20)
                                   : null,
                               onTap: () {
                                 setState(() {
-                                  _selectedWalletId = null;
                                   _selectedWalletName = null;
                                 });
+                                ref.read(transactionFilterProvider.notifier).update(
+                                  (state) => state.copyWith(clearWallet: true),
+                                );
                                 Navigator.pop(ctx);
                               },
                             ),
                             ...wallets.map((w) {
-                              final isSelected = _selectedWalletId == w.id;
+                              final isSelected = filter.walletId == w.id;
                               return ListTile(
                                 leading: Icon(
                                   _getWalletIcon(w.type),
@@ -782,9 +1082,11 @@ class _TransactionHistoryScreenState
                                     : null,
                                 onTap: () {
                                   setState(() {
-                                    _selectedWalletId = w.id;
                                     _selectedWalletName = w.name;
                                   });
+                                  ref.read(transactionFilterProvider.notifier).update(
+                                    (state) => state.copyWith(walletId: w.id),
+                                  );
                                   Navigator.pop(ctx);
                                 },
                               );
@@ -826,13 +1128,17 @@ class _TransactionHistoryScreenState
 
   // ── DATE RANGE PICKER
   Future<void> _showDateRangePicker(AppColorsExtension colors) async {
+    final filter = ref.read(transactionFilterProvider);
     final now = DateTime.now();
+    final filterStart = filter.startDate != null ? DateTime.parse(filter.startDate!) : null;
+    final filterEnd = filter.endDate != null ? DateTime.parse(filter.endDate!) : null;
+
     final picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(now.year - 3),
       lastDate: DateTime(now.year + 1),
-      initialDateRange: (_startDate != null && _endDate != null)
-          ? DateTimeRange(start: _startDate!, end: _endDate!)
+      initialDateRange: (filterStart != null && filterEnd != null)
+          ? DateTimeRange(start: filterStart, end: filterEnd)
           : DateTimeRange(
               start: DateTime(now.year, now.month, 1),
               end: now,
@@ -850,88 +1156,26 @@ class _TransactionHistoryScreenState
 
     if (picked != null) {
       setState(() {
-        _startDate = picked.start;
-        _endDate = picked.end;
         _showRecentOnly = false;
       });
+      ref.read(transactionFilterProvider.notifier).update(
+            (state) => state.copyWith(
+              startDate: DateFormat('yyyy-MM-dd').format(picked.start),
+              endDate: DateFormat('yyyy-MM-dd').format(picked.end),
+            ),
+          );
     }
   }
 
   // ── ÁP DỤNG BỘ LỌC
   List<TransactionEntity> _applyFilters(List<TransactionEntity> txList) {
-    List<String>? targetCategoryIds;
-    if (_selectedCategoryId != null) {
-      targetCategoryIds = [_selectedCategoryId!];
-      final categories = ref.read(categoriesNotifierProvider).value ?? [];
-      for (final parent in categories) {
-        if (parent.id == _selectedCategoryId) {
-          if (parent.children != null) {
-            for (final child in parent.children!) {
-              targetCategoryIds.add(child.id);
-            }
-          }
-          break;
-        }
-      }
-    }
-
-    var result = txList.where((tx) {
-      // Search
-      final matchesSearch =
-          tx.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-              (tx.categoryName ?? '')
-                  .toLowerCase()
-                  .contains(_searchQuery.toLowerCase()) ||
-              (tx.notes ?? '')
-                  .toLowerCase()
-                  .contains(_searchQuery.toLowerCase());
-
-      // Loại giao dịch
-      final isTransfer = tx.sourceType == 'transfer';
-      final matchesType = _selectedType == 'All' ||
-          (_selectedType == 'Expense' &&
-              tx.type == 'expense' &&
-              !isTransfer) ||
-          (_selectedType == 'Income' &&
-              tx.type == 'income' &&
-              !isTransfer) ||
-          (_selectedType == 'Transfer' && isTransfer);
-
-      // Danh mục (lọc theo ID cha hoặc ID con)
-      final matchesCategory = targetCategoryIds == null ||
-          targetCategoryIds.contains(tx.categoryId);
-
-      // Ví (lọc theo ID)
-      final matchesWallet =
-          _selectedWalletId == null || tx.walletId == _selectedWalletId;
-
-      // Ngày tháng
-      bool matchesDate = true;
-      if (_startDate != null) {
-        matchesDate = matchesDate &&
-            !tx.transactionDate.isBefore(DateTime(
-                _startDate!.year, _startDate!.month, _startDate!.day));
-      }
-      if (_endDate != null) {
-        matchesDate = matchesDate &&
-            !tx.transactionDate.isAfter(DateTime(
-                _endDate!.year, _endDate!.month, _endDate!.day, 23, 59, 59));
-      }
-
-      return matchesSearch &&
-          matchesType &&
-          matchesCategory &&
-          matchesWallet &&
-          matchesDate;
-    }).toList();
-
-    // Sắp xếp: Ưu tiên giao dịch chờ đồng bộ (pending) lên đầu, sau đó sắp xếp theo ngày mới nhất
+    final List<TransactionEntity> result = List.from(txList);
     result.sort((a, b) {
       final aPending = a.status == 'pending';
       final bPending = b.status == 'pending';
       if (aPending && !bPending) return -1;
       if (!aPending && bPending) return 1;
-      return b.transactionDate.compareTo(a.transactionDate);
+      return 0; // Giữ nguyên thứ tự từ backend
     });
 
     if (_showRecentOnly) return result.take(5).toList();
@@ -1053,9 +1297,19 @@ class _TransactionHistoryScreenState
 
   Widget _buildTypeChip(String label, String value) {
     final colors = context.colors;
-    final isSelected = _selectedType == value;
+    final filter = ref.watch(transactionFilterProvider);
+    final isSelected = (value == 'All' && filter.type == null) ||
+        (value.toLowerCase() == filter.type?.toLowerCase());
+
     return GestureDetector(
-      onTap: () => setState(() => _selectedType = value),
+      onTap: () {
+        ref.read(transactionFilterProvider.notifier).update(
+              (state) => state.copyWith(
+                type: value == 'All' ? null : value.toLowerCase(),
+                clearType: value == 'All',
+              ),
+            );
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding:
@@ -1079,7 +1333,57 @@ class _TransactionHistoryScreenState
     );
   }
 
-  Widget _buildEmptyState(AppColorsExtension colors) {
+  Widget _buildEmptyState(AppColorsExtension colors, bool hasMore, bool isLoadingMore) {
+    if (hasMore && !_showRecentOnly) {
+      if (isLoadingMore) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Đang tìm kiếm thêm giao dịch...',
+                style: TextStyle(color: colors.textSecondary, fontSize: 13.5),
+              ),
+            ],
+          ),
+        );
+      } else {
+        // Tự động kích hoạt tải thêm nếu danh sách lọc trống nhưng DB vẫn còn giao dịch
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ref.read(transactionListProvider.notifier).loadMoreTransactions();
+        });
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Đang tìm kiếm giao dịch phù hợp...',
+                style: TextStyle(color: colors.textSecondary, fontSize: 13.5),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

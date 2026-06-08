@@ -13,6 +13,7 @@ import 'package:expense_management/features/transaction/data/datasource/remote/t
 import 'package:expense_management/features/transaction/data/repository_impl/transaction_repository_impl.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_params.dart';
+import 'package:expense_management/features/transaction/domain/entities/paginated_transactions.dart';
 import 'package:expense_management/features/transaction/domain/repositories/transaction_repository.dart';
 import 'package:expense_management/features/transaction/domain/use_case/add_transaction_usecase.dart';
 import 'package:expense_management/features/transaction/domain/use_case/get_transactions_usecase.dart';
@@ -22,6 +23,7 @@ import 'package:expense_management/core/storage/storage_provider.dart';
 import 'package:elegant_notification/elegant_notification.dart';
 import 'package:elegant_notification/resources/arrays.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 final transactionApiServiceProvider = Provider<TransactionApiService>((ref) {
   final dio = ref.watch(dioClientProvider);
@@ -67,15 +69,38 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     _startSyncTimer();
 
     final useCase = ref.watch(getTransactionsUseCaseProvider);
+    final filter = ref.watch(transactionFilterProvider); // Lắng nghe bộ lọc thay đổi
     try {
-      final freshList = await useCase.execute(perPage: 200);
-      storage.saveCachedTransactions(freshList.take(20).toList(), userId: userId);
+      final result = await useCase.execute(
+        search: filter.search,
+        startDate: filter.startDate,
+        endDate: filter.endDate,
+        categoryId: filter.categoryId,
+        type: filter.type,
+        walletId: filter.walletId,
+        minAmount: filter.minAmount,
+        maxAmount: filter.maxAmount,
+        sortBy: filter.sortBy,
+        sortOrder: filter.sortOrder,
+        perPage: 20,
+        cursor: null,
+      );
+
+      if (filter.isEmpty) {
+        storage.saveCachedTransactions(result.items.take(20).toList(), userId: userId);
+      }
+
+      ref.read(transactionPaginationProvider.notifier).state = PaginationState(
+        nextCursor: result.nextCursor,
+        hasMore: result.nextCursor != null,
+        isLoadingMore: false,
+      );
 
       if (pendingData.isNotEmpty) {
         _syncPendingTransactions();
       }
 
-      return [...pendingData, ...freshList];
+      return [...pendingData, ...result.items];
     } catch (e) {
       if (initialList.isNotEmpty) {
         return initialList;
@@ -208,18 +233,81 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     state = await AsyncValue.guard(() async {
       final userId = ref.read(currentUserProvider)?.id ?? '';
       final useCase = ref.read(getTransactionsUseCaseProvider);
-      final freshList = await useCase.execute(perPage: 200);
+      final filter = ref.read(transactionFilterProvider);
+      final result = await useCase.execute(
+        search: filter.search,
+        startDate: filter.startDate,
+        endDate: filter.endDate,
+        categoryId: filter.categoryId,
+        type: filter.type,
+        walletId: filter.walletId,
+        minAmount: filter.minAmount,
+        maxAmount: filter.maxAmount,
+        sortBy: filter.sortBy,
+        sortOrder: filter.sortOrder,
+        perPage: 20,
+        cursor: null,
+      );
 
       final storage = ref.read(localStoreHelperProvider);
-      storage.saveCachedTransactions(freshList.take(20).toList(), userId: userId);
+      if (filter.isEmpty) {
+        storage.saveCachedTransactions(result.items.take(20).toList(), userId: userId);
+      }
+
+      ref.read(transactionPaginationProvider.notifier).state = PaginationState(
+        nextCursor: result.nextCursor,
+        hasMore: result.nextCursor != null,
+        isLoadingMore: false,
+      );
 
       final pendingData = storage.getPendingTransactions(userId: userId);
       if (pendingData.isNotEmpty) {
         _syncPendingTransactions();
       }
 
-      return [...pendingData, ...freshList];
+      return [...pendingData, ...result.items];
     });
+  }
+
+  Future<void> loadMoreTransactions() async {
+    final pagination = ref.read(transactionPaginationProvider);
+    if (pagination.isLoadingMore || !pagination.hasMore) return;
+
+    ref.read(transactionPaginationProvider.notifier).state =
+        pagination.copyWith(isLoadingMore: true);
+
+    try {
+      final useCase = ref.read(getTransactionsUseCaseProvider);
+      final filter = ref.read(transactionFilterProvider);
+      final result = await useCase.execute(
+        search: filter.search,
+        startDate: filter.startDate,
+        endDate: filter.endDate,
+        categoryId: filter.categoryId,
+        type: filter.type,
+        walletId: filter.walletId,
+        minAmount: filter.minAmount,
+        maxAmount: filter.maxAmount,
+        sortBy: filter.sortBy,
+        sortOrder: filter.sortOrder,
+        perPage: 20,
+        cursor: pagination.nextCursor,
+      );
+
+      state = AsyncValue.data([
+        ...(state.value ?? []),
+        ...result.items,
+      ]);
+
+      ref.read(transactionPaginationProvider.notifier).state = PaginationState(
+        nextCursor: result.nextCursor,
+        hasMore: result.nextCursor != null,
+        isLoadingMore: false,
+      );
+    } catch (e) {
+      ref.read(transactionPaginationProvider.notifier).state =
+          pagination.copyWith(isLoadingMore: false);
+    }
   }
 
   Future<void> addTransaction(TransactionEntity transaction) async {
@@ -331,6 +419,104 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     ref.invalidate(walletNotifierProvider);
   }
 }
+
+class PaginationState {
+  final String? nextCursor;
+  final bool hasMore;
+  final bool isLoadingMore;
+
+  PaginationState({
+    this.nextCursor,
+    this.hasMore = true,
+    this.isLoadingMore = false,
+  });
+
+  PaginationState copyWith({
+    String? nextCursor,
+    bool? hasMore,
+    bool? isLoadingMore,
+  }) {
+    return PaginationState(
+      nextCursor: nextCursor ?? this.nextCursor,
+      hasMore: hasMore ?? this.hasMore,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+    );
+  }
+}
+
+final transactionPaginationProvider = StateProvider<PaginationState>((ref) => PaginationState());
+
+class TransactionFilter {
+  final String? search;
+  final String? startDate;
+  final String? endDate;
+  final String? categoryId;
+  final String? type;
+  final String? walletId;
+  final double? minAmount;
+  final double? maxAmount;
+  final String sortBy; // 'date', 'amount', 'category'
+  final String sortOrder; // 'desc', 'asc'
+
+  TransactionFilter({
+    this.search,
+    this.startDate,
+    this.endDate,
+    this.categoryId,
+    this.type,
+    this.walletId,
+    this.minAmount,
+    this.maxAmount,
+    this.sortBy = 'date',
+    this.sortOrder = 'desc',
+  });
+
+  bool get isEmpty =>
+      (search == null || search!.isEmpty) &&
+      startDate == null &&
+      endDate == null &&
+      categoryId == null &&
+      type == null &&
+      walletId == null &&
+      minAmount == null &&
+      maxAmount == null &&
+      sortBy == 'date' &&
+      sortOrder == 'desc';
+
+  TransactionFilter copyWith({
+    String? search,
+    String? startDate,
+    String? endDate,
+    String? categoryId,
+    String? type,
+    String? walletId,
+    double? minAmount,
+    double? maxAmount,
+    String? sortBy,
+    String? sortOrder,
+    bool clearSearch = false,
+    bool clearDate = false,
+    bool clearCategory = false,
+    bool clearType = false,
+    bool clearWallet = false,
+    bool clearAmount = false,
+  }) {
+    return TransactionFilter(
+      search: clearSearch ? null : (search ?? this.search),
+      startDate: clearDate ? null : (startDate ?? this.startDate),
+      endDate: clearDate ? null : (endDate ?? this.endDate),
+      categoryId: clearCategory ? null : (categoryId ?? this.categoryId),
+      type: clearType ? null : (type ?? this.type),
+      walletId: clearWallet ? null : (walletId ?? this.walletId),
+      minAmount: clearAmount ? null : (minAmount ?? this.minAmount),
+      maxAmount: clearAmount ? null : (maxAmount ?? this.maxAmount),
+      sortBy: sortBy ?? this.sortBy,
+      sortOrder: sortOrder ?? this.sortOrder,
+    );
+  }
+}
+
+final transactionFilterProvider = StateProvider<TransactionFilter>((ref) => TransactionFilter());
 
 final transactionListProvider =
     AsyncNotifierProvider<TransactionListNotifier, List<TransactionEntity>>(() {

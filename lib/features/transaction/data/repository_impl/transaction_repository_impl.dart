@@ -4,6 +4,7 @@ import 'package:expense_management/features/transaction/data/datasource/remote/t
 import 'package:expense_management/features/transaction/data/mappers/transaction_mapper.dart';
 import 'package:expense_management/features/transaction/data/models/transaction_dto.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
+import 'package:expense_management/features/transaction/domain/entities/paginated_transactions.dart';
 import 'package:expense_management/features/transaction/domain/repositories/transaction_repository.dart';
 import 'package:expense_management/core/utils/app_logger.dart';
 
@@ -14,7 +15,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
   TransactionRepositoryImpl(this._apiService, this._dio);
 
   @override
-  Future<List<TransactionEntity>> getTransactions({
+  Future<PaginatedTransactions> getTransactions({
     String? search,
     String? startDate,
     String? endDate,
@@ -26,6 +27,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
     String? sortBy,
     String? sortOrder,
     int? perPage,
+    String? cursor,
   }) async {
     try {
       // Dùng Dio trực tiếp để xử lý đúng cả hai dạng response:
@@ -43,6 +45,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
         if (sortBy != null) 'sort_by': sortBy,
         if (sortOrder != null) 'sort_order': sortOrder,
         if (perPage != null) 'per_page': perPage,
+        if (cursor != null) 'cursor': cursor,
       };
 
       final response = await _dio.get<Map<String, dynamic>>(
@@ -51,26 +54,40 @@ class TransactionRepositoryImpl implements TransactionRepository {
       );
 
       final body = response.data;
-      if (body == null) return [];
+      if (body == null) return PaginatedTransactions(items: []);
 
       // body['data'] có thể là:
       //  • List<dynamic>          → ->get()
       //  • Map {data:[...], ...}  → ->paginate() hoặc ->cursorPaginate()
       final dataField = body['data'];
       List<dynamic> items;
+      String? nextCursor;
+
       if (dataField is List) {
         items = dataField;
       } else if (dataField is Map<String, dynamic>) {
         final nested = dataField['data'];
         items = nested is List ? nested : [];
+        final nextPageUrl = dataField['next_page_url'] as String?;
+        if (nextPageUrl != null) {
+          try {
+            final uri = Uri.parse(nextPageUrl);
+            nextCursor = uri.queryParameters['cursor'];
+          } catch (_) {}
+        }
       } else {
         items = [];
       }
 
-      return items
+      final transactionItems = items
           .map((i) => TransactionMapper.toEntity(
               TransactionDto.fromJson(i as Map<String, dynamic>)))
           .toList();
+
+      return PaginatedTransactions(
+        items: transactionItems,
+        nextCursor: nextCursor,
+      );
     } catch (e, stackTrace) {
       AppLogger.error(
         '🚨 [TransactionRepo] getTransactions error: $e',

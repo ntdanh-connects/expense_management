@@ -1,4 +1,5 @@
 import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
+import 'package:expense_management/features/transaction/domain/entities/paginated_transactions.dart';
 import 'package:expense_management/features/transaction/domain/repositories/transaction_repository.dart';
 
 class GetTransactionsUseCase {
@@ -6,7 +7,7 @@ class GetTransactionsUseCase {
 
   GetTransactionsUseCase(this._repository);
 
-  Future<List<TransactionEntity>> execute({
+  Future<PaginatedTransactions> execute({
     String? search,
     String? startDate,
     String? endDate,
@@ -18,6 +19,7 @@ class GetTransactionsUseCase {
     String? sortBy,
     String? sortOrder,
     int? perPage,
+    String? cursor,
   }) {
     return _repository.getTransactions(
       search: search,
@@ -31,6 +33,7 @@ class GetTransactionsUseCase {
       sortBy: sortBy,
       sortOrder: sortOrder,
       perPage: perPage,
+      cursor: cursor,
     );
   }
 }

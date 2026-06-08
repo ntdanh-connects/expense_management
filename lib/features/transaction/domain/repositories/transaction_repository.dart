@@ -1,8 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
+import 'package:expense_management/features/transaction/domain/entities/paginated_transactions.dart';
 
 abstract class TransactionRepository {
-  Future<List<TransactionEntity>> getTransactions({
+  Future<PaginatedTransactions> getTransactions({
     String? search,
     String? startDate,
     String? endDate,
@@ -14,6 +15,7 @@ abstract class TransactionRepository {
     String? sortBy,
     String? sortOrder,
     int? perPage,
+    String? cursor,
   });
 
   Future<TransactionEntity> createTransaction({
