@@ -45,6 +45,8 @@ class TransactionDto {
   final String? sourceType;
   @JsonKey(name: 'transaction_date', fromJson: _dateTimeFromJson)
   final DateTime transactionDate;
+  @JsonKey(name: 'created_at', fromJson: _dateTimeFromJson)
+  final DateTime? createdAt;
   final CategoryDto? category;
   final WalletDto? wallet;
   final List<TransactionAttachmentDto>? attachments;
@@ -63,6 +65,7 @@ class TransactionDto {
     this.timezone,
     this.sourceType,
     required this.transactionDate,
+    this.createdAt,
     this.category,
     this.wallet,
     this.attachments,
@@ -84,7 +87,15 @@ class TransactionDto {
 
   static DateTime _dateTimeFromJson(dynamic value) {
     if (value == null) return DateTime.now();
-    if (value is String) return DateTime.parse(value);
+    if (value is String) {
+      if (!value.contains('Z') && !value.contains('+') && !RegExp(r'-\d{2}:\d{2}$').hasMatch(value)) {
+        String formatted = value.replaceAll(' ', 'T');
+        try {
+          return DateTime.parse(formatted);
+        } catch (_) {}
+      }
+      return DateTime.parse(value);
+    }
     if (value is num) return DateTime.fromMillisecondsSinceEpoch(value.toInt());
     return DateTime.now();
   }

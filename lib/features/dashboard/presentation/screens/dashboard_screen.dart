@@ -1,5 +1,6 @@
 import 'package:expense_management/core/router/app_route.dart';
 import 'package:flutter/material.dart';
+import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/shared/widgets/shared_top_app_bar.dart';
@@ -127,29 +128,8 @@ class DashboardScreen extends ConsumerWidget {
                         return sum + convertCurrency(w.balance, w.currencyCode);
                       });
                       
-                      String formatMoney(double value, String currencyCode) {
-                        final String code = currencyCode.toUpperCase();
-                        final int decimals = (code == 'VND' || code == 'JPY') ? 0 : 2;
-                        
-                        if (decimals == 0) {
-                          RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-                          String Function(Match) mathFunc = (Match match) => '${match[1]}.';
-                          return value.toStringAsFixed(0).replaceAllMapped(reg, mathFunc);
-                        } else {
-                          // Format cho USD, EUR, GBP (ví dụ: 1,234.56)
-                          final parts = value.toStringAsFixed(2).split('.');
-                          final String wholePart = parts[0];
-                          final String decimalPart = parts[1];
-                          
-                          RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-                          String Function(Match) mathFunc = (Match match) => '${match[1]},';
-                          final String formattedWhole = wholePart.replaceAllMapped(reg, mathFunc);
-                          return '$formattedWhole.$decimalPart';
-                        }
-                      }
-                      
                       return Text(
-                        showBalance ? '${formatMoney(totalBalance, userCurrency)} $currencySymbol' : '•••••• $currencySymbol',
+                        showBalance ? '${AppConstant.formatMoney(totalBalance, userCurrency)} $currencySymbol' : '•••••• $currencySymbol',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 30,
@@ -382,20 +362,14 @@ class DashboardScreen extends ConsumerWidget {
                         itemColor = colors.primary;
                       }
 
-                      String formatMoney(double value) {
-                        RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-                        String Function(Match) mathFunc = (Match match) => '${match[1]}.';
-                        return value.toStringAsFixed(0).replaceAllMapped(reg, mathFunc);
-                      }
-
                       final showBalance = ref.watch(showBalanceProvider);
 
                       return _buildWalletCard(
                         context: context,
                         title: wallet.name,
                         amount: showBalance 
-                            ? '${formatMoney(wallet.balance)} ${AppConstant.getCurrencySymbol(wallet.currencyCode)}' 
-                            : '•••••• ${AppConstant.getCurrencySymbol(wallet.currencyCode)}',
+                            ? '${AppConstant.formatMoney(wallet.balance, wallet.currencyCode)} ${wallet.currencyCode}' 
+                            : '•••••• ${wallet.currencyCode}',
                         icon: _getWalletIcon(wallet.type),
                         iconBgColor: itemColor.withOpacity(0.12),
                         iconColor: itemColor,
@@ -505,18 +479,18 @@ class DashboardScreen extends ConsumerWidget {
                     final categoryIcon = CategoryUIConstants.getIconData(categoryIconStr);
                     final categoryColor = CategoryUIConstants.getColorFromHex(categoryColorStr);
 
-                    String formatMoney(double value) {
-                      RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-                      String Function(Match) mathFunc = (Match match) => '${match[1]}.';
-                      return value.toStringAsFixed(0).replaceAllMapped(reg, mathFunc);
-                    }
+                    final txCurrency = (localWallet != null && 
+                        localWallet.currencyCode != null && 
+                        localWallet.currencyCode.toString().isNotEmpty)
+                    ? localWallet.currencyCode.toString()
+                    : (tx.currencyCode ?? 'VND');
 
                     return _buildRecentTransaction(
                       ref: ref,
                       colors: colors,
                       title: tx.title,
-                      sub: '$walletName • ${DateFormat('dd/MM/yyyy HH:mm').format(tx.transactionDate)}',
-                      amount: '$sign${formatMoney(tx.amount)} $currencySymbol',
+                      sub: '$walletName • ${_formatDateTime(tx.transactionDate, tx.timezone, ref)}',
+                      amount: '$sign${AppConstant.formatMoney(tx.amount, tx.currencyCode)} $txCurrency',
                       isIncome: isIncome,
                       icon: categoryIcon,
                       iconColor: categoryColor,
@@ -836,5 +810,21 @@ class DashboardScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  String _formatDateTime(DateTime date, String? txTimezone, WidgetRef ref) {
+    final user = ref.read(currentUserProvider);
+    final tzName = txTimezone ?? user?.timezone ?? 'Asia/Ho_Chi_Minh';
+    try {
+      final location = tz.getLocation(tzName);
+      final tzDateTime = tz.TZDateTime.from(date.toUtc(), location);
+      final offset = tzDateTime.timeZoneOffset;
+      final offsetStr = offset.inMinutes == 0
+          ? 'UTC'
+          : 'UTC${offset.isNegative ? '-' : '+'}${offset.inHours.abs()}';
+      return '${DateFormat('dd/MM/yyyy HH:mm').format(tzDateTime)} ($offsetStr)';
+    } catch (_) {
+      return DateFormat('dd/MM/yyyy HH:mm').format(date);
+    }
   }
 }

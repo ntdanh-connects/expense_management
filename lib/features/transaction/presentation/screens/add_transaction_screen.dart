@@ -20,6 +20,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 class AddTransactionScreen extends ConsumerStatefulWidget {
   const AddTransactionScreen({super.key});
@@ -51,6 +52,14 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       decimalDigits: 0,
       symbol: 'đ',
     );
+    try {
+      final user = ref.read(currentUserProvider);
+      final tzName = user?.timezone ?? 'Asia/Ho_Chi_Minh';
+      final location = tz.getLocation(tzName);
+      _selectedDate = tz.TZDateTime.now(location);
+    } catch (_) {
+      _selectedDate = DateTime.now();
+    }
   }
 
   String _getCurrencySymbol(String? currencyCode) {
@@ -110,17 +119,35 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   }
 
   String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-    final checkDate = DateTime(date.year, date.month, date.day);
+    final user = ref.read(currentUserProvider);
+    final tzName = user?.timezone ?? 'Asia/Ho_Chi_Minh';
+    try {
+      final location = tz.getLocation(tzName);
+      final userNow = tz.TZDateTime.now(location);
+      final today = DateTime(userNow.year, userNow.month, userNow.day);
+      final yesterday = today.subtract(const Duration(days: 1));
+      final checkDate = DateTime(date.year, date.month, date.day);
 
-    if (checkDate == today) {
-      return '${'today'.trRead(ref)}, ${DateFormat('dd/MM').format(date)}';
-    } else if (checkDate == yesterday) {
-      return '${'yesterday'.trRead(ref)}, ${DateFormat('dd/MM').format(date)}';
-    } else {
-      return DateFormat('dd/MM/yyyy').format(date);
+      if (checkDate == today) {
+        return '${'today'.trRead(ref)}, ${DateFormat('dd/MM').format(date)}';
+      } else if (checkDate == yesterday) {
+        return '${'yesterday'.trRead(ref)}, ${DateFormat('dd/MM').format(date)}';
+      } else {
+        return DateFormat('dd/MM/yyyy').format(date);
+      }
+    } catch (_) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final yesterday = today.subtract(const Duration(days: 1));
+      final checkDate = DateTime(date.year, date.month, date.day);
+
+      if (checkDate == today) {
+        return '${'today'.trRead(ref)}, ${DateFormat('dd/MM').format(date)}';
+      } else if (checkDate == yesterday) {
+        return '${'yesterday'.trRead(ref)}, ${DateFormat('dd/MM').format(date)}';
+      } else {
+        return DateFormat('dd/MM/yyyy').format(date);
+      }
     }
   }
 
@@ -145,7 +172,22 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     ).then((date) {
       if (date != null) {
         setState(() {
-          _selectedDate = date;
+          try {
+            final user = ref.read(currentUserProvider);
+            final tzName = user?.timezone ?? 'Asia/Ho_Chi_Minh';
+            final location = tz.getLocation(tzName);
+            _selectedDate = tz.TZDateTime(
+              location,
+              date.year,
+              date.month,
+              date.day,
+              _selectedDate.hour,
+              _selectedDate.minute,
+              _selectedDate.second,
+            );
+          } catch (_) {
+            _selectedDate = date;
+          }
         });
       }
     });
@@ -451,7 +493,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       notes: _notesController.text.trim().isEmpty
           ? null
           : _notesController.text.trim(),
-      transactionDate: _selectedDate.toIso8601String(),
+      transactionDate: _selectedDate.toUtc().toIso8601String(),
       currencyCode: _selectedWallet!.currencyCode,
       exchangeRate: 1.0,
       timezone: ref.read(currentUserProvider)?.timezone ?? 'Asia/Ho_Chi_Minh',
@@ -1280,7 +1322,6 @@ class AddTransactionShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final baseColor = isDark ? Colors.grey[900]! : Colors.grey[300]!;
     final highlightColor = isDark ? Colors.grey[800]! : Colors.grey[100]!;

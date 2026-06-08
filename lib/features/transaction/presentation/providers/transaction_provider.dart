@@ -171,7 +171,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
             amount: tx.amount,
             title: tx.title,
             notes: tx.notes,
-            transactionDate: tx.transactionDate.toIso8601String(),
+            transactionDate: tx.transactionDate.toUtc().toIso8601String(),
             currencyCode: tx.currencyCode,
             exchangeRate: tx.exchangeRate,
             timezone: tx.timezone,

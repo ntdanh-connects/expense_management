@@ -1,5 +1,6 @@
 import 'package:expense_management/features/transaction/data/models/transaction_dto.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
+import 'package:expense_management/core/constants/app_constant.dart';
 
 class TransactionMapper {
   static TransactionEntity toEntity(TransactionDto dto) {
@@ -16,7 +17,8 @@ class TransactionMapper {
       notes: dto.notes,
       timezone: dto.timezone,
       sourceType: dto.sourceType,
-      transactionDate: dto.transactionDate,
+      transactionDate: AppConstant.adjustOldTransactionDate(dto.transactionDate, dto.timezone, dto.createdAt),
+      createdAt: dto.createdAt,
       categoryName: dto.category?.name,
       categoryIcon: dto.category?.icon,
       categoryColor: dto.category?.color,

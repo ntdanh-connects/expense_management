@@ -1,3 +1,5 @@
+import 'package:expense_management/core/constants/app_constant.dart';
+
 class TransactionEntity {
   final String id;
   final String walletId;
@@ -12,6 +14,7 @@ class TransactionEntity {
   final String? timezone;
   final String? sourceType;
   final DateTime transactionDate;
+  final DateTime? createdAt;
   
   // Custom helper fields populated from joins
   final String? categoryName;
@@ -36,6 +39,7 @@ class TransactionEntity {
     this.timezone,
     this.sourceType,
     required this.transactionDate,
+    this.createdAt,
     this.categoryName,
     this.categoryIcon,
     this.categoryColor,
@@ -62,6 +66,7 @@ class TransactionEntity {
       timezone: json['timezone'] as String?,
       sourceType: json['source_type'] as String?,
       transactionDate: DateTime.parse(json['transaction_date'] as String),
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null,
       categoryName: json['category_name'] as String?,
       categoryIcon: json['category_icon'] as String?,
       categoryColor: json['category_color'] as String?,
@@ -86,7 +91,8 @@ class TransactionEntity {
       'notes': notes,
       'timezone': timezone,
       'source_type': sourceType,
-      'transaction_date': transactionDate.toIso8601String(),
+      'transaction_date': transactionDate.toUtc().toIso8601String(),
+      'created_at': createdAt?.toUtc().toIso8601String(),
       'category_name': categoryName,
       'category_icon': categoryIcon,
       'category_color': categoryColor,

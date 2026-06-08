@@ -14,6 +14,7 @@ import 'package:expense_management/features/profile/category_provider.dart';
 import 'package:expense_management/features/profile/data/models/category_dto.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
 import 'package:expense_management/features/transaction/presentation/screens/sub_category_selection_screen.dart';
+import 'package:expense_management/core/constants/app_constant.dart';
 
 class TransactionDetailScreen extends ConsumerStatefulWidget {
   final TransactionEntity transaction;
@@ -130,23 +131,20 @@ class _TransactionDetailScreenState
 
     try {
       final location = tz.getLocation(tzName);
-
-      // Chỉ lấy offset của timezone
-      final now = tz.TZDateTime.now(location);
-      final offset = now.timeZoneOffset;
+      final tzDateTime = tz.TZDateTime.from(date.toUtc(), location);
+      final offset = tzDateTime.timeZoneOffset;
 
       final sign = offset.isNegative ? '-' : '+';
       final hours = offset.inHours.abs().toString().padLeft(2, '0');
       final minutes =
           (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
 
-      // Giữ nguyên giờ từ backend
-      final hour = date.hour.toString().padLeft(2, '0');
-      final minute = date.minute.toString().padLeft(2, '0');
-      final second = date.second.toString().padLeft(2, '0');
-      final day = date.day.toString().padLeft(2, '0');
-      final month = date.month.toString().padLeft(2, '0');
-      final year = date.year;
+      final hour = tzDateTime.hour.toString().padLeft(2, '0');
+      final minute = tzDateTime.minute.toString().padLeft(2, '0');
+      final second = tzDateTime.second.toString().padLeft(2, '0');
+      final day = tzDateTime.day.toString().padLeft(2, '0');
+      final month = tzDateTime.month.toString().padLeft(2, '0');
+      final year = tzDateTime.year;
 
       return '$hour:$minute:$second '
           '$day/$month/$year '
@@ -405,10 +403,7 @@ class _TransactionDetailScreenState
     final isTransfer = tx.sourceType == 'transfer';
 
     final currencySymbol = tx.currencyCode ?? 'đ';
-    final reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-    final formattedAmount = tx.amount
-        .toStringAsFixed(0)
-        .replaceAllMapped(reg, (Match m) => '${m[1]},');
+    final formattedAmount = AppConstant.formatMoney(tx.amount, tx.currencyCode);
     final sign = tx.type == 'income' ? '+' : (tx.type == 'expense' ? '-' : '');
     final amountColor = tx.type == 'income'
         ? colors.incomeGreen

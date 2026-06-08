@@ -752,7 +752,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
                       ],
                     ),
                     Text(
-                      '${_formatMoney(_initialBalance)} ${AppConstant.getCurrencySymbol(ref.watch(currentUserProvider)?.currency)}',
+                      '${_formatMoney(_initialBalance, _selectedCurrency)} ${AppConstant.getCurrencySymbol(_selectedCurrency)}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -849,7 +849,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
               Text(
                 widget.walletToEdit != null
                     ? 'swipe_to_save_desc'.tr(ref).replaceAll('{name}', _walletName)
-                    : 'swipe_to_create_desc'.tr(ref).replaceAll('{name}', _walletName).replaceAll('{balance}', _formatMoney(_initialBalance)),
+                    : 'swipe_to_create_desc'.tr(ref).replaceAll('{name}', _walletName).replaceAll('{balance}', '${_formatMoney(_initialBalance, _selectedCurrency)} ${AppConstant.getCurrencySymbol(_selectedCurrency)}'),
                 style: TextStyle(color: colors.textSecondary, fontSize: 14, height: 1.4),
               ),
               const SizedBox(height: 28),
@@ -980,10 +980,8 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
     );
   }
 
-  String _formatMoney(double value) {
-    RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-    String Function(Match) mathFunc = (Match match) => '${match[1]}.';
-    return value.toStringAsFixed(0).replaceAllMapped(reg, mathFunc);
+  String _formatMoney(double value, [String? currencyCode]) {
+    return AppConstant.formatMoney(value, currencyCode ?? _selectedCurrency);
   }
   Widget _buildDropdownField<T>({
     required AppColorsExtension colors,

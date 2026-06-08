@@ -11,6 +11,7 @@ import 'package:expense_management/features/profile/category_provider.dart';
 import 'package:expense_management/features/profile/data/models/category_dto.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:expense_management/features/transaction/presentation/widgets/transaction_card.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/shared/widgets/transaction_list_shimmer.dart';
@@ -1170,12 +1171,25 @@ class _TransactionHistoryScreenState
   // ── ÁP DỤNG BỘ LỌC
   List<TransactionEntity> _applyFilters(List<TransactionEntity> txList) {
     final List<TransactionEntity> result = List.from(txList);
+    final filter = ref.read(transactionFilterProvider);
+
     result.sort((a, b) {
       final aPending = a.status == 'pending';
       final bPending = b.status == 'pending';
       if (aPending && !bPending) return -1;
       if (!aPending && bPending) return 1;
-      return 0; // Giữ nguyên thứ tự từ backend
+
+      if (filter.sortBy == 'date') {
+        if (filter.sortOrder == 'asc') {
+          return a.transactionDate.compareTo(b.transactionDate);
+        } else {
+          return b.transactionDate.compareTo(a.transactionDate);
+        }
+      }
+      
+      final indexA = txList.indexOf(a);
+      final indexB = txList.indexOf(b);
+      return indexA.compareTo(indexB);
     });
 
     if (_showRecentOnly) return result.take(5).toList();
@@ -1186,25 +1200,53 @@ class _TransactionHistoryScreenState
   List<MapEntry<String, List<TransactionEntity>>> _groupByDate(
       List<TransactionEntity> txs) {
     final Map<String, List<TransactionEntity>> groups = {};
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
+    final user = ref.read(currentUserProvider);
+    final tzName = user?.timezone ?? 'Asia/Ho_Chi_Minh';
 
-    for (final tx in txs) {
-      final txDate = DateTime(
-        tx.transactionDate.year,
-        tx.transactionDate.month,
-        tx.transactionDate.day,
-      );
-      String key;
-      if (txDate == today) {
-        key = 'today'.trRead(ref);
-      } else if (txDate == yesterday) {
-        key = 'yesterday'.trRead(ref);
-      } else {
-        key = DateFormat('dd/MM/yyyy', 'vi').format(txDate);
+    try {
+      final location = tz.getLocation(tzName);
+      final userNow = tz.TZDateTime.now(location);
+      final today = DateTime(userNow.year, userNow.month, userNow.day);
+      final yesterday = today.subtract(const Duration(days: 1));
+
+      for (final tx in txs) {
+        final txDateTime = tz.TZDateTime.from(tx.transactionDate.toUtc(), location);
+        final txDate = DateTime(
+          txDateTime.year,
+          txDateTime.month,
+          txDateTime.day,
+        );
+        String key;
+        if (txDate == today) {
+          key = 'today'.trRead(ref);
+        } else if (txDate == yesterday) {
+          key = 'yesterday'.trRead(ref);
+        } else {
+          key = DateFormat('dd/MM/yyyy', 'vi').format(txDate);
+        }
+        groups.putIfAbsent(key, () => []).add(tx);
       }
-      groups.putIfAbsent(key, () => []).add(tx);
+    } catch (_) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final yesterday = today.subtract(const Duration(days: 1));
+
+      for (final tx in txs) {
+        final txDate = DateTime(
+          tx.transactionDate.year,
+          tx.transactionDate.month,
+          tx.transactionDate.day,
+        );
+        String key;
+        if (txDate == today) {
+          key = 'today'.trRead(ref);
+        } else if (txDate == yesterday) {
+          key = 'yesterday'.trRead(ref);
+        } else {
+          key = DateFormat('dd/MM/yyyy', 'vi').format(txDate);
+        }
+        groups.putIfAbsent(key, () => []).add(tx);
+      }
     }
     return groups.entries.toList();
   }
@@ -1427,23 +1469,7 @@ class _TransactionHistoryScreenState
 
 
   String _fmt(double value,String currencyCode) {
-    final String code = currencyCode.toUpperCase();
-    final int decimals = (code == 'VND' || code == 'JPY') ? 0 : 2;
-
-    if (decimals == 0) {
-      RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-      return value
-          .toStringAsFixed(0)
-          .replaceAllMapped(reg, (m) => '${m[1]},');
-    } else {
-      final parts = value.toStringAsFixed(2).split('.');
-      final wholePart = parts[0];
-      final decimalPart = parts[1];
-      RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-      final formattedWhole = wholePart
-          .replaceAllMapped(reg, (m) => '${m[1]},');
-      return '$formattedWhole.$decimalPart';
-    }
+    return AppConstant.formatMoney(value, currencyCode);
   }
 
   double _convertToUserCurrency(

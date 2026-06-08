@@ -10,6 +10,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:expense_management/features/profile/user_provider.dart';
 
 enum TransactionStatus { processing, success, failure, offlineSuccess }
 
@@ -140,7 +142,14 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
   String _formatDate(String dateStr) {
     try {
       final date = DateTime.parse(dateStr);
-      return DateFormat('dd/MM/yyyy - HH:mm').format(date.toLocal());
+      final tzName = widget.params.timezone;
+      try {
+        final location = tz.getLocation(tzName);
+        final tzDateTime = tz.TZDateTime.from(date.toUtc(), location);
+        return DateFormat('dd/MM/yyyy - HH:mm').format(tzDateTime);
+      } catch (_) {
+        return DateFormat('dd/MM/yyyy - HH:mm').format(date.toLocal());
+      }
     } catch (_) {
       return dateStr;
     }

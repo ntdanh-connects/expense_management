@@ -1,6 +1,8 @@
 import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
@@ -9,6 +11,7 @@ import 'package:expense_management/features/profile/presentation/widgets/categor
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:expense_management/features/profile/category_provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:expense_management/core/constants/app_constant.dart';
 
 /// Widget card hiển thị một giao dịch trong lịch sử
 class TransactionCard extends ConsumerWidget {
@@ -126,7 +129,7 @@ class TransactionCard extends ConsumerWidget {
                           ),
                         ),
                         Text(
-                          '  •  ${_formatTime(tx.transactionDate)}',
+                          '  •  ${_formatTime(tx.transactionDate, ref)}',
                           style: TextStyle(
                               color: colors.textSecondary, fontSize: 12),
                         ),
@@ -249,11 +252,23 @@ class TransactionCard extends ConsumerWidget {
   }
 
   String _fmtAmount(double value, String symbol) {
-    final reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-    String formattedNumber = value.toStringAsFixed(0).replaceAllMapped(reg, (Match m) => '${m[1]},',);
+    final formattedNumber = AppConstant.formatMoney(value, tx.currencyCode);
     return '$formattedNumber $symbol';
   }
 
-  String _formatTime(DateTime date) =>
-      '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  String _formatTime(DateTime date, WidgetRef ref) {
+    final user = ref.read(currentUserProvider);
+    final tzName = tx.timezone ?? user?.timezone ?? 'Asia/Ho_Chi_Minh';
+    try {
+      final location = tz.getLocation(tzName);
+      final tzDateTime = tz.TZDateTime.from(date.toUtc(), location);
+      final offset = tzDateTime.timeZoneOffset;
+      final offsetStr = offset.inMinutes == 0
+          ? 'UTC'
+          : 'UTC${offset.isNegative ? '-' : '+'}${offset.inHours.abs()}';
+      return '${tzDateTime.hour.toString().padLeft(2, '0')}:${tzDateTime.minute.toString().padLeft(2, '0')} ($offsetStr)';
+    } catch (_) {
+      return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    }
+  }
 }
