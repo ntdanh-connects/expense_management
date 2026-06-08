@@ -5,7 +5,7 @@ platform :android do
   lane :build_apk do |options|
     env_type = options[:env] || "dev"
     # Chạy lệnh clean và build APK của Flutter ở thư mục gốc dự án kèm tệp cấu hình môi trường
-    sh("cd ../.. && flutter clean && flutter build apk --release --dart-define-from-file=.env.#{env_type}")
+    sh("cd ../.. && sh build_runner.sh && flutter build apk --release --dart-define-from-file=.env.#{env_type}")
   end
 
   desc "Build APK và đẩy lên Firebase App Distribution"
