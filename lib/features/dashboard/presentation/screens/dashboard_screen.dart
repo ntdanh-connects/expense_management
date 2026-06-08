@@ -65,7 +65,7 @@ class DashboardScreen extends ConsumerWidget {
                   Row(
                     children: [
                       Text(
-                        'total_balance'.tr(ref),
+                        'Total balance'.tr(ref),
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.7),
                           fontSize: 14,
@@ -245,61 +245,6 @@ class DashboardScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
 
-            // 🚀 1.5 THANH PHÍM TẮT MOMO-STYLE (QUICK ACTIONS)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildQuickActionItem(
-                    context: context,
-                    icon: Icons.autorenew_rounded,
-                    label: 'Lịch định kỳ',
-                    iconColor: const Color(0xFFF97316),
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('Tính năng Giao dịch định kỳ đang được phát triển UI!'),
-                          backgroundColor: colors.primary,
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    },
-                  ),
-                  _buildQuickActionItem(
-                    context: context,
-                    icon: Icons.swap_horiz_rounded,
-                    label: 'Chuyển tiền',
-                    iconColor: const Color(0xFFEC4899),
-                    onTap: () => context.push(RoutePaths.wallet),
-                  ),
-                  _buildQuickActionItem(
-                    context: context,
-                    icon: Icons.track_changes_rounded,
-                    label: 'Hạn mức chi',
-                    iconColor: const Color(0xFFEF4444),
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('Tính năng Hạn mức chi tiêu đang được phát triển UI!'),
-                          backgroundColor: colors.primary,
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    },
-                  ),
-                  _buildQuickActionItem(
-                    context: context,
-                    icon: Icons.category_rounded,
-                    label: 'Danh mục',
-                    iconColor: const Color(0xFF10B981),
-                    onTap: () => context.push(RoutePaths.categories),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
             // 💼 2. VÍ CỦA BẠN ROW
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -393,6 +338,61 @@ class DashboardScreen extends ConsumerWidget {
                     style: TextStyle(color: colors.expenseRed, fontSize: 13),
                   ),
                 ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // THANH PHÍM TẮT MOMO-STYLE (QUICK ACTIONS)
+            Text(
+              'Features'.tr(ref),
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildQuickActionItem(
+                    context: context,
+                    icon: Icons.autorenew_rounded,
+                    label: 'Schedule'.tr(ref),
+                    iconColor: const Color(0xFFF97316),
+                    onTap: () => context.go(RoutePaths.recurringList),
+                  ),
+                  _buildQuickActionItem(
+                    context: context,
+                    icon: Icons.swap_horiz_rounded,
+                    label: 'Transfer'.tr(ref),
+                    iconColor: const Color(0xFFEC4899),
+                    onTap: () => context.push(RoutePaths.wallet),
+                  ),
+                  _buildQuickActionItem(
+                    context: context,
+                    icon: Icons.track_changes_rounded,
+                    label: 'Spending'.tr(ref),
+                    iconColor: const Color(0xFFEF4444),
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('Tính năng Hạn mức chi tiêu đang được phát triển UI!'),
+                          backgroundColor: colors.primary,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                  ),
+                  _buildQuickActionItem(
+                    context: context,
+                    icon: Icons.category_rounded,
+                    label: 'Categories'.tr(ref),
+                    iconColor: const Color(0xFF10B981),
+                    onTap: () => context.push(RoutePaths.categories),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 24),
