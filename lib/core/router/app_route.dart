@@ -221,7 +221,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       final isGoingToAuth =
           state.matchedLocation == '/login' ||
-          state.matchedLocation == '/register';
+          state.matchedLocation == '/register' ||
+          state.matchedLocation == '/auth/forgot-password';
 
       if (isUnauthenticated && !isGoingToAuth) {
         return '/login';
