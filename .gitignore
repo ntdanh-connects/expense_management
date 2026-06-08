@@ -72,3 +72,6 @@ DerivedData/
 .env.dev
 .env.live
 .env
+android/vendor/
+android/fastlane/.env
+android/fastlane/*.json

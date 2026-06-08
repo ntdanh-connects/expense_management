@@ -1,0 +1,2 @@
+json_key_file("") # Để trống vì chưa upload lên Google Play Console ngay
+package_name("com.example.expense_management") # Package Name của dự án
