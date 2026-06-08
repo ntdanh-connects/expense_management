@@ -4,23 +4,19 @@ platform :android do
   desc "Chỉ thực hiện build APK cục bộ (Release)"
   lane :build_apk do |options|
     env_type = options[:env] || "dev"
-    # Chạy lệnh clean và build APK của Flutter ở thư mục gốc dự án kèm tệp cấu hình môi trường
-    sh("cd ../.. && sh build_runner.sh && flutter build apk --release --dart-define-from-file=.env.#{env_type}")
+    sh("cd ../.. && fvm flutter clean && fvm flutter build apk --release --dart-define-from-file=.env.#{env_type}")
   end
 
   desc "Build APK và đẩy lên Firebase App Distribution"
   lane :distribute_firebase do |options|
-    # Đọc App ID từ biến môi trường hoặc tham số truyền vào
     app_id = ENV["FIREBASE_APP_ID"] || options[:app_id]
     
     if app_id.nil? || app_id.empty?
-      UI.user_error!("Vui lòng cung cấp FIREBASE_APP_ID qua biến môi trường hoặc tham số app_id. Ví dụ: bundle exec fastlane android distribute_firebase app_id:1:xxxx:android:yyyy")
+      UI.user_error!("Vui lòng cung cấp FIREBASE_APP_ID qua biến môi trường hoặc tham số app_id.")
     end
 
-    # Tự động gọi lane build_apk ở trên kèm tham số môi trường
-    build_apk(env: options[:env])
-
-    # Tiến hành phân phối lên Firebase
+    # KHÔNG gọi build_apk nữa vì GHA đã build sẵn rồi
+    # Chỉ distribute lên Firebase thôi
     firebase_app_distribution(
       app: app_id,
       testers: options[:testers] || ENV["FIREBASE_TESTERS"] || "",
