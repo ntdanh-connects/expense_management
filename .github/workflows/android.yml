@@ -1,11 +1,12 @@
 name: Android CI/CD with Fastlane
 
-# Kích hoạt tự động khi có code mới push lên nhánh master
+# Kích hoạt tự động khi có code mới hoặc cho phép chạy thủ công từ bất kỳ nhánh nào
 on:
   push:
     branches:
       - master
       - main
+  workflow_dispatch: # Thêm dòng này để cho phép nhấn nút Run Workflow thủ công trên web GitHub
 
 jobs:
   distribute_android:
