@@ -36,6 +36,10 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # 4.5. Tự động tạo lại các file *.g.dart và *.freezed.dart bằng build_runner
+      - name: Generate code files
+        run: dart run build_runner build --delete-conflicting-outputs
+
       # 5. Cài đặt Ruby và Bundler (Để chạy Fastlane)
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
