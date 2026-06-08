@@ -66,3 +66,5 @@ jobs:
         env:
           FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
           GOOGLE_APPLICATION_CREDENTIALS: "fastlane/firebase-credentials.json"
+          FIREBASE_TESTERS: ${{ secrets.FIREBASE_TESTERS }}
+          FIREBASE_GROUPS: ${{ secrets.FIREBASE_GROUPS }}
