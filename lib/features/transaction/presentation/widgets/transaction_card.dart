@@ -116,10 +116,14 @@ class TransactionCard extends ConsumerWidget {
                         Icon(Icons.account_balance_wallet_outlined,
                             size: 11, color: colors.textSecondary),
                         const SizedBox(width: 3),
-                        Text(
-                          walletName,
-                          style: TextStyle(
-                              color: colors.textSecondary, fontSize: 12),
+                        Flexible(
+                          child: Text(
+                            walletName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                color: colors.textSecondary, fontSize: 12),
+                          ),
                         ),
                         Text(
                           '  •  ${_formatTime(tx.transactionDate)}',
@@ -162,10 +166,14 @@ class TransactionCard extends ConsumerWidget {
                           Icon(categoryIcon,
                               size: 11, color: categoryColor),
                           const SizedBox(width: 3),
-                          Text(
-                            categoryName.tr(ref),
-                            style: TextStyle(
-                                color: colors.textSecondary, fontSize: 12),
+                          Expanded(
+                            child: Text(
+                              categoryName.tr(ref),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  color: colors.textSecondary, fontSize: 12),
+                            ),
                           ),
                         ],
                       ),

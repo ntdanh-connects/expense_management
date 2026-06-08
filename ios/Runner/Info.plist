@@ -78,7 +78,12 @@
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Ứng dụng cần quyền truy cập camera để chụp ảnh hóa đơn giao dịch / The app needs camera access to take photos of transaction receipts.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Ứng dụng cần quyền truy cập thư viện ảnh để đính kèm hóa đơn / The app needs photo library access to attach receipts from gallery.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Ứng dụng cần quyền truy cập microphone nếu quay video / The app needs microphone access to record videos for attachments.</string>
 </dict>
 </plist>
