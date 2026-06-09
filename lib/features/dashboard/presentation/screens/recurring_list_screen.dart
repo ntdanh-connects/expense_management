@@ -1,4 +1,5 @@
 import 'package:expense_management/core/router/app_route.dart';
+import 'package:expense_management/features/dashboard/presentation/screens/recurring_edit_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
@@ -458,10 +459,10 @@ class RecurringListScreen extends ConsumerWidget {
 
                 // Edit button
                 GestureDetector(
-                  // onTap: () => Navigator.push(
-                  //   context,
-                  //   MaterialPageRoute(builder: (_) => RecurringEditScreen(rule: rule)),
-                  // ).then((_) => ref.read(recurringNotifierProvider.notifier).refresh()),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => RecurringEditScreen(rule: rule)),
+                  ).then((_) => ref.read(recurringNotifierProvider.notifier).refresh()),
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(

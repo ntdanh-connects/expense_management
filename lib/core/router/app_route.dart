@@ -6,9 +6,11 @@ import 'package:expense_management/features/auth/presentation/screens/forgot_pas
 import 'package:expense_management/features/auth/presentation/screens/login_screen.dart';
 import 'package:expense_management/features/auth/presentation/screens/register_screen.dart';
 import 'package:expense_management/features/auth/presentation/screens/splash_screen.dart';
+import 'package:expense_management/features/dashboard/domain/entities/recurring_rule_entity.dart';
 import 'package:expense_management/features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:expense_management/features/dashboard/presentation/screens/main_shell_screen.dart';
 import 'package:expense_management/features/dashboard/presentation/screens/recurring_create_screen.dart';
+import 'package:expense_management/features/dashboard/presentation/screens/recurring_edit_screen.dart';
 import 'package:expense_management/features/dashboard/presentation/screens/recurring_list_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/change_password_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/personal_info_screen.dart';
@@ -47,9 +49,8 @@ class RoutePaths {
   static const transactionResult = '/transaction-result';
   static const transactionDetail = '/transaction-detail';
   static const recurringCreate = '/dashboard/recurring/create';
-  // static const recurringEdit = '/recurring/edit';
+  static const recurringEdit = '/dashboard/recurring/edit';
   static const recurringList = '/dashboard/recurring';
-  // static const recurringDetail = '/recurring/detail';
 }
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -180,10 +181,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               parentNavigatorKey: rootNavigatorKey,
               builder: (context, state) => const RecurringCreateScreen(),
             ),
-            // GoRoute(
-            //   path: RoutePaths.recurringEdit,
-            //   builder: (context, state) => const RecurringEditScreen(),
-            // ),
+            GoRoute(
+              path: 'recurring/edit',
+              parentNavigatorKey: rootNavigatorKey,
+              builder: (context, state) {
+                final rule = state.extra as RecurringRuleEntity;
+                return RecurringEditScreen(rule: rule);
+              },
+            ),
           ],
           ),
         ]),
@@ -269,4 +274,3 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
   );
 });
-

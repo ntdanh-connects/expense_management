@@ -41,7 +41,7 @@ final toggleRuleUseCaseProvider = Provider<ToggleRecurringRuleUseCase>((ref) {
 class RecurringNotifier extends AsyncNotifier<List<RecurringRuleEntity>> {
   @override
   Future<List<RecurringRuleEntity>> build() async {
-    return ref.read(getRulesUseCaseProvider).execute();
+    return ref.watch(getRulesUseCaseProvider).execute();
   }
 
   Future<void> refresh() async {
