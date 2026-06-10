@@ -23,6 +23,7 @@ import 'package:expense_management/features/auth/data/models/social_auth_models.
 import 'package:expense_management/features/auth/domain/repositories/auth_repository.dart';
 import 'package:expense_management/core/language/app_provider.dart';
 import 'package:expense_management/core/theme/theme_provider.dart';
+import 'package:expense_management/core/network/dio_client.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -222,6 +223,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> logout() async {
     _stopWatchingUser();
+
+    try {
+      await ref.read(cacheStoreProvider).clean();
+    } catch (e) {
+      AppLogger.warning("Lỗi khi clear HTTP Cache on Logout: $e", tag: "Auth-Logout");
+    }
 
     // Gọi API Backend để thu hồi Token
     try {

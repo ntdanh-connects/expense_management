@@ -32,4 +32,9 @@ class ApiEndpoints {
   static const String recurringRulesUpdate = 'api/recurring-rules/{id}';
   static const String recurringRulesDelete = 'api/recurring-rules/{id}';
   static const String recurringRulesToggle = 'api/recurring-rules/{id}/toggle';
+
+  // Module 6: Reports
+  static const String reportsSummary = 'api/reports/summary';
+  static const String reportsCategories = 'api/reports/categories';
+  static const String reportsTrends = 'api/reports/trends';
 }
