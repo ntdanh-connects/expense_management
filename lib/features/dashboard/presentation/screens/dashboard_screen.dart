@@ -15,6 +15,7 @@ import 'package:expense_management/features/profile/presentation/widgets/categor
 import 'package:expense_management/features/profile/category_provider.dart';
 import 'package:expense_management/shared/widgets/transaction_list_shimmer.dart';
 import 'package:intl/intl.dart';
+import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
 
 final showBalanceProvider = StateProvider<bool>((ref) => true);
 
@@ -390,68 +391,101 @@ class DashboardScreen extends ConsumerWidget {
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  child: Row(
-                    children: [
-                      _buildQuickActionItem(
-                        context: context,
-                        icon: Icons.autorenew_rounded,
-                        label: 'Schedule'.tr(ref),
-                        iconColor: const Color(0xFFF97316),
-                        onTap: () => context.go(RoutePaths.recurringList),
-                      ),
-                      const SizedBox(width: 20),
-                      _buildQuickActionItem(
-                        context: context,
-                        icon: Icons.swap_horiz_rounded,
-                        label: 'Transfer'.tr(ref),
-                        iconColor: const Color(0xFFEC4899),
-                        onTap: () => context.push(RoutePaths.wallet),
-                      ),
-                      const SizedBox(width: 20),
-                      _buildQuickActionItem(
-                        context: context,
-                        icon: Icons.track_changes_rounded,
-                        label: 'Spending'.tr(ref),
-                        iconColor: const Color(0xFFEF4444),
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Text('Tính năng Hạn mức chi tiêu đang được phát triển UI!'),
-                              backgroundColor: colors.primary,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(width: 20),
-                      _buildQuickActionItem(
-                        context: context,
-                        icon: Icons.category_rounded,
-                        label: 'Categories'.tr(ref),
-                        iconColor: const Color(0xFF10B981),
-                        onTap: () => context.push(RoutePaths.categories),
-                      ),
-                      const SizedBox(width: 20),
-                      _buildQuickActionItem(
-                        context: context,
-                        icon: Icons.pie_chart_rounded,
-                        label: 'budget'.tr(ref),
-                        iconColor: const Color(0xFF3B82F6),
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('budget_placeholder'.tr(ref)),
-                              backgroundColor: colors.primary,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildQuickActionItem(
+                            context: context,
+                            icon: Icons.autorenew_rounded,
+                            label: 'Schedule'.tr(ref),
+                            iconColor: const Color(0xFFF97316),
+                            onTap: () => context.go(RoutePaths.recurringList),
+                          ),
+                        ),
+                        Expanded(
+                          child: _buildQuickActionItem(
+                            context: context,
+                            icon: Icons.swap_horiz_rounded,
+                            label: 'Transfer'.tr(ref),
+                            iconColor: const Color(0xFFEC4899),
+                            onTap: () => context.push(RoutePaths.wallet),
+                          ),
+                        ),
+                        Expanded(
+                          child: _buildQuickActionItem(
+                            context: context,
+                            icon: Icons.account_balance_wallet_rounded,
+                            label: 'add_wallet'.tr(ref),
+                            iconColor: const Color(0xFF14B8A6),
+                            onTap: () => context.push(RoutePaths.addWallet),
+                          ),
+                        ),
+                        Expanded(
+                          child: _buildQuickActionItem(
+                            context: context,
+                            icon: Icons.category_rounded,
+                            label: 'Categories'.tr(ref),
+                            iconColor: const Color(0xFF10B981),
+                            onTap: () => context.push(RoutePaths.categories),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildQuickActionItem(
+                            context: context,
+                            icon: Icons.pie_chart_rounded,
+                            label: 'budget'.tr(ref),
+                            iconColor: const Color(0xFF3B82F6),
+                            onTap: () {
+                              ref.read(selectedAnalyticTabProvider.notifier).state = 'budget';
+                              context.go('${RoutePaths.analytics}?tab=budget');
+                            },
+                          ),
+                        ),
+                        Expanded(
+                          child: _buildQuickActionItem(
+                            context: context,
+                            icon: Icons.track_changes_rounded,
+                            label: 'Spending'.tr(ref),
+                            iconColor: const Color(0xFFEF4444),
+                            onTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text('Tính năng Hạn mức chi tiêu đang được phát triển UI!'),
+                                  backgroundColor: colors.primary,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        // Expanded(
+                        //   child: _buildQuickActionItem(
+                        //     context: context,
+                        //     icon: Icons.bar_chart_rounded,
+                        //     label: 'statistics'.tr(ref),
+                        //     iconColor: const Color(0xFF8B5CF6),
+                        //     onTap: () => context.go(RoutePaths.analytics),
+                        //   ),
+                        // ),
+                        // Expanded(
+                        //   child: _buildQuickActionItem(
+                        //     context: context,
+                        //     icon: Icons.history_rounded,
+                        //     label: 'history'.tr(ref),
+                        //     iconColor: const Color(0xFF6366F1),
+                        //     onTap: () => context.go(RoutePaths.history),
+                        //   ),
+                        // ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 24),
@@ -861,6 +895,9 @@ class DashboardScreen extends ConsumerWidget {
           const SizedBox(height: 8),
           Text(
             label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: colors.textPrimary,
               fontSize: 12,

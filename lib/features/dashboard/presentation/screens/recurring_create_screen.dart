@@ -8,11 +8,10 @@ import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/features/profile/category_provider.dart';
 import 'package:expense_management/features/profile/data/models/category_dto.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/profile/presentation/widgets/add_edit_category_sheet.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:expense_management/features/dashboard/presentation/providers/recurring_provider.dart';
-import 'package:expense_management/features/transaction/presentation/screens/sub_category_selection_screen.dart';
 
 class RecurringCreateScreen extends ConsumerStatefulWidget {
   const RecurringCreateScreen({super.key});
@@ -780,7 +779,30 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
 
   Widget _buildAddSubcatChip(AppColorsExtension colors) {
     return GestureDetector(
-      onTap: _showCategorySheet,
+      onTap: () {
+        // Open AddEditCategorySheet with the selected parent pre-filled and locked
+        if (_selectedParentCategory == null) {
+          _showCategorySheet();
+          return;
+        }
+        final allCats = ref.read(categoriesNotifierProvider).value ?? [];
+        final parentCategories = allCats
+            .where((c) => c.type == _selectedType && c.parentId == null)
+            .toList();
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => AddEditCategorySheet(
+            categoryType: _selectedType,
+            parentCategories: parentCategories,
+            lockedParentId: _selectedParentCategory!.id,
+          ),
+        ).then((_) {
+          // Refresh categories after adding
+          ref.read(categoriesNotifierProvider.notifier).refreshCategories();
+        });
+      },
       child: Container(
         width: 80,
         margin: const EdgeInsets.only(right: 12),

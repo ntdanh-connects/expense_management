@@ -10,12 +10,14 @@ class AddEditCategorySheet extends ConsumerStatefulWidget {
   final CategoryDto? categoryToEdit;
   final String categoryType; // 'expense' or 'income'
   final List<CategoryDto> parentCategories;
+  final String? lockedParentId; // When set, the parent is pre-filled and locked
 
   const AddEditCategorySheet({
     super.key,
     this.categoryToEdit,
     required this.categoryType,
     required this.parentCategories,
+    this.lockedParentId,
   });
 
   @override
@@ -43,8 +45,10 @@ class _AddEditCategorySheetState extends ConsumerState<AddEditCategorySheet> {
       _selectedIcon = edit.icon ?? _selectedIcon;
       _selectedColor = edit.color ?? '#FF8F9C';
     } else {
-      // For new category
-      if (widget.parentCategories.isNotEmpty) {
+      // If locked parent is provided, use it
+      if (widget.lockedParentId != null) {
+        _selectedParentId = widget.lockedParentId;
+      } else if (widget.parentCategories.isNotEmpty) {
         _selectedParentId = widget.parentCategories.first.id;
       }
       _selectedColor = CategoryUIConstants.colorsList.first;
@@ -213,7 +217,7 @@ class _AddEditCategorySheetState extends ConsumerState<AddEditCategorySheet> {
               ),
               const SizedBox(height: 20),
 
-              // Parent group (Read-only if editing, dropdown if new Expense category)
+              // Parent group (Read-only if editing OR if lockedParentId is set)
               if (widget.categoryType == 'expense') ...[
                 Text(
                   'select_parent_category'.tr(ref),
@@ -224,7 +228,7 @@ class _AddEditCategorySheetState extends ConsumerState<AddEditCategorySheet> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                if (isEdit) ...[
+                if (isEdit || widget.lockedParentId != null) ...[
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

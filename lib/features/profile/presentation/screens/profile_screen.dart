@@ -7,6 +7,7 @@ import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/core/language/app_provider.dart';
 import 'package:expense_management/features/profile/category_provider.dart';
+import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -113,6 +114,7 @@ class ProfileScreen extends ConsumerWidget {
     final currentUser = ref.watch(currentUserProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final showDevTools = ref.watch(developerToolsEnabledProvider);
+    final currentBudgetsAsync = ref.watch(currentMonthBudgetsProvider);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -137,11 +139,32 @@ class ProfileScreen extends ConsumerWidget {
                       avatarUrl: currentUser?.avatarUrl,
                     ),
                     const SizedBox(height: 12),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16.0),
-                      child: CollapsibleBudgetCard(
-                        spentAmount: 12500000,
-                        totalAmount: 15000000,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: currentBudgetsAsync.when(
+                        data: (budgets) {
+                          final general = budgets.where((b) => b.categoryId == null).firstOrNull;
+                          if (general == null) {
+                            return const CollapsibleBudgetCard(
+                              spentAmount: 0.0,
+                              totalAmount: 0.0,
+                            );
+                          }
+                          return CollapsibleBudgetCard(
+                            spentAmount: general.usedAmount,
+                            totalAmount: general.limitAmount,
+                          );
+                        },
+                        loading: () => const SizedBox(
+                          height: 100,
+                          child: Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
+                        error: (err, _) => const CollapsibleBudgetCard(
+                          spentAmount: 0.0,
+                          totalAmount: 0.0,
+                        ),
                       ),
                     ),
                   ],

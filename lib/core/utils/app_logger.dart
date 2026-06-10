@@ -92,10 +92,13 @@ class AppLogger {
     // Xuất ra Terminal Console với màu sắc (ANSI escape codes) để dev dễ quan sát
     final colorCode = _getAnsiColor(level);
     final tagPart = tag != null ? "[$tag]" : "";
-    final logText = "$colorCode[EM-LOG] [${entry.levelName}]$tagPart $message\x1B[0m";
+    var logText = "$colorCode[EM-LOG] [${entry.levelName}]$tagPart $message\x1B[0m";
+    if (details != null) {
+      logText += "\n${colorCode}Details: $details\x1B[0m";
+    }
 
     if (level == LogLevel.error) {
-      dev.log(message, name: 'EM-LOG', error: message, stackTrace: stackTrace, level: 1000);
+      dev.log(message, name: 'EM-LOG', error: details ?? message, stackTrace: stackTrace, level: 1000);
       debugPrint(logText);
       if (stackTrace != null) {
         debugPrint("$colorCode$stackTrace\x1B[0m");

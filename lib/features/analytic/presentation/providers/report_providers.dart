@@ -28,6 +28,8 @@ final selectedTimeFilterProvider = StateProvider<TimeFilter>((ref) => TimeFilter
 
 final customDateRangeProvider = StateProvider<DateTimeRange?>((ref) => null);
 
+final selectedAnalyticTabProvider = StateProvider<String>((ref) => 'statistics');
+
 final selectedDateRangeProvider = Provider<DateTimeRange>((ref) {
   final filter = ref.watch(selectedTimeFilterProvider);
   final customRange = ref.watch(customDateRangeProvider);

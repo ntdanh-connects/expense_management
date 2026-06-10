@@ -5,6 +5,10 @@ import 'package:expense_management/core/language/app_language.dart';
 import 'package:go_router/go_router.dart';
 import 'package:expense_management/core/router/app_route.dart';
 import 'profile_menu_item.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
+import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
+import 'package:expense_management/core/constants/app_constant.dart';
 
 class FinancialSettingsSection extends ConsumerWidget {
   const FinancialSettingsSection({super.key});
@@ -12,6 +16,15 @@ class FinancialSettingsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
+    final userCurrency = ref.watch(currentUserProvider)?.currency ?? 'VND';
+    final currencySymbol = AppConstant.getCurrencySymbol(userCurrency);
+    
+    final budgetsAsync = ref.watch(currentMonthBudgetsProvider);
+    final overallBudget = budgetsAsync.when(
+      data: (list) => list.where((b) => b.categoryId == null).firstOrNull,
+      loading: () => null,
+      error: (_, __) => null,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -46,7 +59,13 @@ class FinancialSettingsSection extends ConsumerWidget {
                 icon: Icons.account_balance_wallet_outlined,
                 iconColor: colors.profileLimit,
                 title: 'spending_limit'.tr(ref),
-                onTap: () {},
+                trailingText: overallBudget != null
+                    ? '${AppConstant.formatMoney(overallBudget.limitAmount, userCurrency)} $currencySymbol'
+                    : null,
+                onTap: () {
+                  ref.read(selectedAnalyticTabProvider.notifier).state = 'budget';
+                  context.go('${RoutePaths.analytics}?tab=budget');
+                },
               ),
             ],
           ),

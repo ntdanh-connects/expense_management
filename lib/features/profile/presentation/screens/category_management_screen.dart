@@ -201,6 +201,7 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
 
   void _confirmDelete(BuildContext context, CategoryDto category) {
     final colors = context.colors;
+
     showDialog(
       context: context,
       builder: (dialogContext) {
@@ -333,7 +334,10 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
               ),
               data: (allCategories) {
                 final type = _activeTabIndex == 0 ? 'expense' : 'income';
-                final parents = allCategories.where((c) => c.type == type).toList();
+                // Filter to only expense/income type (exclude 'transfer' and others)
+                final parents = allCategories
+                    .where((c) => c.type == type && c.parentId == null)
+                    .toList();
 
                 // Compute custom categories count
                 int customCount = 0;
@@ -734,7 +738,6 @@ class CategoryManagementShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final baseColor = isDark ? Colors.grey[900]! : Colors.grey[300]!;
     final highlightColor = isDark ? Colors.grey[800]! : Colors.grey[100]!;
