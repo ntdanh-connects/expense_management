@@ -44,9 +44,15 @@ class RecurringNotifier extends AsyncNotifier<List<RecurringRuleEntity>> {
     return ref.watch(getRulesUseCaseProvider).execute();
   }
 
-  Future<void> refresh() async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => ref.read(getRulesUseCaseProvider).execute());
+  Future<void> refresh({bool silent = false}) async {
+    if (!silent) {
+      state = const AsyncValue.loading();
+    }
+    final newState = await AsyncValue.guard(() => ref.read(getRulesUseCaseProvider).execute());
+    if (silent && newState.hasError && state.hasValue) {
+      return;
+    }
+    state = newState;
   }
 
   Future<void> createRule(Map<String, dynamic> data) async {

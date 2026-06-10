@@ -39,6 +39,7 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
 
   // Start date
   DateTime _startDate = DateTime.now();
+  DateTime? _endDate;
 
   // Options
   bool _isAutoRecord = true;
@@ -93,7 +94,34 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
         child: child!,
       ),
     );
-    if (picked != null) setState(() => _startDate = picked);
+    if (picked != null) {
+      setState(() {
+        _startDate = picked;
+        if (_endDate != null && _endDate!.isBefore(_startDate)) {
+          _endDate = null;
+        }
+      });
+    }
+  }
+
+  Future<void> _pickEndDate() async {
+    final colors = context.colors;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? _startDate.add(const Duration(days: 30)),
+      firstDate: _startDate,
+      lastDate: DateTime(2035),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: colors.primary,
+            brightness: Theme.of(context).brightness,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _endDate = picked);
   }
 
   void _showCategorySheet() {
@@ -146,7 +174,7 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
             ),
             const SizedBox(height: 20),
             Text(
-              'Chọn ví',
+              'recurring_select_wallet'.tr(ref),
               style: TextStyle(
                 color: colors.textPrimary,
                 fontSize: 18,
@@ -154,7 +182,7 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            ...wallets.where((w) => !w.isHidden).map((w) {
+            ...wallets.where((w) => !w.isHidden && w.type.toLowerCase() != 'cash').map((w) {
               final isSelected = _selectedWallet?.id == w.id;
               final hexColor = w.color.replaceAll('#', '');
               Color itemColor;
@@ -209,15 +237,15 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
 
   Future<void> _save() async {
     if (_amount <= 0) {
-      _showSnack('Vui lòng nhập số tiền hợp lệ!');
+      _showSnack('recurring_error_amount'.trRead(ref));
       return;
     }
     if (_titleController.text.trim().isEmpty) {
-      _showSnack('Vui lòng nhập tên giao dịch!');
+      _showSnack('recurring_error_title'.trRead(ref));
       return;
     }
     if (_selectedWallet == null) {
-      _showSnack('Vui lòng chọn ví!');
+      _showSnack('recurring_error_wallet'.trRead(ref));
       return;
     }
 
@@ -233,10 +261,14 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
         'interval_value': 1,
         'next_run_at': _startDate.toUtc().toIso8601String(),
         'start_date': _startDate.toUtc().toIso8601String(),
+        'end_at': _endDate?.toUtc().toIso8601String(),
         'is_active': _isAutoRecord,
       };
       await ref.read(recurringNotifierProvider.notifier).createRule(data);
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        _showSuccessSnack('create_recurring_success'.trRead(ref));
+        Navigator.pop(context);
+      }
     } catch (e) {
       _showSnack(e.toString().replaceFirst('Exception: ', ''));
     } finally {
@@ -249,6 +281,17 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
       SnackBar(
         content: Text(msg),
         backgroundColor: context.colors.expenseRed,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  void _showSuccessSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: context.colors.incomeGreen,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
@@ -278,7 +321,7 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Tạo giao dịch định kỳ',
+          'recurring_create_title'.tr(ref),
           style: TextStyle(
             color: colors.textPrimary,
             fontWeight: FontWeight.bold,
@@ -298,7 +341,7 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
                 children: [
                   const SizedBox(height: 4),
                   Text(
-                    'Thiết lập tự động ghi nhận các khoản thu/chi lặp lại.',
+                    'recurring_create_subtitle'.tr(ref),
                     style: TextStyle(color: colors.textSecondary, fontSize: 13),
                   ),
                   const SizedBox(height: 20),
@@ -308,13 +351,13 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
                   const SizedBox(height: 16),
 
                   // ── Wallet
-                  _buildSectionLabel('CHỌN VÍ', colors),
+                  _buildSectionLabel('recurring_wallet_section'.tr(ref), colors),
                   const SizedBox(height: 8),
                   _buildWalletTile(colors, isDark),
                   const SizedBox(height: 20),
 
                   // ── Category (like add_transaction_screen)
-                  _buildSectionLabel('DANH MỤC', colors, trailing: 'Xem tất cả', onTrailingTap: _showCategorySheet),
+                  _buildSectionLabel('recurring_category_section'.tr(ref), colors, trailing: 'recurring_see_all'.tr(ref), onTrailingTap: _showCategorySheet),
                   const SizedBox(height: 10),
 
                   // Type tabs
@@ -361,34 +404,27 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
                   const SizedBox(height: 4),
 
                   // ── Frequency
-                  _buildSectionLabel('TẦN SUẤT LẶP LẠI', colors),
+                  _buildSectionLabel('recurring_frequency_section'.tr(ref), colors),
                   const SizedBox(height: 10),
                   _buildFrequencyTabs(colors),
                   const SizedBox(height: 16),
 
                   // ── Start date
                   _buildStartDateRow(colors),
+                  const SizedBox(height: 16),
+
+                  // ── End date (Optional)
+                  _buildEndDateRow(colors),
                   const SizedBox(height: 20),
 
                   // ── Options
                   _buildOptionTile(
                     icon: Icons.bolt_rounded,
                     iconColor: const Color(0xFF4CAF50),
-                    title: 'Tự động ghi nhận',
-                    subtitle: 'Hệ thống sẽ tự động thêm giao\ndịch này vào sổ tay khi đến hạn.',
+                    title: 'recurring_auto_record'.tr(ref),
+                    subtitle: 'recurring_auto_record_desc'.tr(ref),
                     value: _isAutoRecord,
                     onChanged: (v) => setState(() => _isAutoRecord = v),
-                    colors: colors,
-                    isDark: isDark,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildOptionTile(
-                    icon: Icons.notifications_rounded,
-                    iconColor: const Color(0xFF9E9E9E),
-                    title: 'Nhắc nhở tôi',
-                    subtitle: 'Gửi thông báo nhắc nhở trước khi\nghi nhận giao dịch.',
-                    value: _isRemind,
-                    onChanged: (v) => setState(() => _isRemind = v),
                     colors: colors,
                     isDark: isDark,
                   ),
@@ -419,7 +455,7 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
       child: Column(
         children: [
           Text(
-            'SỐ TIỀN',
+            'recurring_amount_label'.tr(ref),
             style: TextStyle(
               color: colors.textSecondary,
               fontSize: 11,
@@ -482,7 +518,7 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
                     style: TextStyle(color: colors.textPrimary, fontSize: 15),
                     decoration: InputDecoration(
                       border: InputBorder.none,
-                      hintText: 'TÊN GIAO DỊCH\nVD: Tiền thuê nhà, Lương tháng...',
+                      hintText: 'recurring_title_hint'.tr(ref),
                       hintStyle: TextStyle(
                         color: colors.textSecondary.withOpacity(0.5),
                         fontSize: 13,
@@ -525,7 +561,7 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Chọn ví',
+                      'recurring_select_wallet'.tr(ref),
                       style: TextStyle(color: colors.textSecondary, fontSize: 15),
                     ),
                   ),
@@ -556,14 +592,14 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
                           ),
                         ),
                         Text(
-                          'Số dư: ${AppConstant.formatMoney(_selectedWallet!.balance, _selectedWallet!.currencyCode)} ${_getCurrencySymbol(_selectedWallet!.currencyCode)}',
+                          '${'recurring_wallet_balance'.tr(ref)}: ${AppConstant.formatMoney(_selectedWallet!.balance, _selectedWallet!.currencyCode)} ${_getCurrencySymbol(_selectedWallet!.currencyCode)}',
                           style: TextStyle(color: colors.textSecondary, fontSize: 12),
                         ),
                       ],
                     ),
                   ),
                   Text(
-                    'Thay đổi',
+                    'recurring_change'.tr(ref),
                     style: TextStyle(
                       color: colors.primary,
                       fontWeight: FontWeight.bold,
@@ -578,8 +614,8 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
 
   Widget _buildTypeTabs(AppColorsExtension colors) {
     final tabs = [
-      ('expense', '↓ Chi', colors.expenseRed),
-      ('income', '↑ Thu', colors.incomeGreen),
+      ('expense', 'recurring_type_expense'.tr(ref), colors.expenseRed),
+      ('income', 'recurring_type_income'.tr(ref), colors.incomeGreen),
     ];
 
     return Row(
@@ -767,7 +803,7 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Thêm',
+              'recurring_add_more'.tr(ref),
               style: TextStyle(color: colors.textSecondary, fontSize: 11),
             ),
           ],
@@ -778,10 +814,10 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
 
   Widget _buildFrequencyTabs(AppColorsExtension colors) {
     final items = [
-      ('daily', 'Ngày'),
-      ('weekly', 'Tuần'),
-      ('monthly', 'Tháng'),
-      ('yearly', 'Năm'),
+      ('daily', 'recurring_freq_daily'.tr(ref)),
+      ('weekly', 'recurring_freq_weekly'.tr(ref)),
+      ('monthly', 'recurring_freq_monthly'.tr(ref)),
+      ('yearly', 'recurring_freq_yearly'.tr(ref)),
     ];
     return Container(
       padding: const EdgeInsets.all(4),
@@ -835,7 +871,7 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
             Icon(Icons.calendar_month_rounded, color: colors.primary, size: 22),
             const SizedBox(width: 12),
             Text(
-              'Ngày bắt đầu',
+              'recurring_start_date'.tr(ref),
               style: TextStyle(color: colors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
             ),
             const Spacer(),
@@ -847,6 +883,54 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
             Icon(Icons.calendar_today_outlined, color: colors.textSecondary, size: 18),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildEndDateRow(AppColorsExtension colors) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.textSecondary.withOpacity(0.08)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.calendar_month_rounded, color: colors.primary, size: 22),
+          const SizedBox(width: 12),
+          Text(
+            'recurring_end_date'.tr(ref),
+            style: TextStyle(color: colors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
+          ),
+          const Spacer(),
+          if (_endDate != null) ...[
+            GestureDetector(
+              onTap: _pickEndDate,
+              child: Text(
+                _formatStartDate(_endDate!),
+                style: TextStyle(color: colors.textPrimary, fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(width: 12),
+            GestureDetector(
+              onTap: () => setState(() => _endDate = null),
+              child: Icon(Icons.cancel_rounded, color: colors.textSecondary, size: 20),
+            ),
+          ] else
+            GestureDetector(
+              onTap: _pickEndDate,
+              child: Text(
+                'recurring_no_end_date'.tr(ref),
+                style: TextStyle(color: colors.textSecondary, fontSize: 14, fontStyle: FontStyle.italic),
+              ),
+            ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: _pickEndDate,
+            child: Icon(Icons.calendar_today_outlined, color: colors.textSecondary, size: 18),
+          ),
+        ],
       ),
     );
   }
@@ -956,7 +1040,7 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
                 )
               : const Icon(Icons.check_circle_rounded, color: Colors.white),
           label: Text(
-            'Lưu giao dịch',
+            'recurring_save'.tr(ref),
             style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
           ),
           style: ElevatedButton.styleFrom(
@@ -1053,7 +1137,7 @@ class _CategoryPickerSheetState extends ConsumerState<_CategoryPickerSheet> {
                 if (_selectedParent != null) const SizedBox(width: 8),
                 Text(
                   _selectedParent == null
-                      ? 'Chọn danh mục'
+                      ? 'recurring_select_category'.tr(ref)
                       : (_selectedParent!.name.tr(ref)),
                   style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                 ),

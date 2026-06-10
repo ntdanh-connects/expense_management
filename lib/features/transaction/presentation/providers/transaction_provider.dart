@@ -51,7 +51,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
   bool _isSyncing = false;
 
   @override
-  Future<List<TransactionEntity>> build() async {
+  FutureOr<List<TransactionEntity>> build() {
     final user = ref.watch(currentUserProvider);
     final userId = user?.id ?? '';
     final storage = ref.read(localStoreHelperProvider);
@@ -59,54 +59,16 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     final pendingData = storage.getPendingTransactions(userId: userId);
 
     final initialList = [...pendingData, ...cachedData];
-    if (initialList.isNotEmpty) {
-      state = AsyncValue.data(initialList);
-    }
 
     ref.onDispose(() {
       _syncTimer?.cancel();
     });
     _startSyncTimer();
 
-    final useCase = ref.watch(getTransactionsUseCaseProvider);
-    final filter = ref.watch(transactionFilterProvider); // Lắng nghe bộ lọc thay đổi
-    try {
-      final result = await useCase.execute(
-        search: filter.search,
-        startDate: filter.startDate,
-        endDate: filter.endDate,
-        categoryId: filter.categoryId,
-        type: filter.type,
-        walletId: filter.walletId,
-        minAmount: filter.minAmount,
-        maxAmount: filter.maxAmount,
-        sortBy: filter.sortBy,
-        sortOrder: filter.sortOrder,
-        perPage: 20,
-        cursor: null,
-      );
+    // Tự động tải lại ngầm (silent) từ API nếu đã có cache, để tránh Shimmer gây cảm giác chậm
+    Future.microtask(() => refreshTransactions(silent: initialList.isNotEmpty));
 
-      if (filter.isEmpty) {
-        storage.saveCachedTransactions(result.items.take(20).toList(), userId: userId);
-      }
-
-      ref.read(transactionPaginationProvider.notifier).state = PaginationState(
-        nextCursor: result.nextCursor,
-        hasMore: result.nextCursor != null,
-        isLoadingMore: false,
-      );
-
-      if (pendingData.isNotEmpty) {
-        _syncPendingTransactions();
-      }
-
-      return [...pendingData, ...result.items];
-    } catch (e) {
-      if (initialList.isNotEmpty) {
-        return initialList;
-      }
-      rethrow;
-    }
+    return initialList;
   }
 
   void _startSyncTimer() {
@@ -228,9 +190,11 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     }
   }
 
-  Future<void> refreshTransactions() async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
+  Future<void> refreshTransactions({bool silent = false}) async {
+    if (!silent) {
+      state = const AsyncValue.loading();
+    }
+    final newState = await AsyncValue.guard(() async {
       final userId = ref.read(currentUserProvider)?.id ?? '';
       final useCase = ref.read(getTransactionsUseCaseProvider);
       final filter = ref.read(transactionFilterProvider);
@@ -267,6 +231,12 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
 
       return [...pendingData, ...result.items];
     });
+    
+    // Nếu chạy silent và gặp lỗi, giữ nguyên danh sách hiện tại thay vì hiện màn hình lỗi
+    if (silent && newState.hasError && state.hasValue) {
+      return;
+    }
+    state = newState;
   }
 
   Future<void> loadMoreTransactions() async {
@@ -388,7 +358,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
       return currentList.where((tx) => tx.id != transactionId).toList();
     });
 
-    ref.invalidate(walletNotifierProvider);
+    await ref.read(walletNotifierProvider.notifier).refreshWallets();
   }
 
   Future<void> updateTransaction({
@@ -416,7 +386,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     await dio.post(url, data: formData);
 
     ref.invalidate(transactionListProvider);
-    ref.invalidate(walletNotifierProvider);
+    await ref.read(walletNotifierProvider.notifier).refreshWallets();
   }
 }
 

@@ -36,6 +36,7 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
 
   late String _frequency;
   late DateTime _startDate;
+  DateTime? _endDate;
 
   late bool _isAutoRecord;
   late bool _isRemind;
@@ -53,6 +54,7 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
     _selectedType = rule.type;
     _frequency = rule.frequency;
     _startDate = rule.startDate ?? rule.nextRunAt ?? DateTime.now();
+    _endDate = rule.endAt;
     _isAutoRecord = rule.isActive;
     _isRemind = false;
     _isActive = rule.isActive;
@@ -132,7 +134,34 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
         child: child!,
       ),
     );
-    if (picked != null) setState(() => _startDate = picked);
+    if (picked != null) {
+      setState(() {
+        _startDate = picked;
+        if (_endDate != null && _endDate!.isBefore(_startDate)) {
+          _endDate = null;
+        }
+      });
+    }
+  }
+
+  Future<void> _pickEndDate() async {
+    final colors = context.colors;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? _startDate.add(const Duration(days: 30)),
+      firstDate: _startDate,
+      lastDate: DateTime(2035),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: colors.primary,
+            brightness: Theme.of(context).brightness,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _endDate = picked);
   }
 
   void _showCategorySheet() {
@@ -185,9 +214,9 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            Text('Chọn ví', style: TextStyle(color: colors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('recurring_select_wallet'.tr(ref), style: TextStyle(color: colors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            ...wallets.where((w) => !w.isHidden).map((w) {
+            ...wallets.where((w) => !w.isHidden && w.type.toLowerCase() != 'cash').map((w) {
               final isSelected = _selectedWallet?.id == w.id;
               final hexColor = w.color.replaceAll('#', '');
               Color itemColor;
@@ -224,9 +253,9 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
   }
 
   Future<void> _save() async {
-    if (_amount <= 0) { _showSnack('Vui lòng nhập số tiền hợp lệ!'); return; }
-    if (_titleController.text.trim().isEmpty) { _showSnack('Vui lòng nhập tên giao dịch!'); return; }
-    if (_selectedWallet == null) { _showSnack('Vui lòng chọn ví!'); return; }
+    if (_amount <= 0) { _showSnack('recurring_error_amount'.trRead(ref)); return; }
+    if (_titleController.text.trim().isEmpty) { _showSnack('recurring_error_title'.trRead(ref)); return; }
+    if (_selectedWallet == null) { _showSnack('recurring_error_wallet'.trRead(ref)); return; }
 
     setState(() => _isLoading = true);
     try {
@@ -240,10 +269,14 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
         'interval_value': 1,
         'next_run_at': _startDate.toUtc().toIso8601String(),
         'start_date': _startDate.toUtc().toIso8601String(),
+        'end_at': _endDate?.toUtc().toIso8601String(),
         'is_active': _isActive,
       };
       await ref.read(recurringNotifierProvider.notifier).updateRule(widget.rule.id, data);
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        _showSuccessSnack('update_recurring_success'.trRead(ref));
+        Navigator.pop(context);
+      }
     } catch (e) {
       _showSnack(e.toString().replaceFirst('Exception: ', ''));
     } finally {
@@ -258,14 +291,14 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: colors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Xóa giao dịch này?', style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold)),
-        content: Text('Hành động này sẽ xóa vĩnh viễn giao dịch định kỳ "${widget.rule.title}".', style: TextStyle(color: colors.textSecondary)),
+        title: Text('recurring_delete_title'.trRead(ref), style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold)),
+        content: Text('recurring_delete_desc'.trRead(ref), style: TextStyle(color: colors.textSecondary)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Hủy', style: TextStyle(color: colors.textSecondary))),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('cancel'.trRead(ref), style: TextStyle(color: colors.textSecondary))),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: colors.expenseRed, elevation: 0),
-            child: const Text('Xóa', style: TextStyle(color: Colors.white)),
+            child: Text('delete'.trRead(ref), style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -275,7 +308,10 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
     setState(() => _isDeleting = true);
     try {
       await ref.read(recurringNotifierProvider.notifier).deleteRule(widget.rule.id);
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        _showSuccessSnack('delete_recurring_success'.trRead(ref));
+        Navigator.pop(context);
+      }
     } catch (e) {
       _showSnack(e.toString().replaceFirst('Exception: ', ''));
     } finally {
@@ -287,6 +323,15 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
       backgroundColor: context.colors.expenseRed,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ));
+  }
+
+  void _showSuccessSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: context.colors.incomeGreen,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ));
@@ -326,7 +371,7 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Chỉnh sửa giao dịch',
+          'recurring_edit_title'.tr(ref),
           style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold, fontSize: 18),
         ),
         centerTitle: false,
@@ -342,7 +387,7 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
                 children: [
                   const SizedBox(height: 4),
                   Text(
-                    'Cập nhật thông tin giao dịch định kỳ của bạn.',
+                    'recurring_edit_subtitle'.tr(ref),
                     style: TextStyle(color: colors.textSecondary, fontSize: 13),
                   ),
                   const SizedBox(height: 16),
@@ -377,7 +422,7 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Trạng thái',
+                                'recurring_status'.tr(ref),
                                 style: TextStyle(
                                   color: colors.textPrimary,
                                   fontWeight: FontWeight.bold,
@@ -385,7 +430,7 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
                                 ),
                               ),
                               Text(
-                                _isActive ? 'Đang hoạt động' : 'Đã tạm dừng',
+                                _isActive ? 'recurring_status_active'.tr(ref) : 'recurring_status_paused'.tr(ref),
                                 style: TextStyle(
                                   color: _isActive ? accentGreen : colors.textSecondary,
                                   fontSize: 12,
@@ -410,19 +455,19 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
                   const SizedBox(height: 16),
 
                   // ── Category
-                  _buildSectionLabel('DANH MỤC', colors, trailing: 'Thay đổi', onTrailingTap: _showCategorySheet),
+                  _buildSectionLabel('recurring_category_section'.tr(ref), colors, trailing: 'recurring_change'.tr(ref), onTrailingTap: _showCategorySheet),
                   const SizedBox(height: 8),
                   _buildCategoryTile(colors, isDark),
                   const SizedBox(height: 16),
 
                   // ── Wallet
-                  _buildSectionLabel('VÍ / TÀI KHOẢN', colors, trailing: 'Thay đổi', onTrailingTap: _showWalletSheet),
+                  _buildSectionLabel('recurring_wallet_account_section'.tr(ref), colors, trailing: 'recurring_change'.tr(ref), onTrailingTap: _showWalletSheet),
                   const SizedBox(height: 8),
                   _buildWalletTile(colors, isDark),
                   const SizedBox(height: 16),
 
                   // ── Frequency
-                  _buildSectionLabel('TẦN SUẤT LẶP LẠI', colors),
+                  _buildSectionLabel('recurring_frequency_section'.tr(ref), colors),
                   const SizedBox(height: 10),
                   _buildFrequencyTabs(colors),
                   const SizedBox(height: 16),
@@ -431,23 +476,16 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
                   _buildStartDateRow(colors, isDark),
                   const SizedBox(height: 16),
 
+                  // ── End date (Optional)
+                  _buildEndDateRow(colors, isDark),
+                  const SizedBox(height: 16),
+
                   // ── Options
-                  _buildOptionTile(
-                    icon: Icons.notifications_rounded,
-                    iconColor: const Color(0xFF9E9E9E),
-                    title: 'Nhắc nhở trước khi đến hạn',
-                    subtitle: 'Nhận thông báo trước 1 ngày.',
-                    value: _isRemind,
-                    onChanged: (v) => setState(() => _isRemind = v),
-                    colors: colors,
-                    isDark: isDark,
-                  ),
-                  const SizedBox(height: 12),
                   _buildOptionTile(
                     icon: Icons.bolt_rounded,
                     iconColor: const Color(0xFF4CAF50),
-                    title: 'Tự động ghi nhận',
-                    subtitle: 'Hệ thống sẽ tự động thêm giao dịch này vào sổ tay của bạn khi đến hạn.',
+                    title: 'recurring_auto_record'.tr(ref),
+                    subtitle: 'recurring_auto_record_desc'.tr(ref),
                     value: _isAutoRecord,
                     onChanged: (v) => setState(() => _isAutoRecord = v),
                     colors: colors,
@@ -464,8 +502,8 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
                       icon: _isDeleting
                           ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.red))
                           : const Icon(Icons.delete_rounded, color: Colors.red, size: 20),
-                      label: const Text(
-                        'Xóa giao dịch này',
+                      label: Text(
+                        'recurring_delete_btn'.tr(ref),
                         style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 15),
                       ),
                       style: OutlinedButton.styleFrom(
@@ -499,7 +537,7 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
       child: Column(
         children: [
           Text(
-            'SỐ TIỀN',
+            'recurring_amount_label'.tr(ref),
             style: TextStyle(
               color: colors.textSecondary,
               fontSize: 11,
@@ -551,7 +589,7 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
                     style: TextStyle(color: colors.textPrimary, fontSize: 15),
                     decoration: InputDecoration(
                       border: InputBorder.none,
-                      hintText: 'TÊN GIAO DỊCH\nVD: Tiền thuê nhà, Netflix...',
+                      hintText: 'recurring_title_hint_edit'.tr(ref),
                       hintStyle: TextStyle(
                         color: colors.textSecondary.withOpacity(0.5),
                         fontSize: 13, height: 1.5,
@@ -572,7 +610,7 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
   Widget _buildCategoryTile(AppColorsExtension colors, bool isDark) {
     final catIcon = CategoryUIConstants.getIconData(_selectedCategory?.icon, categoryName: _selectedCategory?.name);
     final catColor = CategoryUIConstants.getColorFromHex(_selectedCategory?.color, categoryName: _selectedCategory?.name);
-    final catName = _selectedCategory?.name ?? widget.rule.categoryName ?? 'Chọn danh mục';
+    final catName = _selectedCategory?.name ?? widget.rule.categoryName ?? 'recurring_select_category'.trRead(ref);
 
     return GestureDetector(
       onTap: _showCategorySheet,
@@ -634,7 +672,7 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
                     child: Icon(Icons.account_balance_wallet_rounded, color: colors.primary, size: 20),
                   ),
                   const SizedBox(width: 12),
-                  Expanded(child: Text('Chọn ví', style: TextStyle(color: colors.textSecondary, fontSize: 15))),
+                  Expanded(child: Text('recurring_select_wallet'.tr(ref), style: TextStyle(color: colors.textSecondary, fontSize: 15))),
                   Icon(Icons.chevron_right_rounded, color: colors.textSecondary.withOpacity(0.5)),
                 ],
               )
@@ -663,7 +701,7 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
                       ],
                     ),
                   ),
-                  Text('Thay đổi', style: TextStyle(color: colors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text('recurring_change'.tr(ref), style: TextStyle(color: colors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
                 ],
               ),
       ),
@@ -672,7 +710,7 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
 
   Widget _buildFrequencyTabs(AppColorsExtension colors) {
     final items = [
-      ('daily', 'Ngày'), ('weekly', 'Tuần'), ('monthly', 'Tháng'), ('yearly', 'Năm'),
+      ('daily', 'recurring_freq_daily'.tr(ref)), ('weekly', 'recurring_freq_weekly'.tr(ref)), ('monthly', 'recurring_freq_monthly'.tr(ref)), ('yearly', 'recurring_freq_yearly'.tr(ref)),
     ];
     return Container(
       padding: const EdgeInsets.all(4),
@@ -725,7 +763,7 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
           children: [
             Icon(Icons.calendar_month_rounded, color: const Color(0xFF1B6B45), size: 22),
             const SizedBox(width: 12),
-            Text('Ngày bắt đầu', style: TextStyle(color: colors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500)),
+            Text('recurring_start_date'.tr(ref), style: TextStyle(color: colors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500)),
             const Spacer(),
             Text(
               _formatStartDate(_startDate),
@@ -735,6 +773,54 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
             Icon(Icons.calendar_today_outlined, color: colors.textSecondary, size: 18),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildEndDateRow(AppColorsExtension colors, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: isDark ? colors.surface : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.textSecondary.withOpacity(0.08)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.calendar_month_rounded, color: const Color(0xFF1B6B45), size: 22),
+          const SizedBox(width: 12),
+          Text(
+            'recurring_end_date'.tr(ref),
+            style: TextStyle(color: colors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
+          ),
+          const Spacer(),
+          if (_endDate != null) ...[
+            GestureDetector(
+              onTap: _pickEndDate,
+              child: Text(
+                _formatStartDate(_endDate!),
+                style: TextStyle(color: colors.textPrimary, fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(width: 12),
+            GestureDetector(
+              onTap: () => setState(() => _endDate = null),
+              child: Icon(Icons.cancel_rounded, color: colors.textSecondary, size: 20),
+            ),
+          ] else
+            GestureDetector(
+              onTap: _pickEndDate,
+              child: Text(
+                'recurring_no_end_date'.tr(ref),
+                style: TextStyle(color: colors.textSecondary, fontSize: 14, fontStyle: FontStyle.italic),
+              ),
+            ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: _pickEndDate,
+            child: Icon(Icons.calendar_today_outlined, color: colors.textSecondary, size: 18),
+          ),
+        ],
       ),
     );
   }
@@ -829,9 +915,9 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
           icon: _isLoading
               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
               : const Icon(Icons.check_circle_rounded, color: Colors.white),
-          label: const Text(
-            'Lưu thay đổi',
-            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+          label: Text(
+            'recurring_save_changes'.tr(ref),
+            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: accentGreen,
@@ -913,7 +999,7 @@ class _CategoryPickerSheetState extends ConsumerState<_CategoryPickerSheet> {
                   const SizedBox(width: 8),
                 ],
                 Text(
-                  _selectedParent == null ? 'Chọn danh mục' : (_selectedParent!.name.tr(ref)),
+                  _selectedParent == null ? 'recurring_select_category'.tr(ref) : (_selectedParent!.name.tr(ref)),
                   style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                 ),
               ],

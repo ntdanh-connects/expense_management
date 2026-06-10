@@ -8,17 +8,27 @@ import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/features/dashboard/domain/entities/recurring_rule_entity.dart';
 import 'package:expense_management/features/dashboard/presentation/providers/recurring_provider.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
-import 'package:expense_management/features/wallet/presentation/widget/wallet_constants.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
+import 'package:expense_management/features/transaction/domain/entities/transaction_params.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
 
-class RecurringListScreen extends ConsumerWidget {
+class RecurringListScreen extends ConsumerStatefulWidget {
   const RecurringListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RecurringListScreen> createState() => _RecurringListScreenState();
+}
+
+class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
+  String _selectedPeriod = 'month'; // 'day', 'week', 'month', 'year'
+
+  @override
+  Widget build(BuildContext context) {
     final colors = context.colors;
     final recurringAsync = ref.watch(recurringNotifierProvider);
+    ref.watch(transactionListProvider);
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -40,7 +50,7 @@ class RecurringListScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: Icon(Icons.add_circle_rounded, color: colors.primary, size: 28),
-            onPressed: () => context.push(RoutePaths.recurringCreate).then((_) => ref.read(recurringNotifierProvider.notifier).refresh()),
+            onPressed: () => context.push(RoutePaths.recurringCreate).then((_) => ref.read(recurringNotifierProvider.notifier).refresh(silent: true)),
           ),
           const SizedBox(width: 8),
         ],
@@ -73,16 +83,17 @@ class RecurringListScreen extends ConsumerWidget {
     List<RecurringRuleEntity> rules,
     AppColorsExtension colors,
   ) {
-    // Tính tổng chi tháng này (chỉ expense, isActive)
-    final totalThisMonth = rules
+    final now = DateTime.now();
+
+    // Tính tổng chi định kỳ (chỉ expense, isActive, theo khoảng thời gian được chọn)
+    final totalThisPeriod = rules
         .where((r) => r.isActive && r.type == 'expense')
-        .fold<double>(0, (sum, r) => sum + r.amount);
+        .fold<double>(0, (sum, r) => sum + (r.amount * _getOccurrencesInPeriod(r, now, _selectedPeriod)));
 
     final activeCount = rules.where((r) => r.isActive).length;
     final inactiveCount = rules.where((r) => !r.isActive).length;
 
     // Đếm sắp đến hạn (next_run_at trong vòng 7 ngày)
-    final now = DateTime.now();
     final upcomingCount = rules
         .where((r) =>
             r.isActive &&
@@ -132,18 +143,42 @@ class RecurringListScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'recurring_total_month'.tr(ref).toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.8,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _getPeriodTotalTitleKey(_selectedPeriod).tr(ref).toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildPeriodTab('day', 'recurring_day'.tr(ref)),
+                            _buildPeriodTab('week', 'recurring_week'.tr(ref)),
+                            _buildPeriodTab('month', 'recurring_month'.tr(ref)),
+                            _buildPeriodTab('year', 'recurring_year'.tr(ref)),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${AppConstant.formatMoney(totalThisMonth, 'VND')} đ',
+                    '${AppConstant.formatMoney(totalThisPeriod, 'VND')} đ',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 28,
@@ -281,7 +316,7 @@ class RecurringListScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 24),
                     ElevatedButton.icon(
-                      onPressed: () => context.push(RoutePaths.recurringCreate).then((_) => ref.read(recurringNotifierProvider.notifier).refresh()),
+                      onPressed: () => context.push(RoutePaths.recurringCreate).then((_) => ref.read(recurringNotifierProvider.notifier).refresh(silent: true)),
                       icon: const Icon(Icons.add_rounded, color: Colors.white),
                       label: Text(
                         'recurring_add_first'.tr(ref),
@@ -389,7 +424,7 @@ class RecurringListScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        rule.frequencyLabel,
+                        'recurring_label_${rule.frequency}'.tr(ref),
                         style: TextStyle(color: colors.textSecondary, fontSize: 12),
                       ),
                     ],
@@ -411,7 +446,7 @@ class RecurringListScreen extends ConsumerWidget {
                     if (nextRunStr.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
-                        'Kỳ tới: $nextRunStr',
+                        '${'recurring_next_run'.tr(ref)}: $nextRunStr',
                         style: TextStyle(color: colors.textSecondary, fontSize: 11),
                       ),
                     ],
@@ -457,26 +492,322 @@ class RecurringListScreen extends ConsumerWidget {
                   ),
                 ),
 
-                // Edit button
-                GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => RecurringEditScreen(rule: rule)),
-                  ).then((_) => ref.read(recurringNotifierProvider.notifier).refresh()),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: colors.textSecondary.withOpacity(0.06),
-                      borderRadius: BorderRadius.circular(10),
+                // Actions: Ghi nhận ngay + Edit
+                Row(
+                  children: [
+                    (() {
+                      final isRecorded = _isRuleRecordedToday(rule);
+                      return GestureDetector(
+                        onTap: isRecorded
+                            ? null
+                            : () => _executeRuleImmediately(context, ref, rule),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isRecorded
+                                ? colors.textSecondary.withOpacity(0.06)
+                                : colors.primary.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isRecorded
+                                  ? Colors.transparent
+                                  : colors.primary.withOpacity(0.2),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isRecorded
+                                    ? Icons.check_circle_rounded
+                                    : Icons.add_task_rounded,
+                                color: isRecorded
+                                    ? colors.textSecondary
+                                    : colors.primary,
+                                size: 14,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                isRecorded ? 'recurring_recorded'.tr(ref) : 'recurring_record'.tr(ref),
+                                style: TextStyle(
+                                  color: isRecorded
+                                      ? colors.textSecondary
+                                      : colors.primary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    })(),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => RecurringEditScreen(rule: rule)),
+                      ).then((_) => ref.read(recurringNotifierProvider.notifier).refresh(silent: true)),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: colors.textSecondary.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(Icons.edit_outlined, color: colors.textSecondary, size: 18),
+                      ),
                     ),
-                    child: Icon(Icons.edit_outlined, color: colors.textSecondary, size: 18),
-                  ),
+                  ],
                 ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  int _getOccurrencesInPeriod(RecurringRuleEntity rule, DateTime now, String period) {
+    if (!rule.isActive) return 0;
+
+    DateTime start;
+    DateTime end;
+
+    switch (period) {
+      case 'day':
+        start = DateTime(now.year, now.month, now.day);
+        end = DateTime(now.year, now.month, now.day, 23, 59, 59);
+        break;
+      case 'week':
+        final daysToSubtract = now.weekday - 1;
+        start = DateTime(now.year, now.month, now.day - daysToSubtract);
+        end = DateTime(start.year, start.month, start.day + 6, 23, 59, 59);
+        break;
+      case 'month':
+        start = DateTime(now.year, now.month, 1);
+        end = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+        break;
+      case 'year':
+        start = DateTime(now.year, 1, 1);
+        end = DateTime(now.year, 12, 31, 23, 59, 59);
+        break;
+      default:
+        start = DateTime(now.year, now.month, 1);
+        end = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+    }
+
+    final ruleStart = rule.startDate ?? start;
+
+    if (ruleStart.isAfter(end)) return 0;
+    if (rule.endAt != null && rule.endAt!.isBefore(start)) return 0;
+
+    int count = 0;
+    DateTime current = ruleStart;
+    final interval = rule.intervalValue > 0 ? rule.intervalValue : 1;
+
+    switch (rule.frequency) {
+      case 'daily':
+        if (current.isBefore(start)) {
+          final differenceInDays = start.difference(current).inDays;
+          final skipIntervals = differenceInDays ~/ interval;
+          current = current.add(Duration(days: skipIntervals * interval));
+          while (current.isBefore(start)) {
+            current = current.add(Duration(days: interval));
+          }
+        }
+        break;
+      case 'weekly':
+        if (current.isBefore(start)) {
+          final differenceInDays = start.difference(current).inDays;
+          final skipIntervals = differenceInDays ~/ (7 * interval);
+          current = current.add(Duration(days: skipIntervals * 7 * interval));
+          while (current.isBefore(start)) {
+            current = current.add(Duration(days: 7 * interval));
+          }
+        }
+        break;
+      case 'monthly':
+        if (current.isBefore(start)) {
+          int monthsDiff = (start.year - current.year) * 12 + (start.month - current.month);
+          int skipIntervals = monthsDiff ~/ interval;
+          current = DateTime(
+            current.year + (current.month + skipIntervals * interval - 1) ~/ 12,
+            (current.month + skipIntervals * interval - 1) % 12 + 1,
+            current.day,
+          );
+          while (current.isBefore(start)) {
+            current = DateTime(current.year, current.month + interval, current.day);
+          }
+        }
+        break;
+      case 'yearly':
+        if (current.isBefore(start)) {
+          int yearsDiff = start.year - current.year;
+          int skipIntervals = yearsDiff ~/ interval;
+          current = DateTime(current.year + skipIntervals * interval, current.month, current.day);
+          while (current.isBefore(start)) {
+            current = DateTime(current.year + interval, current.month, current.day);
+          }
+        }
+        break;
+    }
+
+    int maxLoopCount = 366;
+    if (period == 'day') maxLoopCount = 2;
+    if (period == 'week') maxLoopCount = 8;
+    if (period == 'month') maxLoopCount = 32;
+
+    while (current.isBefore(end) || current.isAtSameMomentAs(end)) {
+      if (rule.endAt != null && current.isAfter(rule.endAt!)) {
+        break;
+      }
+      if (current.isAfter(start) || current.isAtSameMomentAs(start)) {
+        count++;
+      }
+
+      switch (rule.frequency) {
+        case 'daily':
+          current = current.add(Duration(days: interval));
+          break;
+        case 'weekly':
+          current = current.add(Duration(days: 7 * interval));
+          break;
+        case 'monthly':
+          current = DateTime(current.year, current.month + interval, current.day);
+          break;
+        case 'yearly':
+          current = DateTime(current.year + interval, current.month, current.day);
+          break;
+        default:
+          return count;
+      }
+
+      if (count > maxLoopCount) break;
+    }
+
+    return count;
+  }
+
+  String _getPeriodTotalTitleKey(String period) {
+    switch (period) {
+      case 'day':
+        return 'recurring_total_day';
+      case 'week':
+        return 'recurring_total_week';
+      case 'month':
+        return 'recurring_total_month';
+      case 'year':
+        return 'recurring_total_year';
+      default:
+        return 'recurring_total_month';
+    }
+  }
+
+  Widget _buildPeriodTab(String period, String label) {
+    final isSelected = _selectedPeriod == period;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedPeriod = period),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? const Color(0xFF1B6B45) : Colors.white70,
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _executeRuleImmediately(BuildContext context, WidgetRef ref, RecurringRuleEntity rule) async {
+    final walletName = rule.walletName ?? '';
+    final categoryName = rule.categoryName ?? '';
+    final categoryId = rule.categoryId ?? '';
+
+    final user = ref.read(currentUserProvider);
+    final tzName = user?.timezone ?? 'Asia/Ho_Chi_Minh';
+    final currencyCode = rule.walletCurrencyCode ?? 'VND';
+
+    final params = TransactionParams(
+      walletId: rule.walletId,
+      walletName: walletName,
+      categoryId: categoryId,
+      categoryName: categoryName,
+      type: rule.type,
+      amount: rule.amount,
+      title: rule.title,
+      notes: 'Ghi nhận từ giao dịch định kỳ: ${rule.title}',
+      transactionDate: DateTime.now().toUtc().toIso8601String(),
+      currencyCode: currencyCode,
+      exchangeRate: 1.0,
+      timezone: tzName,
+    );
+
+    try {
+      await ref.read(transactionListProvider.notifier).addPendingTransaction(params);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'recurring_record_success'.tr(ref).replaceFirst('{title}', rule.title),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF10B981), // incomeGreen
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('recurring_record_failed'.tr(ref).replaceFirst('{error}', e.toString())),
+            backgroundColor: const Color(0xFFEF4444), // expenseRed
+          ),
+        );
+      }
+    }
+  }
+
+  bool _isRuleRecordedToday(RecurringRuleEntity rule) {
+    final transactionsAsync = ref.read(transactionListProvider);
+    return transactionsAsync.maybeWhen(
+      data: (transactions) {
+        final now = DateTime.now();
+        final startOfToday = DateTime(now.year, now.month, now.day);
+        final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
+
+        return transactions.any((tx) {
+          final txDate = tx.transactionDate.toLocal();
+          final isSameDay = (txDate.isAfter(startOfToday) && txDate.isBefore(endOfToday)) ||
+              txDate.isAtSameMomentAs(startOfToday) ||
+              txDate.isAtSameMomentAs(endOfToday);
+
+          return isSameDay &&
+              tx.title == rule.title &&
+              tx.amount == rule.amount &&
+              tx.walletId == rule.walletId &&
+              tx.categoryId == rule.categoryId;
+        });
+      },
+      orElse: () => false,
     );
   }
 }
