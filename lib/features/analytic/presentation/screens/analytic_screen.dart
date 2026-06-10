@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/shared/widgets/shared_top_app_bar.dart';
 import 'package:expense_management/core/language/app_language.dart';
@@ -7,6 +9,8 @@ import 'package:expense_management/features/profile/presentation/widgets/categor
 import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
 import 'package:expense_management/features/analytic/data/models/report_summary_dto.dart';
 import 'package:expense_management/features/analytic/data/models/report_trend_dto.dart';
+import 'package:expense_management/features/budget/presentation/screens/budget_screen.dart';
+import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:shimmer/shimmer.dart';
 
@@ -18,7 +22,23 @@ class AnalyticScreen extends ConsumerStatefulWidget {
 }
 
 class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
-  String _selectedSubTab = 'statistics'; // statistics, history, budget
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    try {
+      final state = GoRouterState.of(context);
+      final tab = state.uri.queryParameters['tab'];
+      if (tab != null && (tab == 'statistics' || tab == 'history' || tab == 'budget')) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ref.read(selectedAnalyticTabProvider.notifier).state = tab;
+          }
+        });
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
 
   String _formatCurrency(double amount) {
     final format = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ', decimalDigits: 0);
@@ -55,12 +75,33 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final selectedSubTab = ref.watch(selectedAnalyticTabProvider);
 
     return Scaffold(
       backgroundColor: colors.background,
       appBar: SharedTopAppBar(
         hintText: 'search_hint'.tr(ref),
       ),
+      floatingActionButton: () {
+        if (selectedSubTab != 'budget') return null;
+        
+        final month = ref.watch(selectedBudgetMonthProvider);
+        final year = ref.watch(selectedBudgetYearProvider);
+        final now = DateTime.now();
+        final isPastMonth = year < now.year || (year == now.year && month < now.month);
+        
+        if (isPastMonth) return null;
+        
+        return FloatingActionButton(
+          backgroundColor: colors.primary,
+          child: const Icon(Icons.add, color: Colors.white),
+          onPressed: () {
+            context.push(RoutePaths.budgetCreate).then((_) {
+              ref.read(budgetListProvider.notifier).refreshBudgets();
+            });
+          },
+        );
+      }(),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.all(16.0),
@@ -70,17 +111,17 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
             // 📊 1. BỘ PHÂN LOẠI NGANG PHỤ (THỐNG KÊ / LỊCH SỬ / NGÂN SÁCH)
             Row(
               children: [
-                _buildSubTabButton('statistics'),
+                _buildSubTabButton('statistics', selectedSubTab),
                 const SizedBox(width: 8),
-                _buildSubTabButton('history'),
+                _buildSubTabButton('history', selectedSubTab),
                 const SizedBox(width: 8),
-                _buildSubTabButton('budget'),
+                _buildSubTabButton('budget', selectedSubTab),
               ],
             ),
             const SizedBox(height: 18),
 
             // 🟢 Conditional Rendering depending on active SubTab
-            if (_selectedSubTab == 'statistics') ...[
+            if (selectedSubTab == 'statistics') ...[
               // 🕒 Date range filter selectors
               _buildTimeFilterBar(ref),
               const SizedBox(height: 18),
@@ -103,10 +144,10 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
 
               // 🏆 Top 5 Expense Categories
               _buildTopExpensesSection(ref),
-            ] else if (_selectedSubTab == 'history') ...[
+            ] else if (selectedSubTab == 'history') ...[
               _buildHistoryPlaceholder(),
-            ] else if (_selectedSubTab == 'budget') ...[
-              _buildBudgetPlaceholder(),
+            ] else if (selectedSubTab == 'budget') ...[
+              const BudgetScreen(),
             ],
             const SizedBox(height: 80), // Dành khoảng trống cho Bottom Bar trượt
           ],
@@ -115,15 +156,13 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
     );
   }
 
-  Widget _buildSubTabButton(String key) {
+  Widget _buildSubTabButton(String key, String selectedSubTab) {
     final colors = context.colors;
-    final isSelected = _selectedSubTab == key;
+    final isSelected = selectedSubTab == key;
 
     return GestureDetector(
       onTap: () {
-        setState(() {
-          _selectedSubTab = key;
-        });
+        ref.read(selectedAnalyticTabProvider.notifier).state = key;
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -865,24 +904,6 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
     );
   }
 
-  Widget _buildBudgetPlaceholder() {
-    final colors = context.colors;
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      child: Center(
-        child: Column(
-          children: [
-            Icon(Icons.pie_chart_outline_rounded, size: 48, color: colors.textSecondary.withOpacity(0.5)),
-            const SizedBox(height: 16),
-            Text(
-              'budget_placeholder'.tr(ref),
-              style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 // 📐 VẼ CUSTOM LINE CHART XU HƯỚNG CHI TIÊU HÀNG NGÀY

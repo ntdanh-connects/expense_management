@@ -25,6 +25,9 @@ import 'package:expense_management/features/transaction/presentation/screens/tra
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/presentation/screens/wallet_screen.dart';
 import 'package:expense_management/features/wallet/presentation/screens/add_wallet_screen.dart';
+import 'package:expense_management/features/budget/data/models/budget_dto.dart';
+import 'package:expense_management/features/budget/presentation/screens/budget_create_screen.dart';
+import 'package:expense_management/features/budget/presentation/screens/budget_edit_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -51,6 +54,8 @@ class RoutePaths {
   static const recurringCreate = '/dashboard/recurring/create';
   static const recurringEdit = '/dashboard/recurring/edit';
   static const recurringList = '/dashboard/recurring';
+  static const budgetCreate = '/analytics/budget/create';
+  static const budgetEdit = '/analytics/budget/edit';
 }
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -163,6 +168,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
 
+
       StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) {
         return MainShellScreen(navigationShell: navigationShell);
@@ -202,7 +208,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
         ]),
         StatefulShellBranch(routes: [
-          GoRoute(path: RoutePaths.analytics,builder: (context, state) => const AnalyticScreen(),),
+          GoRoute(
+            path: RoutePaths.analytics,
+            builder: (context, state) => const AnalyticScreen(),
+            routes: [
+              GoRoute(
+                path: 'budget/create',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) => const BudgetCreateScreen(),
+              ),
+              GoRoute(
+                path: 'budget/edit',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) {
+                  final budget = state.extra as BudgetDto;
+                  return BudgetEditScreen(budget: budget);
+                },
+              ),
+            ],
+          ),
         ]),
         StatefulShellBranch(routes: [
           GoRoute(
