@@ -9,6 +9,8 @@ import 'package:flutter/material.dart';
 import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/language/app_language.dart';
+import 'package:expense_management/core/database/app_database.dart';
+import 'package:drift/drift.dart';
 import 'package:expense_management/features/transaction/data/datasource/remote/transaction_remote_datasource.dart';
 import 'package:expense_management/features/transaction/data/repository_impl/transaction_repository_impl.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
@@ -33,7 +35,13 @@ final transactionApiServiceProvider = Provider<TransactionApiService>((ref) {
 final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
   final apiService = ref.watch(transactionApiServiceProvider);
   final dio = ref.watch(dioClientProvider);
-  return TransactionRepositoryImpl(apiService, dio);
+  final database = ref.watch(appDatabaseProvider);
+  return TransactionRepositoryImpl(
+    apiService,
+    dio,
+    database,
+    () => ref.read(currentUserProvider)?.id ?? '',
+  );
 });
 
 final addTransactionUseCaseProvider = Provider<AddTransactionUseCase>((ref) {
@@ -51,12 +59,21 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
   bool _isSyncing = false;
 
   @override
-  FutureOr<List<TransactionEntity>> build() {
+  FutureOr<List<TransactionEntity>> build() async {
     final user = ref.watch(currentUserProvider);
     final userId = user?.id ?? '';
-    final storage = ref.read(localStoreHelperProvider);
-    final cachedData = storage.getCachedTransactions(userId: userId);
-    final pendingData = storage.getPendingTransactions(userId: userId);
+    if (userId.isEmpty) return [];
+
+    final database = ref.read(appDatabaseProvider);
+    
+    // Đọc cache và các giao dịch đang chờ sync từ Drift DB local
+    final cachedRows = await database.getCachedTransactions(userId);
+    final pendingRows = await database.getPendingTransactions(userId);
+    final categories = await database.getAllCategories();
+    final wallets = await database.select(database.wallets).get();
+
+    final cachedData = cachedRows.map((r) => _mapLocalToEntity(r, categories, wallets)).toList();
+    final pendingData = pendingRows.map((r) => _mapLocalToEntity(r, categories, wallets)).toList();
 
     final initialList = [...pendingData, ...cachedData];
 
@@ -65,18 +82,58 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     });
     _startSyncTimer();
 
-    // Tự động tải lại ngầm (silent) từ API nếu đã có cache, để tránh Shimmer gây cảm giác chậm
-    Future.microtask(() => refreshTransactions(silent: initialList.isNotEmpty));
+    // Tự động tải lại ngầm (silent) từ API nếu đã có cache và userId hợp lệ
+    if (userId.isNotEmpty) {
+      Future.microtask(() => refreshTransactions(silent: initialList.isNotEmpty));
+    }
 
     return initialList;
   }
 
+  TransactionEntity _mapLocalToEntity(
+    LocalTransaction row,
+    List<Category> categories,
+    List<Wallet> wallets,
+  ) {
+    // Look-up category và wallet local để lấy thông tin hiển thị (tên, icon, màu sắc)
+    final categoryList = categories.where((c) => c.id == row.categoryId);
+    final category = categoryList.isNotEmpty ? categoryList.first : null;
+
+    final walletList = wallets.where((w) => w.id == row.walletId);
+    final wallet = walletList.isNotEmpty ? walletList.first : null;
+
+    return TransactionEntity(
+      id: row.id,
+      walletId: row.walletId,
+      categoryId: row.categoryId,
+      type: row.type,
+      status: row.isSynced ? 'success' : 'pending',
+      amount: row.amount,
+      currencyCode: wallet?.currencyCode,
+      exchangeRate: row.amount > 0 ? (row.amountInUserCurrency / row.amount) : 1.0,
+      title: row.title,
+      notes: row.notes,
+      sourceType: row.sourceType,
+      transactionDate: row.transactionDate,
+      createdAt: row.createdAt,
+      categoryName: category?.name,
+      categoryIcon: category?.icon,
+      categoryColor: category?.color,
+      walletName: wallet?.name,
+      walletIcon: wallet?.icon,
+      walletColor: wallet?.color,
+      attachmentUrls: const [],
+    );
+  }
+
   void _startSyncTimer() {
     _syncTimer?.cancel();
-    _syncTimer = Timer.periodic(const Duration(seconds: 20), (timer) {
+    _syncTimer = Timer.periodic(const Duration(seconds: 20), (timer) async {
       final userId = ref.read(currentUserProvider)?.id ?? '';
-      final storage = ref.read(localStoreHelperProvider);
-      if (storage.getPendingTransactions(userId: userId).isNotEmpty) {
+      if (userId.isEmpty) return;
+      final database = ref.read(appDatabaseProvider);
+      final pending = await database.getPendingTransactions(userId);
+      if (pending.isNotEmpty) {
         _syncPendingTransactions();
       }
     });
@@ -104,12 +161,17 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
 
     try {
       final userId = ref.read(currentUserProvider)?.id ?? '';
-      final storage = ref.read(localStoreHelperProvider);
-      final pendingList = storage.getPendingTransactions(userId: userId);
-      if (pendingList.isEmpty) return;
+      if (userId.isEmpty) return;
+      final database = ref.read(appDatabaseProvider);
+      
+      final pendingRows = await database.getPendingTransactions(userId);
+      if (pendingRows.isEmpty) return;
+
+      final categories = await database.getAllCategories();
+      final wallets = await database.select(database.wallets).get();
+      final pendingList = pendingRows.map((r) => _mapLocalToEntity(r, categories, wallets)).toList();
 
       final addTxUseCase = ref.read(addTransactionUseCaseProvider);
-      final List<TransactionEntity> remainingPending = List.from(pendingList);
       bool anySuccess = false;
 
       for (final tx in pendingList) {
@@ -126,7 +188,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
             }
           }
 
-          await addTxUseCase.execute(
+          final newTx = await addTxUseCase.execute(
             walletId: tx.walletId,
             categoryId: tx.categoryId,
             type: tx.type,
@@ -140,8 +202,26 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
             attachment: attachmentFile,
           );
 
-          remainingPending.removeWhere((item) => item.id == tx.id);
-          await storage.savePendingTransactions(remainingPending, userId: userId);
+          // Xóa dòng pending cũ khỏi DB và lưu lại transaction mới từ BE trả về
+          await database.deleteTransaction(tx.id);
+          
+          final localTx = LocalTransaction(
+            id: newTx.id,
+            userId: userId,
+            walletId: newTx.walletId,
+            categoryId: newTx.categoryId,
+            amount: newTx.amount,
+            amountInUserCurrency: newTx.amount * (newTx.exchangeRate ?? 1.0),
+            type: newTx.type,
+            title: newTx.title,
+            notes: newTx.notes,
+            transactionDate: newTx.transactionDate,
+            sourceType: newTx.sourceType,
+            createdAt: newTx.createdAt ?? DateTime.now(),
+            updatedAt: DateTime.now(),
+            isSynced: true,
+          );
+          await database.saveTransaction(localTx);
           anySuccess = true;
 
           final context = rootNavigatorKey.currentContext;
@@ -161,9 +241,8 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
           if (_isNetworkError(e)) {
             break;
           }
-          // Remove bad transaction from queue so sync isn't permanently blocked
-          remainingPending.removeWhere((item) => item.id == tx.id);
-          await storage.savePendingTransactions(remainingPending, userId: userId);
+          // Lỗi nghiệp vụ (bad request/validations...) -> xóa khỏi DB pending để tránh nghẽn
+          await database.deleteTransaction(tx.id);
 
           final context = rootNavigatorKey.currentContext;
           if (context != null && context.mounted) {
@@ -191,11 +270,14 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
   }
 
   Future<void> refreshTransactions({bool silent = false}) async {
+    final userId = ref.read(currentUserProvider)?.id ?? '';
+    if (userId.isEmpty) return;
+
     if (!silent) {
+      await ref.read(cacheStoreProvider).clean();
       state = const AsyncValue.loading();
     }
     final newState = await AsyncValue.guard(() async {
-      final userId = ref.read(currentUserProvider)?.id ?? '';
       final useCase = ref.read(getTransactionsUseCaseProvider);
       final filter = ref.read(transactionFilterProvider);
       final result = await useCase.execute(
@@ -213,10 +295,9 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
         cursor: null,
       );
 
-      final storage = ref.read(localStoreHelperProvider);
-      if (filter.isEmpty) {
-        storage.saveCachedTransactions(result.items.take(20).toList(), userId: userId);
-      }
+      final database = ref.read(appDatabaseProvider);
+      final categories = await database.getAllCategories();
+      final wallets = await database.select(database.wallets).get();
 
       ref.read(transactionPaginationProvider.notifier).state = PaginationState(
         nextCursor: result.nextCursor,
@@ -224,7 +305,9 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
         isLoadingMore: false,
       );
 
-      final pendingData = storage.getPendingTransactions(userId: userId);
+      final pendingRows = await database.getPendingTransactions(userId);
+      final pendingData = pendingRows.map((r) => _mapLocalToEntity(r, categories, wallets)).toList();
+      
       if (pendingData.isNotEmpty) {
         _syncPendingTransactions();
       }
@@ -240,6 +323,9 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
   }
 
   Future<void> loadMoreTransactions() async {
+    final userId = ref.read(currentUserProvider)?.id ?? '';
+    if (userId.isEmpty) return;
+
     final pagination = ref.read(transactionPaginationProvider);
     if (pagination.isLoadingMore || !pagination.hasMore) return;
 
@@ -281,40 +367,62 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
   }
 
   Future<void> addTransaction(TransactionEntity transaction) async {
+    await ref.read(cacheStoreProvider).clean();
     state = await AsyncValue.guard(() async {
       final userId = ref.read(currentUserProvider)?.id ?? '';
+      final database = ref.read(appDatabaseProvider);
+
+      final localTx = LocalTransaction(
+        id: transaction.id,
+        userId: userId,
+        walletId: transaction.walletId,
+        categoryId: transaction.categoryId,
+        amount: transaction.amount,
+        amountInUserCurrency: transaction.amount * (transaction.exchangeRate ?? 1.0),
+        type: transaction.type,
+        title: transaction.title,
+        notes: transaction.notes,
+        transactionDate: transaction.transactionDate,
+        sourceType: transaction.sourceType,
+        createdAt: transaction.createdAt ?? DateTime.now(),
+        updatedAt: DateTime.now(),
+        isSynced: true,
+      );
+      await database.saveTransaction(localTx);
+
       final currentList = state.value ?? [];
       final newList = [transaction, ...currentList];
-      ref.read(localStoreHelperProvider).saveCachedTransactions(newList.take(20).toList(), userId: userId);
       return newList;
     });
   }
 
   Future<void> addPendingTransaction(TransactionParams params) async {
+    await ref.read(cacheStoreProvider).clean();
     final userId = ref.read(currentUserProvider)?.id ?? '';
-    final storage = ref.read(localStoreHelperProvider);
-    final currentPending = storage.getPendingTransactions(userId: userId);
+    final database = ref.read(appDatabaseProvider);
+    final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
 
-    final tempTx = TransactionEntity(
-      id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
+    final localTx = LocalTransaction(
+      id: tempId,
+      userId: userId,
       walletId: params.walletId,
       categoryId: params.categoryId.isEmpty ? null : params.categoryId,
-      type: params.type,
-      status: 'pending',
       amount: params.amount,
+      amountInUserCurrency: params.amount * (params.exchangeRate ?? 1.0),
+      type: params.type,
       title: params.title,
       notes: params.notes,
       transactionDate: DateTime.parse(params.transactionDate),
-      currencyCode: params.currencyCode,
-      exchangeRate: params.exchangeRate,
-      timezone: params.timezone,
-      walletName: params.walletName,
-      categoryName: params.categoryName,
-      attachmentUrls: params.attachmentPath != null ? [params.attachmentPath!] : const [],
+      sourceType: 'manual',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      isSynced: false,
     );
+    await database.saveTransaction(localTx);
 
-    final newPending = [tempTx, ...currentPending];
-    await storage.savePendingTransactions(newPending, userId: userId);
+    final categories = await database.getAllCategories();
+    final wallets = await database.select(database.wallets).get();
+    final tempTx = _mapLocalToEntity(localTx, categories, wallets);
 
     state = await AsyncValue.guard(() async {
       final currentList = state.value ?? [];
@@ -349,9 +457,14 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
   }
 
   Future<void> deleteTransaction(String transactionId) async {
+    await ref.read(cacheStoreProvider).clean();
     final dio = ref.read(dioClientProvider);
     final url = ApiEndpoints.deleteTransaction.replaceAll('{id}', transactionId);
     await dio.delete(url);
+
+    // Xóa local
+    final database = ref.read(appDatabaseProvider);
+    await database.deleteTransaction(transactionId);
 
     state = await AsyncValue.guard(() async {
       final currentList = state.value ?? [];
@@ -368,6 +481,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     String? notes,
     List<MultipartFile>? attachments,
   }) async {
+    await ref.read(cacheStoreProvider).clean();
     final dio = ref.read(dioClientProvider);
 
     final Map<String, dynamic> data = {

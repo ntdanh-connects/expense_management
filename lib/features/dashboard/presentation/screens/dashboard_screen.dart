@@ -160,7 +160,7 @@ class DashboardScreen extends ConsumerWidget {
                     Row(
                       children: [
                         Text(
-                          'Total balance'.tr(ref),
+                          'total_balance'.tr(ref),
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.7),
                             fontSize: 14,
@@ -397,14 +397,6 @@ class DashboardScreen extends ConsumerWidget {
                     children: [
                       _buildQuickActionItem(
                         context: context,
-                        icon: Icons.add_circle_outline_rounded,
-                        label: 'add_transaction'.tr(ref),
-                        iconColor: colors.primary,
-                        onTap: () => context.push(RoutePaths.addTransaction),
-                      ),
-                      const SizedBox(width: 20),
-                      _buildQuickActionItem(
-                        context: context,
                         icon: Icons.autorenew_rounded,
                         label: 'Schedule'.tr(ref),
                         iconColor: const Color(0xFFF97316),
@@ -441,6 +433,22 @@ class DashboardScreen extends ConsumerWidget {
                         label: 'Categories'.tr(ref),
                         iconColor: const Color(0xFF10B981),
                         onTap: () => context.push(RoutePaths.categories),
+                      ),
+                      const SizedBox(width: 20),
+                      _buildQuickActionItem(
+                        context: context,
+                        icon: Icons.pie_chart_rounded,
+                        label: 'budget'.tr(ref),
+                        iconColor: const Color(0xFF3B82F6),
+                        onTap: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('budget_placeholder'.tr(ref)),
+                              backgroundColor: colors.primary,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),

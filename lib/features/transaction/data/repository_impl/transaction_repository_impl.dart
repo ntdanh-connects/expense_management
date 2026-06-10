@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:expense_management/core/network/api_endpoints.dart';
+import 'package:expense_management/core/database/app_database.dart';
 import 'package:expense_management/features/transaction/data/datasource/remote/transaction_remote_datasource.dart';
 import 'package:expense_management/features/transaction/data/mappers/transaction_mapper.dart';
 import 'package:expense_management/features/transaction/data/models/transaction_dto.dart';
@@ -11,8 +12,10 @@ import 'package:expense_management/core/utils/app_logger.dart';
 class TransactionRepositoryImpl implements TransactionRepository {
   final TransactionApiService _apiService;
   final Dio _dio;
+  final AppDatabase _database;
+  final String Function() _getUserId;
 
-  TransactionRepositoryImpl(this._apiService, this._dio);
+  TransactionRepositoryImpl(this._apiService, this._dio, this._database, this._getUserId);
 
   @override
   Future<PaginatedTransactions> getTransactions({
@@ -83,6 +86,33 @@ class TransactionRepositoryImpl implements TransactionRepository {
           .map((i) => TransactionMapper.toEntity(
               TransactionDto.fromJson(i as Map<String, dynamic>)))
           .toList();
+
+      // Lưu cache vào DB Drift local
+      final userId = _getUserId();
+      if (userId.isNotEmpty) {
+        final localTxs = transactionItems.map((tx) {
+          return LocalTransaction(
+            id: tx.id,
+            userId: userId,
+            walletId: tx.walletId,
+            categoryId: tx.categoryId,
+            amount: tx.amount,
+            amountInUserCurrency: tx.amount * (tx.exchangeRate ?? 1.0),
+            type: tx.type,
+            title: tx.title,
+            notes: tx.notes,
+            transactionDate: tx.transactionDate,
+            sourceType: tx.sourceType,
+            createdAt: tx.createdAt ?? DateTime.now(),
+            updatedAt: DateTime.now(),
+            isSynced: true,
+          );
+        }).toList();
+        
+        _database.saveAllTransactions(localTxs).catchError((err) {
+          AppLogger.error('🚨 [TransactionRepo] Lỗi lưu cache Drift: $err', tag: 'TransactionRepo');
+        });
+      }
 
       return PaginatedTransactions(
         items: transactionItems,

@@ -5,14 +5,24 @@ import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/core/network/api_endpoints.dart';
 import 'package:expense_management/core/network/log_console_interceptor.dart';
 import 'package:expense_management/core/language/app_provider.dart';
+import 'package:expense_management/core/utils/app_logger.dart';
 import '../storage/secure_storage_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/features/auth/auth_provider.dart';
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
+import 'package:dio_cache_interceptor_file_store/dio_cache_interceptor_file_store.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
+
+final cacheStoreProvider = Provider<CacheStore>((ref) {
+  throw UnimplementedError('cacheStoreProvider must be overridden in ProviderScope');
+});
 
 final dioClientProvider = Provider<Dio>((ref) {
+  final cacheStore = ref.watch(cacheStoreProvider);
   final dio = Dio(
     BaseOptions(
       baseUrl: AppConfig.baseUrl,
@@ -30,6 +40,35 @@ final dioClientProvider = Provider<Dio>((ref) {
     RefreshTokenInterceptor(ref, dio),
     ErrorHandlingInterceptor(ref),
   ]);
+
+  final cacheOptions = CacheOptions(
+    store: cacheStore,
+    policy: CachePolicy.request, // Tôn trọng Header Cache-Control mặc định
+    hitCacheOnErrorExcept: [401, 403],
+    maxStale: const Duration(days: 7),
+    priority: CachePriority.normal,
+    keyBuilder: CacheOptions.defaultCacheKeyBuilder,
+    allowPostMethod: false,
+  );
+
+  // Thêm custom Interceptor để tự động force cache 10 phút cho các API Báo cáo & Danh mục
+  dio.interceptors.add(InterceptorsWrapper(
+    onRequest: (options, handler) {
+      if (options.method == 'GET' && 
+          (options.path.contains('reports') || options.path.contains('categories'))) {
+        // Ép buộc cache 10 phút (600 giây)
+        final customOptions = cacheOptions.copyWith(
+          policy: CachePolicy.forceCache,
+          maxStale: Nullable(const Duration(minutes: 10)),
+        );
+        options.extra.addAll(customOptions.toExtra());
+      }
+      return handler.next(options);
+    },
+  ));
+
+  // Thêm DioCacheInterceptor chính vào sau cùng
+  dio.interceptors.add(DioCacheInterceptor(options: cacheOptions));
 
   if (AppConfig.enableLogging) {
     dio.interceptors.add(LogConsoleInterceptor());

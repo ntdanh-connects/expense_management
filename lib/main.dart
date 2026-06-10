@@ -15,6 +15,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz;
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
+import 'package:dio_cache_interceptor_file_store/dio_cache_interceptor_file_store.dart';
+import 'package:expense_management/core/network/dio_client.dart';
 
 void main() async{
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +26,8 @@ void main() async{
   await initializeDateFormatting('vi', null);
   await initializeDateFormatting('en', null);
   final sharedPrefs = await SharedPreferences.getInstance();
+  final tempDir = await getTemporaryDirectory();
+  final cacheStore = FileCacheStore(p.join(tempDir.path, 'http_cache'));
 
   if (AppConfig.enableLogging) {
     // Bắt lỗi Flutter toàn cục và lưu lại (Chỉ kích hoạt trong DEV)
@@ -72,6 +78,7 @@ void main() async{
         localStoreHelperProvider.overrideWithValue(
           LocalStorageHelper(sharedPrefs)
         ),
+        cacheStoreProvider.overrideWithValue(cacheStore),
         appLanguageProvider.overrideWith((ref) => AppLanguageNotifier(
           ref,
           AppLanguageState(

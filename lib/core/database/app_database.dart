@@ -50,12 +50,54 @@ class Categories extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Users, Wallets, Categories])
+class LocalTransactions extends Table {
+  TextColumn get id => text()();
+  TextColumn get userId => text()();
+  TextColumn get walletId => text()();
+  TextColumn get categoryId => text().nullable()();
+  RealColumn get amount => real()();
+  RealColumn get amountInUserCurrency => real()();
+  TextColumn get type => text()(); // income / expense
+  TextColumn get title => text()();
+  TextColumn get notes => text().nullable()();
+  DateTimeColumn get transactionDate => dateTime()();
+  TextColumn get sourceType => text().nullable()(); // manual / recurring / transfer
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+  BoolColumn get isSynced => boolean().withDefault(const Constant(true))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class LocalRecurringTransactions extends Table {
+  TextColumn get id => text()();
+  TextColumn get userId => text()();
+  TextColumn get walletId => text()();
+  TextColumn get categoryId => text().nullable()();
+  RealColumn get amount => real()();
+  TextColumn get type => text()(); // income / expense
+  TextColumn get title => text()();
+  TextColumn get notes => text().nullable()();
+  TextColumn get frequency => text()(); // daily, weekly, monthly, yearly
+  DateTimeColumn get startDate => dateTime()();
+  DateTimeColumn get endDate => dateTime().nullable()();
+  DateTimeColumn get nextOccurrence => dateTime().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+  BoolColumn get isSynced => boolean().withDefault(const Constant(true))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DriftDatabase(tables: [Users, Wallets, Categories, LocalTransactions, LocalRecurringTransactions])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(): super(_openConnection());
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -91,6 +133,14 @@ class AppDatabase extends _$AppDatabase {
       if (from < 6) {
         try {
           await m.createTable(categories);
+        } catch (e) {
+          // Bỏ qua nếu bảng đã tồn tại
+        }
+      }
+      if (from < 7) {
+        try {
+          await m.createTable(localTransactions);
+          await m.createTable(localRecurringTransactions);
         } catch (e) {
           // Bỏ qua nếu bảng đã tồn tại
         }
@@ -137,10 +187,48 @@ class AppDatabase extends _$AppDatabase {
     return await select(categories).get();
   }
 
+  // Helper cho Transactions
+  Future<void> saveAllTransactions(List<LocalTransaction> transactionRows) async {
+    await batch((batch) {
+      batch.insertAllOnConflictUpdate(localTransactions, transactionRows);
+    });
+  }
+
+  Future<void> saveTransaction(LocalTransaction transactionRow) async {
+    await into(localTransactions).insertOnConflictUpdate(transactionRow);
+  }
+
+  Future<List<LocalTransaction>> getCachedTransactions(String userId) async {
+    return await (select(localTransactions)
+          ..where((t) => t.userId.equals(userId) & t.deletedAt.isNull() & t.isSynced.equals(true))
+          ..orderBy([(t) => OrderingTerm(expression: t.transactionDate, mode: OrderingMode.desc)]))
+        .get();
+  }
+
+  Future<List<LocalTransaction>> getPendingTransactions(String userId) async {
+    return await (select(localTransactions)
+          ..where((t) => t.userId.equals(userId) & t.isSynced.equals(false))
+          ..orderBy([(t) => OrderingTerm(expression: t.transactionDate, mode: OrderingMode.desc)]))
+        .get();
+  }
+
+  Stream<List<LocalTransaction>> watchAllTransactions(String userId) {
+    return (select(localTransactions)
+          ..where((t) => t.userId.equals(userId) & t.deletedAt.isNull())
+          ..orderBy([(t) => OrderingTerm(expression: t.transactionDate, mode: OrderingMode.desc)]))
+        .watch();
+  }
+
+  Future<void> deleteTransaction(String id) async {
+    await (delete(localTransactions)..where((t) => t.id.equals(id))).go();
+  }
+
   Future<void> clearAuthData() async {
     await delete(users).go();
     await delete(wallets).go();
     await delete(categories).go();
+    await delete(localTransactions).go();
+    await delete(localRecurringTransactions).go();
   }
 }
 
