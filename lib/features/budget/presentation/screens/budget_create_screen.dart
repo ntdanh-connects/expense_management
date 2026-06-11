@@ -15,6 +15,34 @@ import 'package:intl/intl.dart';
 import 'package:currency_text_input_formatter/currency_text_input_formatter.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
+import 'package:shimmer/shimmer.dart';
+
+// Currency conversion helper (same pattern as budget_screen)
+double _convertToDisplayCurrency(
+  double amount,
+  String fromCurrency,
+  String toCurrency,
+  dynamic ratesData,
+) {
+  final from = fromCurrency.toUpperCase();
+  final to = toCurrency.toUpperCase();
+  if (from == to) return amount;
+
+  const fallbackRates = {
+    'USD': 1.0, 'VND': 25400.0, 'EUR': 0.92,
+    'GBP': 0.78, 'JPY': 156.0,
+  };
+
+  final base = (ratesData?.base ?? 'USD').toUpperCase();
+  final rates = ratesData?.rates.map(
+    (k, v) => MapEntry(k.toUpperCase(), v.toDouble()),
+  ) ?? fallbackRates;
+
+  final fromRate = from == base ? 1.0 : (rates[from] ?? 1.0);
+  final toRate   = to == base   ? 1.0 : (rates[to]   ?? 1.0);
+
+  return amount * (toRate / fromRate);
+}
 
 class TempCategoryBudget {
   final String? id; // Database id, null if new
@@ -53,6 +81,7 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
   bool _copyFromPrevious = false;
   bool _isLoadingData = false;
   bool _isSaving = false;
+  bool _autoCalculateTotal = false;
 
   List<BudgetDto> _originalBudgets = [];
   List<TempCategoryBudget> _categoryBudgetsList = [];
@@ -106,6 +135,13 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
     return sum;
   }
 
+  void _updateOverallBudgetIfAuto() {
+    if (_autoCalculateTotal) {
+      final sum = _getSumOfCategoryBudgets();
+      _overallBudgetController.text = _overallFormatter.formatDouble(sum);
+    }
+  }
+
   Future<void> _loadBudgetsForDate(int month, int year) async {
     setState(() {
       _isLoadingData = true;
@@ -120,11 +156,25 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
       final categories = budgets.where((b) => b.categoryId != null).toList();
       
       _categoryBudgetsList.clear();
+
+      final userCurrency = ref.read(currentUserProvider)?.currency ?? 'VND';
+      final ratesData = ref.read(exchangeRatesProvider).value;
       
       setState(() {
         _originalBudgets = budgets;
+        double sumOfCats = 0;
+        for (var b in categories) {
+          sumOfCats += b.limitAmount;
+        }
+        if (general != null && sumOfCats > 0 && general.limitAmount == sumOfCats) {
+          _autoCalculateTotal = true;
+        } else {
+          _autoCalculateTotal = false;
+        }
+
         if (general != null) {
-          _overallBudgetController.text = _overallFormatter.formatDouble(general.limitAmount);
+          final displayAmount = _convertToDisplayCurrency(general.limitAmount, 'VND', userCurrency, ratesData);
+          _overallBudgetController.text = _overallFormatter.formatDouble(displayAmount);
         } else {
           _overallBudgetController.text = '';
         }
@@ -135,7 +185,8 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
             decimalDigits: 0,
             symbol: '',
           );
-          final controller = TextEditingController(text: formatter.formatDouble(b.limitAmount));
+          final displayAmount = _convertToDisplayCurrency(b.limitAmount, 'VND', userCurrency, ratesData);
+          final controller = TextEditingController(text: formatter.formatDouble(displayAmount));
           _categoryBudgetsList.add(TempCategoryBudget(
             id: b.id,
             categoryId: b.categoryId!,
@@ -203,9 +254,23 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
 
       _categoryBudgetsList.clear();
 
+      final userCurrency = ref.read(currentUserProvider)?.currency ?? 'VND';
+      final ratesData = ref.read(exchangeRatesProvider).value;
+
       setState(() {
+        double sumOfCats = 0;
+        for (var b in categories) {
+          sumOfCats += b.limitAmount;
+        }
+        if (general != null && sumOfCats > 0 && general.limitAmount == sumOfCats) {
+          _autoCalculateTotal = true;
+        } else {
+          _autoCalculateTotal = false;
+        }
+
         if (general != null) {
-          _overallBudgetController.text = _overallFormatter.formatDouble(general.limitAmount);
+          final displayAmount = _convertToDisplayCurrency(general.limitAmount, 'VND', userCurrency, ratesData);
+          _overallBudgetController.text = _overallFormatter.formatDouble(displayAmount);
         } else {
           _overallBudgetController.text = '';
         }
@@ -216,7 +281,8 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
             decimalDigits: 0,
             symbol: '',
           );
-          final controller = TextEditingController(text: formatter.formatDouble(b.limitAmount));
+          final displayAmount = _convertToDisplayCurrency(b.limitAmount, 'VND', userCurrency, ratesData);
+          final controller = TextEditingController(text: formatter.formatDouble(displayAmount));
           _categoryBudgetsList.add(TempCategoryBudget(
             id: null, // This is a new budget copy, id is null
             categoryId: b.categoryId!,
@@ -302,6 +368,7 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
           controller: controller,
           formatter: formatter,
         ));
+        _updateOverallBudgetIfAuto();
       });
     }
   }
@@ -309,8 +376,17 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
   Future<void> _saveAllBudgets() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final overallAmount = _getOverallAmount();
-    final sumOfCategories = _getSumOfCategoryBudgets();
+    final userCurrency = ref.read(currentUserProvider)?.currency ?? 'VND';
+    final ratesData = ref.read(exchangeRatesProvider).value;
+
+    // Convert display amounts back to VND (server currency) before saving
+    double _toVnd(double displayAmount) =>
+        _convertToDisplayCurrency(displayAmount, userCurrency, 'VND', ratesData);
+
+    final overallDisplayAmount = _autoCalculateTotal ? _getSumOfCategoryBudgets() : _getOverallAmount();
+    final overallAmount = _toVnd(overallDisplayAmount);
+    final sumOfCategoriesDisplay = _getSumOfCategoryBudgets();
+    final sumOfCategories = _toVnd(sumOfCategoriesDisplay);
 
     if (overallAmount <= 0 && _categoryBudgetsList.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -347,7 +423,8 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
 
       // 2. Save detailed category budgets
       for (var item in _categoryBudgetsList) {
-        final amount = item.formatter.getDouble();
+        final displayAmount = item.formatter.getDouble();
+        final amount = _toVnd(displayAmount);
         if (amount > 0) {
           await repository.createOrUpdateBudget(
             categoryId: item.categoryId,
@@ -403,6 +480,8 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final userCurrency = ref.watch(currentUserProvider)?.currency ?? 'VND';
+    final currencySymbol = AppConstant.getCurrencySymbol(userCurrency);
     
     final overallAmount = _getOverallAmount();
     final sumOfCategories = _getSumOfCategoryBudgets();
@@ -467,7 +546,7 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
         ],
       ),
       body: _isLoadingData
-          ? Center(child: CircularProgressIndicator(color: colors.primary))
+          ? const _BudgetCreateShimmer()
           : Form(
               key: _formKey,
               child: SingleChildScrollView(
@@ -575,13 +654,48 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'expected_overall_budget'.tr(ref),
-                            style: TextStyle(
-                              color: colors.textSecondary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'expected_overall_budget'.tr(ref),
+                                style: TextStyle(
+                                  color: colors.textSecondary,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  Text(
+                                    'budget_mode_sum_categories'.tr(ref),
+                                    style: TextStyle(
+                                      color: colors.textSecondary,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  SizedBox(
+                                    height: 28,
+                                    width: 44,
+                                    child: FittedBox(
+                                      fit: BoxFit.fill,
+                                      child: Switch(
+                                        value: _autoCalculateTotal,
+                                        activeColor: colors.primary,
+                                        onChanged: (val) {
+                                          setState(() {
+                                            _autoCalculateTotal = val;
+                                            _updateOverallBudgetIfAuto();
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 12),
                           Row(
@@ -592,8 +706,9 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
                                 child: TextFormField(
                                   controller: _overallBudgetController,
                                   keyboardType: TextInputType.number,
+                                  readOnly: _autoCalculateTotal,
                                   style: TextStyle(
-                                    color: colors.textPrimary,
+                                    color: _autoCalculateTotal ? colors.textSecondary : colors.textPrimary,
                                     fontSize: 32,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -610,7 +725,7 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
                                 ),
                               ),
                               Text(
-                                ref.watch(currentUserProvider)?.currency ?? 'VND',
+                                currencySymbol,
                                 style: TextStyle(
                                   color: colors.textSecondary,
                                   fontSize: 14,
@@ -620,37 +735,48 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                remainingAmount >= 0 ? 'remaining_limit'.tr(ref) : 'exceeded_limit'.tr(ref),
-                                style: TextStyle(
-                                  color: colors.textSecondary,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                          if (_autoCalculateTotal) ...[
+                            Text(
+                              'budget_mode_sum_desc'.tr(ref),
+                              style: TextStyle(
+                                  color: colors.textSecondary.withOpacity(0.7),
+                                  fontSize: 12,
+                                  fontStyle: FontStyle.italic,
                               ),
-                              Text(
-                                '${NumberFormat('#,###').format(remainingAmount.abs())} ${ref.watch(currentUserProvider)?.currency ?? 'VND'}',
-                                style: TextStyle(
-                                  color: remainingAmount >= 0 ? colors.incomeGreen : colors.expenseRed,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: LinearProgressIndicator(
-                              value: progressRatio.clamp(0.0, 1.0),
-                              minHeight: 6,
-                              backgroundColor: colors.textSecondary.withOpacity(0.06),
-                              valueColor: AlwaysStoppedAnimation<Color>(progressColor),
                             ),
-                          ),
+                          ] else ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  remainingAmount >= 0 ? 'remaining_limit'.tr(ref) : 'exceeded_limit'.tr(ref),
+                                  style: TextStyle(
+                                    color: colors.textSecondary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Text(
+                                  '${AppConstant.formatMoney(remainingAmount.abs(), userCurrency)} $currencySymbol',
+                                  style: TextStyle(
+                                    color: remainingAmount >= 0 ? colors.incomeGreen : colors.expenseRed,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: progressRatio.clamp(0.0, 1.0),
+                                minHeight: 6,
+                                backgroundColor: colors.textSecondary.withOpacity(0.06),
+                                valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -756,6 +882,12 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
                                             fontSize: 13,
                                             fontWeight: FontWeight.normal,
                                           ),
+                                          suffixText: currencySymbol,
+                                          suffixStyle: TextStyle(
+                                            color: colors.textSecondary,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                           isDense: true,
                                           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                           border: OutlineInputBorder(
@@ -773,7 +905,9 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
                                         ),
                                         inputFormatters: [item.formatter],
                                         onChanged: (val) {
-                                          setState(() {});
+                                          setState(() {
+                                            _updateOverallBudgetIfAuto();
+                                          });
                                         },
                                         validator: (val) {
                                           if (val == null || val.trim().isEmpty) {
@@ -786,13 +920,14 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 10),
-
+ 
                                 // Delete Button
                                 IconButton(
                                   icon: Icon(Icons.delete_outline_rounded, color: colors.expenseRed.withOpacity(0.7)),
                                   onPressed: () {
                                     setState(() {
                                       _categoryBudgetsList.removeAt(index);
+                                      _updateOverallBudgetIfAuto();
                                     });
                                   },
                                 ),
@@ -862,6 +997,79 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
                 ),
               ),
             ),
+    );
+  }
+}
+
+class _BudgetCreateShimmer extends StatelessWidget {
+  const _BudgetCreateShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Shimmer.fromColors(
+      baseColor: isDark ? Colors.grey[900]! : Colors.grey[300]!,
+      highlightColor: isDark ? Colors.grey[800]! : Colors.grey[100]!,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Card 1: Apply time
+            Container(
+              width: double.infinity,
+              height: 70,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Card 2: Expected overall budget
+            Container(
+              width: double.infinity,
+              height: 160,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+              ),
+            ),
+            const SizedBox(height: 24),
+            // Section Title
+            Container(
+              width: 140,
+              height: 20,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Category budgets list
+            for (int i = 0; i < 2; i++) ...[
+              Container(
+                width: double.infinity,
+                height: 80,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+            ],
+            const SizedBox(height: 14),
+            // Add Category Button
+            Container(
+              width: double.infinity,
+              height: 52,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

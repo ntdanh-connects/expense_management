@@ -35,6 +35,32 @@ class BudgetDto {
     this.category,
   });
 
+  BudgetDto copyWith({
+    String? id,
+    String? userId,
+    String? categoryId,
+    double? limitAmount,
+    int? month,
+    int? year,
+    String? createdAt,
+    String? updatedAt,
+    double? usedAmount,
+    CategoryDto? category,
+  }) {
+    return BudgetDto(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      categoryId: categoryId ?? this.categoryId,
+      limitAmount: limitAmount ?? this.limitAmount,
+      month: month ?? this.month,
+      year: year ?? this.year,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      usedAmount: usedAmount ?? this.usedAmount,
+      category: category ?? this.category,
+    );
+  }
+
   static double _doubleFromJson(dynamic val) {
     if (val == null) return 0.0;
     return double.tryParse(val.toString()) ?? 0.0;

@@ -11,6 +11,34 @@ import 'package:intl/intl.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
 import 'package:expense_management/features/budget/data/models/budget_dto.dart';
 import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
+import 'package:shimmer/shimmer.dart';
+
+// Currency conversion helper (same as transaction_history_screen)
+double _convertToUserCurrency(
+  double amount,
+  String fromCurrency,
+  String userCurrency,
+  dynamic ratesData,
+) {
+  final from = fromCurrency.toUpperCase();
+  final to = userCurrency.toUpperCase();
+  if (from == to) return amount;
+
+  const fallbackRates = {
+    'USD': 1.0, 'VND': 25400.0, 'EUR': 0.92,
+    'GBP': 0.78, 'JPY': 156.0,
+  };
+
+  final base = (ratesData?.base ?? 'USD').toUpperCase();
+  final rates = ratesData?.rates.map(
+    (k, v) => MapEntry(k.toUpperCase(), v.toDouble()),
+  ) ?? fallbackRates;
+
+  final fromRate = from == base ? 1.0 : (rates[from] ?? 1.0);
+  final toRate   = to == base   ? 1.0 : (rates[to]   ?? 1.0);
+
+  return amount * (toRate / fromRate);
+}
 
 class BudgetScreen extends ConsumerStatefulWidget {
   const BudgetScreen({super.key});
@@ -41,13 +69,6 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
     }
   }
 
-  String formatBudgetAmount(double val, String currency) {
-    if (currency.toUpperCase() == 'VND' && val >= 1000) {
-      final double kVal = val / 1000;
-      return '${AppConstant.formatMoney(kVal, currency)}k';
-    }
-    return '${AppConstant.formatMoney(val, currency)} ${AppConstant.getCurrencySymbol(currency)}';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,6 +76,8 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
     final month = ref.watch(selectedBudgetMonthProvider);
     final year = ref.watch(selectedBudgetYearProvider);
     final userCurrency = ref.watch(currentUserProvider)?.currency ?? 'VND';
+    final currencySymbol = AppConstant.getCurrencySymbol(userCurrency);
+    final ratesData = ref.watch(exchangeRatesProvider).value;
     final now = DateTime.now();
     final isPastMonth = year < now.year || (year == now.year && month < now.month);
 
@@ -149,7 +172,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
               children: [
                 // 💳 2. NGÂN SÁCH TỔNG CARD
                 if (generalBudget != null) ...[
-                  _buildGeneralBudgetCard(generalBudget, month, year, userCurrency, colors)
+                  _buildGeneralBudgetCard(generalBudget, month, year, userCurrency, currencySymbol, ratesData, colors)
                 ] else ...[
                   _buildEmptyGeneralBudgetCard(colors, isPastMonth)
                 ],
@@ -291,8 +314,9 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                       final categoryIcon = CategoryUIConstants.getIconData(categoryIconStr, categoryName: categoryName);
                       final categoryColor = CategoryUIConstants.getColorFromHex(categoryColorStr, categoryName: categoryName);
 
-                      final limit = item.limitAmount;
-                      final used = item.usedAmount;
+                      // Convert from server currency (VND) to user's display currency
+                      final limit = _convertToUserCurrency(item.limitAmount, 'VND', userCurrency, ratesData);
+                      final used = _convertToUserCurrency(item.usedAmount, 'VND', userCurrency, ratesData);
                       final percent = limit > 0 ? (used / limit) : 0.0;
 
                       // Determine bar color and warning status
@@ -390,7 +414,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          '${'spent'.tr(ref)} ${formatBudgetAmount(used, userCurrency)} / ${formatBudgetAmount(limit, userCurrency)}',
+                                          '${'spent'.tr(ref)} ${AppConstant.formatMoney(used, userCurrency)} $currencySymbol / ${AppConstant.formatMoney(limit, userCurrency)} $currencySymbol',
                                           style: TextStyle(
                                             color: isOverLimit ? colors.expenseRed : colors.textSecondary,
                                             fontSize: 12,
@@ -441,11 +465,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
               ],
             );
           },
-          loading: () => Container(
-            height: 200,
-            alignment: Alignment.center,
-            child: CircularProgressIndicator(color: colors.primary),
-          ),
+          loading: () => const _BudgetShimmer(),
           error: (error, _) => Container(
             height: 100,
             alignment: Alignment.center,
@@ -461,9 +481,10 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
 
   // WIDGET VẼ CARD NGÂN SÁCH TỔNG
   Widget _buildGeneralBudgetCard(
-      BudgetDto generalBudget, int month, int year, String currency, AppColorsExtension colors) {
-    final limit = generalBudget.limitAmount;
-    final used = generalBudget.usedAmount;
+      BudgetDto generalBudget, int month, int year, String currency, String currencySymbol, dynamic ratesData, AppColorsExtension colors) {
+    // Convert from server currency (VND) to user's display currency
+    final limit = _convertToUserCurrency(generalBudget.limitAmount, 'VND', currency, ratesData);
+    final used = _convertToUserCurrency(generalBudget.usedAmount, 'VND', currency, ratesData);
     final remaining = limit - used;
     final pct = limit > 0 ? (used / limit) : 0.0;
     final days = remainingDays(month, year);
@@ -523,7 +544,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              '${AppConstant.formatMoney(limit, currency)} ${AppConstant.getCurrencySymbol(currency)}',
+              '${AppConstant.formatMoney(limit, currency)} $currencySymbol',
               style: TextStyle(
                 color: colors.textPrimary,
                 fontSize: 26,
@@ -574,7 +595,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                             style: TextStyle(color: colors.textSecondary, fontSize: 13),
                           ),
                           Text(
-                            '${AppConstant.formatMoney(used, currency)} ${AppConstant.getCurrencySymbol(currency)}',
+                            '${AppConstant.formatMoney(used, currency)} $currencySymbol',
                             style: TextStyle(
                               color: colors.textPrimary,
                               fontSize: 13,
@@ -592,7 +613,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                             style: TextStyle(color: colors.textSecondary, fontSize: 13),
                           ),
                           Text(
-                            '${AppConstant.formatMoney(remaining.abs(), currency)} ${AppConstant.getCurrencySymbol(currency)}',
+                            '${AppConstant.formatMoney(remaining.abs(), currency)} $currencySymbol',
                             style: TextStyle(
                               color: remaining >= 0 ? colors.incomeGreen : colors.expenseRed,
                               fontSize: 13,
@@ -658,6 +679,66 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                   'setup_overall_budget_now'.tr(ref),
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetShimmer extends StatelessWidget {
+  const _BudgetShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Shimmer.fromColors(
+      baseColor: isDark ? Colors.grey[900]! : Colors.grey[300]!,
+      highlightColor: isDark ? Colors.grey[800]! : Colors.grey[100]!,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Budget overall card
+          Container(
+            width: double.infinity,
+            height: 180,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Copy from previous month button
+          Container(
+            width: double.infinity,
+            height: 54,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Section Title
+          Container(
+            width: 150,
+            height: 22,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Category budgets list
+          for (int i = 0; i < 3; i++) ...[
+            Container(
+              width: double.infinity,
+              height: 96,
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
               ),
             ),
           ],

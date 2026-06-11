@@ -484,5 +484,9 @@
   "year": "Year",
   "month": "Month",
   "no_parent_category_found": "No parent categories found.",
-  "all_subcategories_have_budget": "All subcategories already have a budget set!"
+  "all_subcategories_have_budget": "All subcategories already have a budget set!",
+  "budget_mode_title": "Budgeting Method",
+  "budget_mode_total_first": "Enter Total First",
+  "budget_mode_sum_categories": "Sum from Categories",
+  "budget_mode_sum_desc": "Overall budget is automatically calculated from the sum of the category budgets below."
 }
