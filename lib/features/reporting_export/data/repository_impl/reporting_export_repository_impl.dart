@@ -50,6 +50,9 @@ class ReportingExportRepositoryImpl implements ReportingExportRepository {
     String? walletId,
     String? categoryId,
     String? transactionType,
+    required String userCurrency,
+    required dynamic ratesData,
+    Map<String, String>? translations,
   }) async {
     // 1. Fetch Statistics Summary
     final summary = await reportRepository.getSummary(
@@ -83,6 +86,9 @@ class ReportingExportRepositoryImpl implements ReportingExportRepository {
       summary: summary,
       expenseCategories: expenseCategories,
       transactions: transactionsResult.items,
+      userCurrency: userCurrency,
+      ratesData: ratesData,
+      translations: translations,
     );
 
     return file;
