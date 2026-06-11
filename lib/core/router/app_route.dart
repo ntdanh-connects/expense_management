@@ -28,6 +28,8 @@ import 'package:expense_management/features/wallet/presentation/screens/add_wall
 import 'package:expense_management/features/budget/data/models/budget_dto.dart';
 import 'package:expense_management/features/budget/presentation/screens/budget_create_screen.dart';
 import 'package:expense_management/features/budget/presentation/screens/budget_edit_screen.dart';
+import 'package:expense_management/features/reporting_export/presentation/screens/export_screen.dart';
+import 'package:expense_management/features/reporting_export/presentation/screens/export_history_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -56,6 +58,8 @@ class RoutePaths {
   static const recurringList = '/dashboard/recurring';
   static const budgetCreate = '/analytics/budget/create';
   static const budgetEdit = '/analytics/budget/edit';
+  static const export = '/profile/export';
+  static const exportHistory = '/profile/export-history';
 }
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -251,6 +255,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: 'categories',
                 parentNavigatorKey: rootNavigatorKey,
                 builder: (context, state) => const CategoryManagementScreen(),
+              ),
+              GoRoute(
+                path: 'export',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) => const ExportScreen(),
+              ),
+              GoRoute(
+                path: 'export-history',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) => const ExportHistoryScreen(),
               ),
             ],
           ),

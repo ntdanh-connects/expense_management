@@ -37,4 +37,8 @@ class ApiEndpoints {
   static const String reportsSummary = 'api/reports/summary';
   static const String reportsCategories = 'api/reports/categories';
   static const String reportsTrends = 'api/reports/trends';
+
+  // Module 7: Exports
+  static const String exportTransactions = 'api/transactions/export';
+  static const String listExports = 'api/transactions/exports';
 }

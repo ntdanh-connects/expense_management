@@ -67,6 +67,13 @@ class FinancialSettingsSection extends ConsumerWidget {
                   context.go('${RoutePaths.analytics}?tab=budget');
                 },
               ),
+              Divider(color: colors.textSecondary.withOpacity(0.08), height: 1, indent: 50),
+              ProfileMenuItem(
+                icon: Icons.file_upload_outlined,
+                iconColor: colors.profileInfo,
+                title: 'export_report'.tr(ref),
+                onTap: () => context.push(RoutePaths.export),
+              ),
             ],
           ),
         ),
