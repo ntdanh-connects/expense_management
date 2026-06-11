@@ -26,6 +26,7 @@ import 'package:elegant_notification/elegant_notification.dart';
 import 'package:elegant_notification/resources/arrays.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
 
 final transactionApiServiceProvider = Provider<TransactionApiService>((ref) {
   final dio = ref.watch(dioClientProvider);
@@ -57,6 +58,11 @@ final getTransactionsUseCaseProvider = Provider<GetTransactionsUseCase>((ref) {
 class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
   Timer? _syncTimer;
   bool _isSyncing = false;
+
+  void _invalidateBudgets() {
+    ref.invalidate(budgetListProvider);
+    ref.invalidate(currentMonthBudgetsProvider);
+  }
 
   @override
   FutureOr<List<TransactionEntity>> build() async {
@@ -263,6 +269,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
       if (anySuccess) {
         await ref.read(walletNotifierProvider.notifier).refreshWallets();
         await refreshTransactions();
+        _invalidateBudgets();
       }
     } finally {
       _isSyncing = false;
@@ -394,6 +401,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
       final newList = [transaction, ...currentList];
       return newList;
     });
+    _invalidateBudgets();
   }
 
   Future<void> addPendingTransaction(TransactionParams params) async {
@@ -429,6 +437,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
       return [tempTx, ...currentList];
     });
 
+    _invalidateBudgets();
     _syncPendingTransactions();
   }
 
@@ -472,6 +481,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     });
 
     await ref.read(walletNotifierProvider.notifier).refreshWallets();
+    _invalidateBudgets();
   }
 
   Future<void> updateTransaction({
@@ -501,6 +511,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
 
     ref.invalidate(transactionListProvider);
     await ref.read(walletNotifierProvider.notifier).refreshWallets();
+    _invalidateBudgets();
   }
 }
 

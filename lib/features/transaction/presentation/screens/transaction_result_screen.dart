@@ -11,7 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:timezone/timezone.dart' as tz;
-import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
 
 enum TransactionStatus { processing, success, failure, offlineSuccess }
 
@@ -78,6 +78,10 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
       // Làm mới dữ liệu các ví và danh sách giao dịch
       await ref.read(walletNotifierProvider.notifier).refreshWallets();
       await ref.read(transactionListProvider.notifier).refreshTransactions();
+      
+      // Invalidate budget providers to refresh budget lists and totals immediately
+      ref.invalidate(budgetListProvider);
+      ref.invalidate(currentMonthBudgetsProvider);
 
       if (mounted) {
         setState(() {

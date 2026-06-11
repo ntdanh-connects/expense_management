@@ -6,9 +6,38 @@ import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
 import 'package:expense_management/features/budget/data/models/budget_dto.dart';
 import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:intl/intl.dart';
 import 'package:currency_text_input_formatter/currency_text_input_formatter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+// Currency conversion helper
+double _convertBudgetAmount(
+  double amount,
+  String fromCurrency,
+  String userCurrency,
+  dynamic ratesData,
+) {
+  final from = fromCurrency.toUpperCase();
+  final to = userCurrency.toUpperCase();
+  if (from == to) return amount;
+
+  const fallbackRates = {
+    'USD': 1.0, 'VND': 25400.0, 'EUR': 0.92,
+    'GBP': 0.78, 'JPY': 156.0,
+  };
+
+  final base = (ratesData?.base ?? 'USD').toUpperCase();
+  final rates = ratesData?.rates.map(
+    (k, v) => MapEntry(k.toUpperCase(), v.toDouble()),
+  ) ?? fallbackRates;
+
+  final fromRate = from == base ? 1.0 : (rates[from] ?? 1.0);
+  final toRate   = to == base   ? 1.0 : (rates[to]   ?? 1.0);
+
+  return amount * (toRate / fromRate);
+}
 
 class BudgetEditScreen extends ConsumerStatefulWidget {
   final BudgetDto budget;
@@ -43,7 +72,11 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
       decimalDigits: 0,
       symbol: '',
     );
-    _amountController.text = _formatter.formatDouble(widget.budget.limitAmount);
+    // Convert from server currency (VND) to user's display currency before showing
+    final userCurrency = ref.read(currentUserProvider)?.currency ?? 'VND';
+    final ratesData = ref.read(exchangeRatesProvider).value;
+    final displayAmount = _convertBudgetAmount(widget.budget.limitAmount, 'VND', userCurrency, ratesData);
+    _amountController.text = _formatter.formatDouble(displayAmount);
     _loadAlertPreferences();
     _loadHistoryData();
   }
@@ -126,7 +159,11 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
   Future<void> _saveBudget() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final limitAmount = _formatter.getDouble();
+    final userCurrency = ref.read(currentUserProvider)?.currency ?? 'VND';
+    final ratesData = ref.read(exchangeRatesProvider).value;
+    final displayAmount = _formatter.getDouble();
+    // Convert from user's display currency back to VND (server currency)
+    final limitAmount = _convertBudgetAmount(displayAmount, userCurrency, 'VND', ratesData);
     if (limitAmount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -258,14 +295,22 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final isReadOnly = _isPastMonth(widget.budget.month, widget.budget.year);
+    final userCurrency = ref.watch(currentUserProvider)?.currency ?? 'VND';
+    final currencySymbol = AppConstant.getCurrencySymbol(userCurrency);
+    final ratesData = ref.watch(exchangeRatesProvider).value;
 
-    final limitAmount = _formatter.getDouble();
-    final usedAmount = widget.budget.usedAmount;
+    final displayAmountInput = _formatter.getDouble();
+    final limitAmountVnd = _convertBudgetAmount(displayAmountInput, userCurrency, 'VND', ratesData);
+    final usedAmountVnd = widget.budget.usedAmount;
+
+    // Convert for display
+    final limitAmount = _convertBudgetAmount(limitAmountVnd, 'VND', userCurrency, ratesData);
+    final usedAmount = _convertBudgetAmount(usedAmountVnd, 'VND', userCurrency, ratesData);
     final remainingAmount = limitAmount - usedAmount;
     
     double progressRatio = 0.0;
-    if (limitAmount > 0) {
-      progressRatio = usedAmount / limitAmount;
+    if (limitAmountVnd > 0) {
+      progressRatio = usedAmountVnd / limitAmountVnd;
     }
 
     Color progressColor = colors.incomeGreen;
@@ -373,7 +418,7 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '${NumberFormat('#,###').format(usedAmount)}đ',
+                                      '${AppConstant.formatMoney(usedAmount, userCurrency)} $currencySymbol',
                                       style: TextStyle(
                                         color: colors.textPrimary,
                                         fontSize: 22,
@@ -396,7 +441,7 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '${NumberFormat('#,###').format(remainingAmount.abs())}đ',
+                                    '${AppConstant.formatMoney(remainingAmount.abs(), userCurrency)} $currencySymbol',
                                     style: TextStyle(
                                       color: remainingAmount >= 0 ? colors.incomeGreen : colors.expenseRed,
                                       fontSize: 15,
@@ -474,7 +519,7 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
                             decoration: InputDecoration(
                               hintText: '0',
                               hintStyle: TextStyle(color: colors.textSecondary.withOpacity(0.3)),
-                              suffixText: 'đ',
+                              suffixText: currencySymbol,
                               suffixStyle: TextStyle(
                                 color: colors.textSecondary,
                                 fontSize: 16,
@@ -526,7 +571,7 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      'alert_80_desc_format'.tr(ref).replaceAll('{amount}', NumberFormat('#,###').format(threshold80Amount)),
+                                      'alert_80_desc_format'.tr(ref).replaceAll('{amount}', AppConstant.formatMoney(threshold80Amount, userCurrency) + ' ' + currencySymbol),
                                       style: TextStyle(
                                         color: colors.textSecondary,
                                         fontSize: 11.5,
@@ -626,10 +671,6 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
                                       histBarColor = Colors.orange;
                                     }
 
-                                    final limitStr = histLimit >= 1000000 
-                                        ? '${(histLimit / 1000000).toStringAsFixed(0)}M' 
-                                        : NumberFormat('#,###').format(histLimit);
-
                                     return Padding(
                                       padding: const EdgeInsets.only(bottom: 16.0),
                                       child: Column(
@@ -646,7 +687,7 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
                                                 ),
                                               ),
                                               Text(
-                                                '${NumberFormat('#,###').format(histUsed)}đ / $limitStr',
+                                                '${AppConstant.formatMoney(_convertBudgetAmount(histUsed, 'VND', userCurrency, ratesData), userCurrency)} $currencySymbol / ${AppConstant.formatMoney(_convertBudgetAmount(histLimit, 'VND', userCurrency, ratesData), userCurrency)} $currencySymbol',
                                                 style: TextStyle(
                                                   color: colors.textSecondary,
                                                   fontSize: 12.5,

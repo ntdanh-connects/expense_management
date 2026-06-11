@@ -480,7 +480,7 @@
   "delete_budget_success": "Đã xóa ngân sách thành công!",
   "budget_usage_percent": "Bạn đã sử dụng {percent}% ngân sách tháng này",
   "please_enter_limit": "Vui lòng nhập hạn mức!",
-  "alert_80_desc_format": "Nhận thông báo khi chạm {amount}đ",
+  "alert_80_desc_format": "Nhận thông báo khi chạm {amount}",
   "no_budget_history": "Chưa có lịch sử ngân sách.",
   "no_prev_budget_to_copy": "Không có dữ liệu ngân sách tháng trước để sao chép!",
   "copied_prev_budget_success": "Đã sao chép ngân sách của tháng trước!",
@@ -490,5 +490,9 @@
   "year": "Năm",
   "month": "Tháng",
   "no_parent_category_found": "Không tìm thấy nhóm danh mục nào.",
-  "all_subcategories_have_budget": "Tất cả danh mục con đã có ngân sách!"
+  "all_subcategories_have_budget": "Tất cả danh mục con đã có ngân sách!",
+  "budget_mode_title": "Phương thức lập ngân sách",
+  "budget_mode_total_first": "Nhập tổng ngân sách trước",
+  "budget_mode_sum_categories": "Tính tổng từ danh mục",
+  "budget_mode_sum_desc": "Tổng ngân sách được tính tự động từ tổng hạn mức của các danh mục bên dưới."
 }

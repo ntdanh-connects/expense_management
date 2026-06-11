@@ -6,6 +6,7 @@ import 'package:expense_management/features/budget/data/data_source/remote/budge
 import 'package:expense_management/core/network/dio_client.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
 
 final budgetApiServiceProvider = Provider<BudgetApiService>((ref) {
   final dio = ref.watch(dioClientProvider);
@@ -30,7 +31,8 @@ class BudgetListNotifier extends AsyncNotifier<List<BudgetDto>> {
 
   Future<List<BudgetDto>> _fetchBudgets(int month, int year) async {
     final repository = ref.read(budgetRepositoryProvider);
-    return repository.getBudgets(month, year);
+    final budgets = await repository.getBudgets(month, year);
+    return _overrideBudgetUsages(ref, budgets, month, year);
   }
 
   Future<void> refreshBudgets() async {
@@ -95,5 +97,51 @@ final budgetListProvider = AsyncNotifierProvider<BudgetListNotifier, List<Budget
 final currentMonthBudgetsProvider = FutureProvider<List<BudgetDto>>((ref) async {
   final now = DateTime.now();
   final repository = ref.read(budgetRepositoryProvider);
-  return repository.getBudgets(now.month, now.year);
+  final budgets = await repository.getBudgets(now.month, now.year);
+  return _overrideBudgetUsages(ref, budgets, now.month, now.year);
 });
+
+Future<List<BudgetDto>> _overrideBudgetUsages(Ref ref, List<BudgetDto> budgets, int month, int year) async {
+  try {
+    final reportRepo = ref.read(reportRepositoryProvider);
+    final report = await reportRepo.getCategories(
+      month: month,
+      year: year,
+      type: 'expense',
+    );
+
+    final updatedBudgets = budgets.map((b) {
+      if (b.categoryId == null) {
+        return b;
+      } else {
+        // Sum category and subcategory spending amounts from the report
+        final matchingEntries = report.categories.where((e) =>
+            e.categoryId == b.categoryId || e.parentId == b.categoryId);
+        final used = matchingEntries.fold<double>(0.0, (sum, e) => sum + e.amount);
+        return b.copyWith(usedAmount: used);
+      }
+    }).toList();
+
+    return _recalculateOverallBudgetUsage(updatedBudgets, report.totalAmount);
+  } catch (e) {
+    return _recalculateOverallBudgetUsage(budgets, 0.0);
+  }
+}
+
+List<BudgetDto> _recalculateOverallBudgetUsage(List<BudgetDto> budgets, double fallbackTotal) {
+  final generalIndex = budgets.indexWhere((b) => b.categoryId == null);
+  final categories = budgets.where((b) => b.categoryId != null).toList();
+  if (generalIndex != -1) {
+    final general = budgets[generalIndex];
+    double sumUsed = 0.0;
+    if (categories.isNotEmpty) {
+      sumUsed = categories.fold<double>(0.0, (sum, b) => sum + b.usedAmount);
+    } else {
+      sumUsed = fallbackTotal > 0.0 ? fallbackTotal : general.usedAmount;
+    }
+    final mutableBudgets = List<BudgetDto>.from(budgets);
+    mutableBudgets[generalIndex] = general.copyWith(usedAmount: sumUsed);
+    return mutableBudgets;
+  }
+  return budgets;
+}
