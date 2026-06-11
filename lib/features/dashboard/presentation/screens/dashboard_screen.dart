@@ -457,24 +457,24 @@ class DashboardScreen extends ConsumerWidget {
                             onTap: () => context.push(RoutePaths.export),
                           ),
                         ),
-                        // Expanded(
-                        //   child: _buildQuickActionItem(
-                        //     context: context,
-                        //     icon: Icons.bar_chart_rounded,
-                        //     label: 'statistics'.tr(ref),
-                        //     iconColor: const Color(0xFF8B5CF6),
-                        //     onTap: () => context.go(RoutePaths.analytics),
-                        //   ),
-                        // ),
-                        // Expanded(
-                        //   child: _buildQuickActionItem(
-                        //     context: context,
-                        //     icon: Icons.history_rounded,
-                        //     label: 'history'.tr(ref),
-                        //     iconColor: const Color(0xFF6366F1),
-                        //     onTap: () => context.go(RoutePaths.history),
-                        //   ),
-                        // ),
+                        Expanded(
+                          child: _buildQuickActionItem(
+                            context: context,
+                            icon: Icons.bar_chart_rounded,
+                            label: 'statistics'.tr(ref),
+                            iconColor: const Color(0xFF8B5CF6),
+                            onTap: () => context.go(RoutePaths.analytics),
+                          ),
+                        ),
+                        Expanded(
+                          child: _buildQuickActionItem(
+                            context: context,
+                            icon: Icons.history_rounded,
+                            label: 'history'.tr(ref),
+                            iconColor: const Color(0xFF6366F1),
+                            onTap: () => context.go(RoutePaths.history),
+                          ),
+                        ),
                       ],
                     ),
                   ],

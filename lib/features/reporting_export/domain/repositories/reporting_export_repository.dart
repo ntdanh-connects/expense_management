@@ -22,6 +22,9 @@ abstract class ReportingExportRepository {
     String? walletId,
     String? categoryId,
     String? transactionType,
+    required String userCurrency,
+    required dynamic ratesData,
+    Map<String, String>? translations,
   });
 
   /// Reads locally saved PDF reports from device directory.

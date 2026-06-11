@@ -37,8 +37,8 @@ class _ExportHistoryScreenState extends ConsumerState<ExportHistoryScreen> {
       try {
         if (mounted) {
           ElegantNotification.info(
-            title: const Text('Đang tải xuống tệp', style: TextStyle(fontWeight: FontWeight.bold)),
-            description: const Text('Tệp CSV đang được tải xuống từ máy chủ...'),
+            title: Text('downloading_file'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
+            description: Text('downloading_csv_desc'.tr(ref)),
             toastDuration: const Duration(seconds: 2),
           ).show(context);
         }
@@ -54,8 +54,8 @@ class _ExportHistoryScreenState extends ConsumerState<ExportHistoryScreen> {
       } catch (e) {
         if (mounted) {
           ElegantNotification.error(
-            title: const Text('Lỗi tải xuống', style: TextStyle(fontWeight: FontWeight.bold)),
-            description: Text('Không thể tải xuống tệp CSV: $e'),
+            title: Text('download_error'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
+            description: Text('${'download_csv_error'.tr(ref)}$e'),
           ).show(context);
         }
       }
@@ -82,7 +82,7 @@ class _ExportHistoryScreenState extends ConsumerState<ExportHistoryScreen> {
                 style: TextStyle(color: colors.textPrimary),
                 autofocus: true,
                 decoration: InputDecoration(
-                  hintText: 'Tìm kiếm báo cáo...',
+                  hintText: 'search_report_hint'.tr(ref),
                   hintStyle: TextStyle(color: colors.textSecondary.withOpacity(0.6)),
                   border: InputBorder.none,
                 ),
@@ -143,7 +143,7 @@ class _ExportHistoryScreenState extends ConsumerState<ExportHistoryScreen> {
                 padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 16.0),
                 child: Row(
                   children: [
-                    _buildTabChip(0, 'Tất cả ($totalCount)'),
+                    _buildTabChip(0, '${'all'.tr(ref)} ($totalCount)'),
                     const SizedBox(width: 8),
                     _buildTabChip(1, 'PDF ($pdfCount)'),
                     const SizedBox(width: 8),
@@ -157,7 +157,7 @@ class _ExportHistoryScreenState extends ConsumerState<ExportHistoryScreen> {
                 child: filteredList.isEmpty
                     ? Center(
                         child: Text(
-                          'Không tìm thấy báo cáo nào.',
+                          'no_reports_found'.tr(ref),
                           style: TextStyle(color: colors.textSecondary, fontSize: 14),
                         ),
                       )
@@ -179,7 +179,7 @@ class _ExportHistoryScreenState extends ConsumerState<ExportHistoryScreen> {
           child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: Text(
-              'Có lỗi xảy ra khi tải lịch sử: $err',
+              '${'load_history_error'.tr(ref)}$err',
               style: TextStyle(color: colors.expenseRed, fontSize: 14),
               textAlign: TextAlign.center,
             ),
@@ -315,7 +315,7 @@ class _ExportHistoryScreenState extends ConsumerState<ExportHistoryScreen> {
                         size: 16,
                       ),
                       label: Text(
-                        item.isLocal ? 'Mở file' : 'Tải lại',
+                        item.isLocal ? 'open_file'.tr(ref) : 're_download'.tr(ref),
                         style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -376,24 +376,24 @@ class _ExportHistoryScreenState extends ConsumerState<ExportHistoryScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colors.surface,
-        title: Text('Xóa lịch sử báo cáo', style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold)),
+        title: Text('delete_history_title'.tr(ref), style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold)),
         content: Text(
           item.isLocal
-              ? 'Bạn có chắc muốn xóa tệp báo cáo PDF này khỏi bộ nhớ thiết bị?'
-              : 'Xác nhận xóa bản ghi lịch sử xuất này?',
+              ? 'delete_pdf_confirm'.tr(ref)
+              : 'delete_csv_confirm'.tr(ref),
           style: TextStyle(color: colors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Hủy', style: TextStyle(color: colors.textSecondary, fontWeight: FontWeight.bold)),
+            child: Text('cancel'.tr(ref), style: TextStyle(color: colors.textSecondary, fontWeight: FontWeight.bold)),
           ),
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
               await ref.read(exportHistoryListProvider.notifier).deleteItem(item);
             },
-            child: Text('Xóa', style: TextStyle(color: colors.expenseRed, fontWeight: FontWeight.bold)),
+            child: Text('delete'.tr(ref), style: TextStyle(color: colors.expenseRed, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/features/reporting_export/data/datasource/remote/reporting_export_api_service.dart';
 import 'package:expense_management/features/reporting_export/data/models/report_export_dto.dart';
@@ -69,10 +70,18 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
       // Ignore
     }
 
+    // Read client-side deleted remote export IDs
+    final prefs = await SharedPreferences.getInstance();
+    final deletedRemoteIds = prefs.getStringList('deleted_remote_export_ids') ?? [];
+
     final List<ExportHistoryItem> items = [];
 
     // Map remote CSV files
     for (final dto in remoteList) {
+      if (deletedRemoteIds.contains(dto.id)) {
+        continue; // skip deleted remote items
+      }
+
       // Generate readable name based on filters if available
       String dateLabel = 'Giao dịch';
       if (dto.filters != null) {
@@ -124,18 +133,40 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
     if (item.isLocal) {
       await repo.deleteLocalPdf(item.pathOrUrl);
     } else {
-      // The server does not expose a delete export endpoint,
-      // but we can remove it locally or filter it.
+      if (item.remoteId != null) {
+        final prefs = await SharedPreferences.getInstance();
+        final deletedRemoteIds = prefs.getStringList('deleted_remote_export_ids') ?? [];
+        if (!deletedRemoteIds.contains(item.remoteId)) {
+          deletedRemoteIds.add(item.remoteId!);
+          await prefs.setStringList('deleted_remote_export_ids', deletedRemoteIds);
+        }
+      }
     }
     ref.invalidateSelf();
   }
 
   Future<void> clearAllLocalHistory() async {
     final repo = ref.read(reportingExportRepositoryProvider);
+    
+    // Clear local PDFs
     final localFiles = await repo.getLocalPdfHistory();
     for (var f in localFiles) {
       await repo.deleteLocalPdf(f.path);
     }
+
+    // Clear remote items locally by adding them to deletedRemoteIds
+    try {
+      final remoteList = await repo.fetchRemoteExports();
+      final prefs = await SharedPreferences.getInstance();
+      final deletedRemoteIds = prefs.getStringList('deleted_remote_export_ids') ?? [];
+      for (final dto in remoteList) {
+        if (!deletedRemoteIds.contains(dto.id)) {
+          deletedRemoteIds.add(dto.id);
+        }
+      }
+      await prefs.setStringList('deleted_remote_export_ids', deletedRemoteIds);
+    } catch (_) {}
+
     ref.invalidateSelf();
   }
 }

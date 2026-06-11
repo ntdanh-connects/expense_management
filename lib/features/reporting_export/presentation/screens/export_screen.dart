@@ -8,9 +8,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
+import 'package:expense_management/core/language/app_provider.dart';
 import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:expense_management/features/profile/category_provider.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/features/reporting_export/presentation/providers/reporting_export_providers.dart';
 import 'package:elegant_notification/elegant_notification.dart';
 
@@ -71,17 +73,22 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
     });
 
     final repo = ref.read(reportingExportRepositoryProvider);
+    final userCurrency = ref.read(currentUserProvider)?.currency ?? 'VND';
+    final ratesData = ref.read(exchangeRatesProvider).value;
 
     try {
       if (_selectedReportType == 'pdf') {
         // Local PDF report generation
-        final title = 'Báo cáo thu chi';
+        final title = 'pdf_report_title'.tr(ref);
         final file = await repo.generateLocalPdfReport(
           title: title,
           dateRange: _selectedDateRange,
           walletId: _selectedWalletId,
           categoryId: _selectedCategoryId,
           transactionType: _selectedTransactionType,
+          userCurrency: userCurrency,
+          ratesData: ratesData,
+          translations: ref.read(translationsProvider),
         );
 
         if (mounted) {
@@ -112,7 +119,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
         if (mounted) {
           ElegantNotification.success(
             title: Text('success'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
-            description: const Text('Yêu cầu xuất CSV đã được gửi lên hệ thống và đang được xử lý.'),
+            description: Text('csv_request_success'.tr(ref)),
           ).show(context);
           
           ref.invalidate(exportHistoryListProvider);
@@ -140,9 +147,9 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colors.surface,
-        title: Text('Báo cáo & Xuất dữ liệu', style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold)),
+        title: Text('export_info_title'.tr(ref), style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold)),
         content: Text(
-          '• Báo cáo PDF: xuất bảng thu chi kèm biểu đồ phân bổ phần trăm trực quan trên điện thoại.\n• Xuất CSV/Excel: gửi yêu cầu tải dữ liệu dạng bảng về toàn bộ giao dịch tương ứng với bộ lọc của bạn.',
+          'export_info_desc'.tr(ref),
           style: TextStyle(color: colors.textSecondary, height: 1.5),
         ),
         actions: [
@@ -162,8 +169,8 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
       try {
         if (mounted) {
           ElegantNotification.info(
-            title: const Text('Đang tải xuống tệp', style: TextStyle(fontWeight: FontWeight.bold)),
-            description: const Text('Tệp CSV đang được tải xuống từ máy chủ...'),
+            title: Text('downloading_file'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
+            description: Text('downloading_csv_desc'.tr(ref)),
             toastDuration: const Duration(seconds: 2),
           ).show(context);
         }
@@ -179,8 +186,8 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
       } catch (e) {
         if (mounted) {
           ElegantNotification.error(
-            title: const Text('Lỗi tải xuống', style: TextStyle(fontWeight: FontWeight.bold)),
-            description: Text('Không thể tải xuống tệp CSV: $e'),
+            title: Text('download_error'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
+            description: Text('${'download_csv_error'.tr(ref)}$e'),
           ).show(context);
         }
       }
@@ -459,7 +466,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 24.0),
                     child: Center(
-                      child: Text('Chưa xuất file nào gần đây.', style: TextStyle(color: colors.textSecondary, fontSize: 13)),
+                      child: Text('no_recent_exports'.tr(ref), style: TextStyle(color: colors.textSecondary, fontSize: 13)),
                     ),
                   );
                 }
@@ -479,7 +486,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              'Xem toàn bộ lịch sử',
+                              'view_all_history'.tr(ref),
                               style: TextStyle(color: colors.primary, fontSize: 13, fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(width: 4),
@@ -658,7 +665,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                   const SizedBox(height: 4),
                   Text(
                     item.status == 'pending'
-                        ? 'Đang xử lý...'
+                        ? 'processing'.tr(ref)
                         : '${DateFormat('dd/MM/yyyy, HH:mm').format(item.date)} • ${item.sizeInMb.toStringAsFixed(1)} MB',
                     style: TextStyle(color: colors.textSecondary, fontSize: 11),
                   ),
