@@ -451,18 +451,10 @@ class DashboardScreen extends ConsumerWidget {
                         Expanded(
                           child: _buildQuickActionItem(
                             context: context,
-                            icon: Icons.track_changes_rounded,
-                            label: 'Spending'.tr(ref),
+                            icon: Icons.file_upload_outlined,
+                            label: 'export_title'.tr(ref),
                             iconColor: const Color(0xFFEF4444),
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: const Text('Tính năng Hạn mức chi tiêu đang được phát triển UI!'),
-                                  backgroundColor: colors.primary,
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            },
+                            onTap: () => context.push(RoutePaths.export),
                           ),
                         ),
                         // Expanded(
