@@ -51,17 +51,26 @@ final dioClientProvider = Provider<Dio>((ref) {
     allowPostMethod: false,
   );
 
-  // Thêm custom Interceptor để tự động force cache 10 phút cho các API Báo cáo & Danh mục
+  // Thêm custom Interceptor để tự động cấu hình chính sách cache cho các API đặc thù
   dio.interceptors.add(InterceptorsWrapper(
     onRequest: (options, handler) {
-      if (options.method == 'GET' && 
-          (options.path.contains('reports') || options.path.contains('categories'))) {
-        // Ép buộc cache 10 phút (600 giây)
-        final customOptions = cacheOptions.copyWith(
-          policy: CachePolicy.forceCache,
-          maxStale: Nullable(const Duration(minutes: 10)),
-        );
-        options.extra.addAll(customOptions.toExtra());
+      if (options.method == 'GET') {
+        if (options.path.contains('reports') || options.path.contains('categories')) {
+          // Ép buộc cache 10 phút (600 giây) cho báo cáo và danh mục
+          final customOptions = cacheOptions.copyWith(
+            policy: CachePolicy.forceCache,
+            maxStale: Nullable(const Duration(minutes: 10)),
+          );
+          options.extra.addAll(customOptions.toExtra());
+        } else if (options.path.contains('wallets') || 
+                   options.path.contains('transactions') || 
+                   options.path.contains('notifications')) {
+          // Bỏ qua cache hoàn toàn cho ví, giao dịch và thông báo để đảm bảo dữ liệu luôn mới nhất
+          final customOptions = cacheOptions.copyWith(
+            policy: CachePolicy.noCache,
+          );
+          options.extra.addAll(customOptions.toExtra());
+        }
       }
       return handler.next(options);
     },

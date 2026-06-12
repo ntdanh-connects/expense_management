@@ -30,6 +30,9 @@ import 'package:expense_management/features/budget/presentation/screens/budget_c
 import 'package:expense_management/features/budget/presentation/screens/budget_edit_screen.dart';
 import 'package:expense_management/features/reporting_export/presentation/screens/export_screen.dart';
 import 'package:expense_management/features/reporting_export/presentation/screens/export_history_screen.dart';
+import 'package:expense_management/features/notification/presentation/screens/notification_settings_screen.dart';
+import 'package:expense_management/features/notification/presentation/screens/notification_detail_screen.dart';
+import 'package:expense_management/features/notification/data/models/notification_dto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -60,6 +63,8 @@ class RoutePaths {
   static const budgetEdit = '/analytics/budget/edit';
   static const export = '/profile/export';
   static const exportHistory = '/profile/export-history';
+  static const notificationSettings = '/profile/notifications';
+  static const notificationDetail = '/notification-detail';
 }
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -171,6 +176,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return TransactionDetailScreen(transaction: transaction);
         },
       ),
+      GoRoute(
+        path: RoutePaths.notificationDetail,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final notification = state.extra as NotificationDto;
+          return NotificationDetailScreen(notification: notification);
+        },
+      ),
 
 
       StatefulShellRoute.indexedStack(
@@ -265,6 +278,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: 'export-history',
                 parentNavigatorKey: rootNavigatorKey,
                 builder: (context, state) => const ExportHistoryScreen(),
+              ),
+              GoRoute(
+                path: 'notifications',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) => const NotificationSettingsScreen(),
               ),
             ],
           ),

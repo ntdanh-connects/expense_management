@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
+import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
 
 enum TransactionStatus { processing, success, failure, offlineSuccess }
 
@@ -78,6 +79,9 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
       // Làm mới dữ liệu các ví và danh sách giao dịch
       await ref.read(walletNotifierProvider.notifier).refreshWallets();
       await ref.read(transactionListProvider.notifier).refreshTransactions();
+      
+      // Làm mới danh sách thông báo để cập nhật badge và danh sách realtime
+      await ref.read(notificationNotifierProvider.notifier).refresh();
       
       // Invalidate budget providers to refresh budget lists and totals immediately
       ref.invalidate(budgetListProvider);

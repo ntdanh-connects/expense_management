@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/shared/widgets/modern_em_logo.dart';
+import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
+import 'package:expense_management/features/notification/presentation/widgets/notification_sidebar.dart';
 
-class SharedTopAppBar extends StatelessWidget implements PreferredSizeWidget {
+class SharedTopAppBar extends ConsumerWidget implements PreferredSizeWidget {
   final ValueChanged<String>? onSearchChanged;
   final String hintText;
   
@@ -13,9 +16,10 @@ class SharedTopAppBar extends StatelessWidget implements PreferredSizeWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
     final primaryColor = colors.primary;
+    final unreadCount = ref.watch(unreadNotificationCountProvider);
 
     return Container(
       decoration: BoxDecoration(
@@ -81,24 +85,52 @@ class SharedTopAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
               const SizedBox(width: 12),
 
-              // 🔔 4. NÚT NOTIFICATION CÓ BADGE ĐỎ BÁO HIỆU
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 24),
-                  Positioned(
-                    right: 2,
-                    top: 2,
-                    child: Container(
-                      width: 7,
-                      height: 7,
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
+              // 🔔 4. NÚT NOTIFICATION CÓ BADGE SỐ
+              GestureDetector(
+                onTap: () => NotificationSidebar.show(context),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 24),
+                    if (unreadCount > 0)
+                      Positioned(
+                        right: -4,
+                        top: -4,
+                        child: Container(
+                          constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.white, width: 1),
+                          ),
+                          child: Text(
+                            unreadCount > 99 ? '99+' : '$unreadCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              height: 1.2,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      )
+                    else
+                      Positioned(
+                        right: 2,
+                        top: 2,
+                        child: Container(
+                          width: 7,
+                          height: 7,
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
                       ),
-                    ),
-                  )
-                ],
+                  ],
+                ),
               ),
             ],
           ),

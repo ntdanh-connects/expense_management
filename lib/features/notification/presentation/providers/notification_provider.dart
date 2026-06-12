@@ -1,0 +1,238 @@
+import 'dart:async';
+import 'package:expense_management/core/network/dio_client.dart';
+import 'package:expense_management/features/notification/data/datasource/remote/notification_api_service.dart';
+import 'package:expense_management/features/notification/data/models/notification_dto.dart';
+import 'package:expense_management/features/notification/data/repository_impl/notification_repository_impl.dart';
+import 'package:expense_management/features/notification/domain/repositories/notification_repository.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// ---------------------------------------------------------------------------
+// Service & Repository providers
+// ---------------------------------------------------------------------------
+
+final notificationApiServiceProvider = Provider<NotificationApiService>((ref) {
+  final dio = ref.watch(dioClientProvider);
+  return NotificationApiService(dio);
+});
+
+final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
+  final apiService = ref.watch(notificationApiServiceProvider);
+  return NotificationRepositoryImpl(apiService);
+});
+
+// ---------------------------------------------------------------------------
+// Notification list state
+// ---------------------------------------------------------------------------
+
+class NotificationState {
+  final List<NotificationDto> notifications;
+  final bool isLoading;
+  final bool hasMore;
+  final int currentPage;
+  final String? error;
+
+  const NotificationState({
+    this.notifications = const [],
+    this.isLoading = false,
+    this.hasMore = true,
+    this.currentPage = 1,
+    this.error,
+  });
+
+  int get unreadCount => notifications.where((n) => !n.isRead).length;
+
+  NotificationState copyWith({
+    List<NotificationDto>? notifications,
+    bool? isLoading,
+    bool? hasMore,
+    int? currentPage,
+    String? error,
+  }) {
+    return NotificationState(
+      notifications: notifications ?? this.notifications,
+      isLoading: isLoading ?? this.isLoading,
+      hasMore: hasMore ?? this.hasMore,
+      currentPage: currentPage ?? this.currentPage,
+      error: error,
+    );
+  }
+}
+
+class NotificationNotifier extends AsyncNotifier<NotificationState> {
+  @override
+  FutureOr<NotificationState> build() async {
+    return _fetchPage(1, []);
+  }
+
+  Future<NotificationState> _fetchPage(
+      int page, List<NotificationDto> existing) async {
+    final repo = ref.read(notificationRepositoryProvider);
+    final items = await repo.getNotifications(page: page);
+    final merged = [...existing, ...items];
+    return NotificationState(
+      notifications: merged,
+      isLoading: false,
+      hasMore: items.length >= 15,
+      currentPage: page,
+    );
+  }
+
+  Future<void> refresh() async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() => _fetchPage(1, []));
+  }
+
+  Future<void> loadMore() async {
+    final current = state.value;
+    if (current == null || !current.hasMore || current.isLoading) return;
+
+    state = AsyncValue.data(current.copyWith(isLoading: true));
+    try {
+      final next = current.currentPage + 1;
+      final newState = await _fetchPage(next, current.notifications);
+      state = AsyncValue.data(newState);
+    } catch (e) {
+      state = AsyncValue.data(current.copyWith(isLoading: false, error: e.toString()));
+    }
+  }
+
+  Future<void> markAsRead(String id) async {
+    final current = state.value;
+    if (current == null) return;
+    try {
+      final repo = ref.read(notificationRepositoryProvider);
+      await repo.markAsRead(id);
+      final updated = current.notifications.map((n) {
+        if (n.id == id) {
+          return NotificationDto(
+            id: n.id,
+            userId: n.userId,
+            type: n.type,
+            title: n.title,
+            body: n.body,
+            readAt: DateTime.now().toIso8601String(),
+            metadata: n.metadata,
+            createdAt: n.createdAt,
+            updatedAt: n.updatedAt,
+          );
+        }
+        return n;
+      }).toList();
+      state = AsyncValue.data(current.copyWith(notifications: updated));
+    } catch (_) {}
+  }
+
+  Future<void> markAllAsRead() async {
+    final current = state.value;
+    if (current == null) return;
+    try {
+      final repo = ref.read(notificationRepositoryProvider);
+      await repo.markAllAsRead();
+      final now = DateTime.now().toIso8601String();
+      final updated = current.notifications.map((n) {
+        if (!n.isRead) {
+          return NotificationDto(
+            id: n.id,
+            userId: n.userId,
+            type: n.type,
+            title: n.title,
+            body: n.body,
+            readAt: now,
+            metadata: n.metadata,
+            createdAt: n.createdAt,
+            updatedAt: n.updatedAt,
+          );
+        }
+        return n;
+      }).toList();
+      state = AsyncValue.data(current.copyWith(notifications: updated));
+    } catch (_) {}
+  }
+
+  Future<void> deleteNotification(String id) async {
+    final current = state.value;
+    if (current == null) return;
+    try {
+      final repo = ref.read(notificationRepositoryProvider);
+      await repo.deleteNotification(id);
+      final updated = current.notifications.where((n) => n.id != id).toList();
+      state = AsyncValue.data(current.copyWith(notifications: updated));
+    } catch (_) {}
+  }
+}
+
+final notificationNotifierProvider =
+    AsyncNotifierProvider<NotificationNotifier, NotificationState>(
+  () => NotificationNotifier(),
+);
+
+// Convenience provider for unread count (used in top app bar badge)
+final unreadNotificationCountProvider = Provider<int>((ref) {
+  final notifState = ref.watch(notificationNotifierProvider);
+  return notifState.value?.unreadCount ?? 0;
+});
+
+// ---------------------------------------------------------------------------
+// Preferences state
+// ---------------------------------------------------------------------------
+
+class PreferencesNotifier
+    extends AsyncNotifier<NotificationPreferenceDto?> {
+  NotificationPreferenceDto _fallbackPreferences() {
+    return NotificationPreferenceDto(
+      id: 'fallback_id',
+      userId: 'fallback_user',
+      emailEnabled: true,
+      pushEnabled: true,
+      weeklySummaryEnabled: false,
+      dailyReminderEnabled: true,
+    );
+  }
+
+  @override
+  FutureOr<NotificationPreferenceDto?> build() async {
+    try {
+      final repo = ref.read(notificationRepositoryProvider);
+      return await repo.getPreferences();
+    } catch (_) {
+      return _fallbackPreferences();
+    }
+  }
+
+  Future<void> updateSettings({
+    bool? emailEnabled,
+    bool? pushEnabled,
+    bool? weeklySummaryEnabled,
+    bool? dailyReminderEnabled,
+  }) async {
+    final current = state.value;
+    if (current == null) return;
+
+    // Optimistic update
+    state = AsyncValue.data(current.copyWith(
+      emailEnabled: emailEnabled,
+      pushEnabled: pushEnabled,
+      weeklySummaryEnabled: weeklySummaryEnabled,
+      dailyReminderEnabled: dailyReminderEnabled,
+    ));
+
+    try {
+      final repo = ref.read(notificationRepositoryProvider);
+      final updated = await repo.updatePreferences(
+        emailEnabled: emailEnabled,
+        pushEnabled: pushEnabled,
+        weeklySummaryEnabled: weeklySummaryEnabled,
+        dailyReminderEnabled: dailyReminderEnabled,
+      );
+      state = AsyncValue.data(updated);
+    } catch (_) {
+      // Revert on failure
+      state = AsyncValue.data(current);
+    }
+  }
+}
+
+final notificationPreferencesProvider =
+    AsyncNotifierProvider<PreferencesNotifier, NotificationPreferenceDto?>(
+  () => PreferencesNotifier(),
+);
