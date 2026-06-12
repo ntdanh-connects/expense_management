@@ -1070,6 +1070,12 @@ class LineChartPainter extends CustomPainter {
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
+    // Draw Dots on line for every data point
+    for (var point in points) {
+      canvas.drawCircle(point, 3.5, dotPaint);
+      canvas.drawCircle(point, 3.5, dotBorderPaint);
+    }
+
     // Draw dynamic labels on X-axis (Draw 5 labels max to avoid overlap)
     final labelCount = data.length < 5 ? data.length : 5;
     final labelStep = data.length > 1 ? (data.length - 1) / (labelCount - 1) : 1;
@@ -1079,10 +1085,6 @@ class LineChartPainter extends CustomPainter {
       if (index >= data.length) continue;
 
       final point = points[index];
-
-      // Draw Dot
-      canvas.drawCircle(point, 3.5, dotPaint);
-      canvas.drawCircle(point, 3.5, dotBorderPaint);
 
       // Draw X Label
       textPainter.text = TextSpan(

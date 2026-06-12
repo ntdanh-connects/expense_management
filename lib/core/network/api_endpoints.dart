@@ -42,6 +42,12 @@ class ApiEndpoints {
   static const String exportTransactions = 'api/transactions/export';
   static const String listExports = 'api/transactions/exports';
 
+  // QR Transfer & Payees
+  static const String qrDecode = 'api/qr/decode';
+  static const String qrGenerateMyQr = 'api/qr/generate-my-qr';
+  static const String qrTransfer = 'api/qr/transfer';
+  static const String payees = 'api/payees';
+  static const String deletePayee = 'api/payees';
   // Module 8: Notifications
   static const String notifications = 'api/notifications';
   static const String notificationRead = 'api/notifications/{id}/read';

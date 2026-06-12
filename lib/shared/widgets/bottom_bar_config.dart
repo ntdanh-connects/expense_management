@@ -46,6 +46,14 @@ class BottomBarConfig {
         },
       ),
       QuickActionConfig(
+        icon: Icons.qr_code_scanner_rounded,
+        title: 'qr_transfer'.tr(ref),
+        customColor: const Color(0xFF0D9488), // Màu Teal thanh lịch
+        onTap: () {
+          context.push('/qr-scanner');
+        },
+      ),
+      QuickActionConfig(
         icon: Icons.auto_awesome_rounded,
         title: 'smart_scan'.tr(ref),
         customColor: const Color(0xFFFF00FF), // Màu Magenta của AI
