@@ -41,4 +41,11 @@ class ApiEndpoints {
   // Module 7: Exports
   static const String exportTransactions = 'api/transactions/export';
   static const String listExports = 'api/transactions/exports';
+
+  // Module 8: Notifications
+  static const String notifications = 'api/notifications';
+  static const String notificationRead = 'api/notifications/{id}/read';
+  static const String notificationReadAll = 'api/notifications/read-all';
+  static const String notificationDelete = 'api/notifications/{id}';
+  static const String notificationPreferences = 'api/notifications/preferences';
 }
