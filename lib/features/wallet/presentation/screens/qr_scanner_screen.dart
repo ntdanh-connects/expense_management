@@ -83,6 +83,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
 
   // --- TAB 1: SCAN QR CODE LOGIC ---
   Future<void> _onQrDetect(BarcodeCapture capture) async {
+    if (_isLoadingDecode) return;
     final List<Barcode> barcodes = capture.barcodes;
     if (barcodes.isEmpty) return;
     
@@ -98,23 +99,50 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
       _isLoadingDecode = true;
     });
     
+    // Tạm dừng camera quét đè nhiều lần
+    try {
+      await _scannerController.stop();
+    } catch (e) {
+      AppLogger.warning("Không thể dừng camera: $e");
+    }
+    
     AppLogger.info("🔍 [QR-Scan] Bắt đầu giải mã chuỗi QR: $qrString");
     
     final result = await ref.read(qrTransferProvider.notifier).decodeQrCode(qrString);
-    
-    setState(() {
-      _isLoadingDecode = false;
-    });
 
     if (result != null && mounted) {
       AppLogger.info("✅ [QR-Scan] Giải mã thành công! Điều hướng đến màn hình xác nhận...");
-      context.push('/qr-transfer-confirm', extra: result);
-    } else if (mounted) {
-      AppLogger.error("🚨 [QR-Scan] Lỗi giải mã QR hoặc mã QR không hợp lệ!");
-      ElegantNotification.error(
-        title: Text('error'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
-        description: const Text('Mã QR không đúng định dạng hoặc có lỗi xảy ra!'),
-      ).show(context);
+      await context.push('/qr-transfer-confirm', extra: result);
+      
+      // Khi quay lại từ màn hình xác nhận, khởi động lại camera và reset trạng thái loading
+      if (mounted) {
+        setState(() {
+          _isLoadingDecode = false;
+        });
+        try {
+          await _scannerController.start();
+        } catch (e) {
+          AppLogger.error("Không thể khởi động lại camera: $e");
+        }
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          _isLoadingDecode = false;
+        });
+        AppLogger.error("🚨 [QR-Scan] Lỗi giải mã QR hoặc mã QR không hợp lệ!");
+        ElegantNotification.error(
+          title: Text('error'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
+          description: const Text('Mã QR không đúng định dạng hoặc có lỗi xảy ra!'),
+        ).show(context);
+        
+        // Khởi động lại camera để cho phép quét tiếp
+        try {
+          await _scannerController.start();
+        } catch (e) {
+          AppLogger.error("Không thể khởi động lại camera: $e");
+        }
+      }
     }
   }
 
@@ -124,25 +152,14 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
       final XFile? image = await picker.pickImage(source: ImageSource.gallery);
       if (image == null) return;
 
-      setState(() {
-        _isLoadingDecode = true;
-      });
-
       final BarcodeCapture? capture = await _scannerController.analyzeImage(image.path);
       final bool hasBarcodes = capture != null && capture.barcodes.isNotEmpty;
       if (hasBarcodes) {
         final String? rawValue = capture.barcodes.first.rawValue;
         if (rawValue != null) {
           await _decodeQrString(rawValue);
-        } else {
-          setState(() {
-            _isLoadingDecode = false;
-          });
         }
       } else {
-        setState(() {
-          _isLoadingDecode = false;
-        });
         if (mounted) {
           ElegantNotification.error(
             title: Text('error'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -151,9 +168,6 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
         }
       }
     } catch (e) {
-      setState(() {
-        _isLoadingDecode = false;
-      });
       if (mounted) {
         ElegantNotification.error(
           title: Text('error'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -547,7 +561,12 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
                                     child: const Icon(Icons.account_balance_rounded, color: Colors.blue),
                                   ),
                             title: Text(
-                              payee['payee_name'] ?? 'Không tên',
+                              () {
+                                final name = payee['payee_name']?.toString().trim() ?? '';
+                                return (name.isEmpty || name.toUpperCase() == 'UNKNOWN RECIPIENT')
+                                    ? 'Không xác định'
+                                    : name;
+                              }(),
                               style: TextStyle(color: color.textPrimary, fontWeight: FontWeight.bold),
                             ),
                             subtitle: Text(

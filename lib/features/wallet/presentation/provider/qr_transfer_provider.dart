@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:expense_management/core/network/dio_client.dart';
@@ -31,7 +32,7 @@ class QrTransferNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>?>
   }
 
   // Step 2: Execute virtual transfer
-  Future<bool> executeTransfer({
+  Future<Map<String, dynamic>?> executeTransfer({
     required String fromWalletId,
     required String payeeType,
     required double amount,
@@ -53,10 +54,16 @@ class QrTransferNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>?>
         if (payeeName != null) 'payee_name': payeeName,
       };
 
-      await _apiService.transferQr(payload);
-      return true;
+      final response = await _apiService.transferQr(payload);
+      return response.data as Map<String, dynamic>?;
     } catch (e) {
-      return false;
+      if (e is DioException && e.response?.data != null) {
+        final data = e.response?.data;
+        if (data is Map<String, dynamic>) {
+          return data;
+        }
+      }
+      return null;
     }
   }
 

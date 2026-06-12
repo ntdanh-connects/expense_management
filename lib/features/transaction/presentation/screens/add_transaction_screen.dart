@@ -224,7 +224,8 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 24),
                     child: Text(
-                      'no_wallets_found'.trRead(ref),
+                      'manual_transaction_wallet_warning'.trRead(ref),
+                      textAlign: TextAlign.center,
                       style: TextStyle(color: colors.textSecondary),
                     ),
                   ),
@@ -571,8 +572,12 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     subCategoryList.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     final quickSubcategories = subCategoryList.take(4).toList();
 
-    // Default select wallet if not yet selected and wallets list is loaded
-    final walletList = walletsAsync.value ?? [];
+    // Thêm giao dịch thủ công chỉ được dùng ví Tiền mặt (VND)
+    final rawWalletList = walletsAsync.value ?? [];
+    final walletList = rawWalletList.where((w) {
+      return w.type.toLowerCase() == 'cash' && w.currencyCode == 'VND';
+    }).toList();
+
     if (_selectedWallet == null && walletList.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         setState(() {

@@ -41,14 +41,22 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
       _descController.text = widget.payeeData['description'].toString();
     }
 
-    // Set default wallet
+    // Set default wallet from filtered list
     Future.microtask(() {
       final wallets = ref.read(walletNotifierProvider).value ?? [];
-      if (wallets.isNotEmpty) {
+      final isInternal = widget.payeeData['type'] == 'internal';
+      
+      final filtered = wallets.where((w) {
+        if (w.type == 'cash') return false;
+        if (!isInternal && w.currencyCode != 'VND') return false;
+        return true;
+      }).toList();
+
+      if (filtered.isNotEmpty) {
         setState(() {
-          _selectedWallet = wallets.firstWhere(
+          _selectedWallet = filtered.firstWhere(
             (w) => w.type == 'bank',
-            orElse: () => wallets.first,
+            orElse: () => filtered.first,
           );
         });
       }
@@ -63,7 +71,21 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
   }
 
   Future<void> _executeTransfer() async {
-    if (_selectedWallet == null) return;
+    final wallets = ref.read(walletNotifierProvider).value ?? [];
+    final isInternal = widget.payeeData['type'] == 'internal';
+    final filtered = wallets.where((w) {
+      if (w.type == 'cash') return false;
+      if (!isInternal && w.currencyCode != 'VND') return false;
+      return true;
+    }).toList();
+
+    if (_selectedWallet == null || !filtered.any((w) => w.id == _selectedWallet!.id)) {
+      ElegantNotification.error(
+        title: Text('error'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
+        description: const Text('Vui lòng chọn ví hợp lệ để thực hiện chuyển khoản!'),
+      ).show(context);
+      return;
+    }
     
     final cleanAmountString = _amountController.text.replaceAll(RegExp(r'[^0-9]'), '');
     final double? amount = double.tryParse(cleanAmountString);
@@ -88,9 +110,14 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
       _isLoading = true;
     });
 
-    AppLogger.info("💸 [QR-Transfer] Gửi yêu cầu chuyển tiền từ ví ${_selectedWallet!.name} đến ${widget.payeeData['payee_name']} số tiền $amount");
+    final rawPayeeName = widget.payeeData['payee_name']?.toString().trim() ?? '';
+    final payeeName = (rawPayeeName.isEmpty || rawPayeeName.toUpperCase() == 'UNKNOWN RECIPIENT')
+        ? 'Không xác định'
+        : rawPayeeName;
 
-    final success = await ref.read(qrTransferProvider.notifier).executeTransfer(
+    AppLogger.info("💸 [QR-Transfer] Gửi yêu cầu chuyển tiền từ ví ${_selectedWallet!.name} đến $payeeName số tiền $amount");
+
+    final result = await ref.read(qrTransferProvider.notifier).executeTransfer(
       fromWalletId: _selectedWallet!.id,
       payeeType: widget.payeeData['type'] ?? 'internal',
       amount: amount,
@@ -98,36 +125,42 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
       payeeUserId: widget.payeeData['payee_user_id'],
       bankCode: widget.payeeData['bank_code'],
       accountNumber: widget.payeeData['account_number'] ?? widget.payeeData['identifier'],
-      payeeName: widget.payeeData['payee_name'],
+      payeeName: payeeName,
     );
 
     setState(() {
       _isLoading = false;
     });
 
-    if (success && mounted) {
+    final isSuccess = result != null && result['status'] == 'success';
+
+    if (isSuccess && mounted) {
       AppLogger.info("✅ [QR-Transfer] Chuyển tiền thành công! Đồng bộ ví...");
       
       // Sync local SQLite DB with updated remote balances
       await ref.read(walletNotifierProvider.notifier).refreshWallets();
       
-      if (mounted) {
-        ElegantNotification.success(
-          title: Text('success'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
-          description: Text('transfer_success_msg'.tr(ref)),
-        ).show(context);
+      final identifier = widget.payeeData['identifier'] ?? widget.payeeData['account_number'] ?? '';
+      final bankName = widget.payeeData['bank_name'] ?? '';
 
-        Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) {
-            context.go('/dashboard');
-          }
+      if (mounted) {
+        context.push('/qr-transfer-result', extra: {
+          'result': result,
+          'sender_wallet': _selectedWallet?.name ?? '',
+          'notes': _descController.text.isNotEmpty ? _descController.text : 'QR transfer',
+          'bank_name': bankName,
+          'identifier': identifier,
+          'type': widget.payeeData['type'] ?? 'internal',
         });
       }
     } else if (mounted) {
       AppLogger.error("🚨 [QR-Transfer] Chuyển tiền thất bại!");
+      final errMsg = (result != null && result['message'] != null)
+          ? result['message'].toString()
+          : 'transfer_failed_msg'.tr(ref);
       ElegantNotification.error(
         title: Text('error'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
-        description: Text('transfer_failed_msg'.tr(ref)),
+        description: Text(errMsg),
       ).show(context);
     }
   }
@@ -137,9 +170,18 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
     final color = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final wallets = ref.watch(walletNotifierProvider).value ?? [];
-
-    final payeeName = widget.payeeData['payee_name'] ?? 'Người nhận';
     final isInternal = widget.payeeData['type'] == 'internal';
+    
+    final filteredWallets = wallets.where((w) {
+      if (w.type == 'cash') return false;
+      if (!isInternal && w.currencyCode != 'VND') return false;
+      return true;
+    }).toList();
+
+    final rawPayeeName = widget.payeeData['payee_name']?.toString().trim() ?? '';
+    final payeeName = (rawPayeeName.isEmpty || rawPayeeName.toUpperCase() == 'UNKNOWN RECIPIENT')
+        ? 'Không xác định'
+        : rawPayeeName;
     final identifier = widget.payeeData['identifier'] ?? widget.payeeData['account_number'] ?? '';
     final bankName = widget.payeeData['bank_name'] ?? '';
     final bankLogo = widget.payeeData['bank_logo'];
@@ -184,35 +226,46 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      DropdownButtonHideUnderline(
-                        child: DropdownButton<WalletEntity>(
-                          value: _selectedWallet,
-                          dropdownColor: color.surface,
-                          items: wallets.map((w) {
-                            return DropdownMenuItem<WalletEntity>(
-                              value: w,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    w.type == 'bank' ? Icons.account_balance_rounded : Icons.account_balance_wallet_rounded,
-                                    color: color.primary,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    w.name,
-                                    style: TextStyle(color: color.textPrimary, fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (val) {
-                            setState(() {
-                              _selectedWallet = val;
-                            });
-                          },
+                      if (filteredWallets.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Text(
+                            isInternal
+                                ? 'qr_transfer_internal_no_wallet_warning'.tr(ref)
+                                : 'qr_transfer_external_no_wallet_warning'.tr(ref),
+                            style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                          ),
+                        )
+                      else
+                        DropdownButtonHideUnderline(
+                          child: DropdownButton<WalletEntity>(
+                            value: filteredWallets.contains(_selectedWallet) ? _selectedWallet : filteredWallets.first,
+                            dropdownColor: color.surface,
+                            items: filteredWallets.map((w) {
+                              return DropdownMenuItem<WalletEntity>(
+                                value: w,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      w.type == 'bank' ? Icons.account_balance_rounded : Icons.account_balance_wallet_rounded,
+                                      color: color.primary,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      "${w.name} (${w.currencyCode})",
+                                      style: TextStyle(color: color.textPrimary, fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              setState(() {
+                                _selectedWallet = val;
+                              });
+                            },
+                          ),
                         ),
-                      ),
                       if (_selectedWallet != null) ...[
                         const Divider(height: 20),
                         Row(
