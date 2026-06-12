@@ -48,4 +48,10 @@ class ApiEndpoints {
   static const String qrTransfer = 'api/qr/transfer';
   static const String payees = 'api/payees';
   static const String deletePayee = 'api/payees';
+  // Module 8: Notifications
+  static const String notifications = 'api/notifications';
+  static const String notificationRead = 'api/notifications/{id}/read';
+  static const String notificationReadAll = 'api/notifications/read-all';
+  static const String notificationDelete = 'api/notifications/{id}';
+  static const String notificationPreferences = 'api/notifications/preferences';
 }
