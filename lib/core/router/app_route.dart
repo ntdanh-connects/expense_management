@@ -30,6 +30,8 @@ import 'package:expense_management/features/budget/presentation/screens/budget_c
 import 'package:expense_management/features/budget/presentation/screens/budget_edit_screen.dart';
 import 'package:expense_management/features/reporting_export/presentation/screens/export_screen.dart';
 import 'package:expense_management/features/reporting_export/presentation/screens/export_history_screen.dart';
+import 'package:expense_management/features/wallet/presentation/screens/qr_scanner_screen.dart';
+import 'package:expense_management/features/wallet/presentation/screens/qr_transfer_confirm_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -60,6 +62,8 @@ class RoutePaths {
   static const budgetEdit = '/analytics/budget/edit';
   static const export = '/profile/export';
   static const exportHistory = '/profile/export-history';
+  static const qrScanner = '/qr-scanner';
+  static const qrTransferConfirm = '/qr-transfer-confirm';
 }
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -154,6 +158,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.addTransaction,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const AddTransactionScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.qrScanner,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const QrScannerScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.qrTransferConfirm,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final payeeData = state.extra as Map<String, dynamic>;
+          return QrTransferConfirmScreen(payeeData: payeeData);
+        },
       ),
       GoRoute(
         path: RoutePaths.transactionResult,

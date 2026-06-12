@@ -559,5 +559,20 @@
   "pdf_type_expense": "Chi",
   "pdf_uncategorized": "Không phân mục",
   "pdf_col_converted": "Quy đổi",
-  "pdf_deleted_wallet": "Ví đã xóa"
+  "pdf_deleted_wallet": "Ví đã xóa",
+  "qr_transfer": "Quét QR & Chuyển tiền",
+  "qr_transfer_desc": "Thanh toán VietQR hoặc chuyển tiền P2P",
+  "scan_qr": "Quét mã QR",
+  "my_qr": "QR của tôi",
+  "payee_list": "Danh bạ nhận",
+  "choose_wallet_to_receive": "Chọn ví nhận tiền",
+  "enter_amount": "Nhập số tiền...",
+  "notes": "Nội dung lời nhắn",
+  "slide_to_confirm_transfer": "Trượt để xác nhận chuyển tiền",
+  "transfer_success_msg": "Chuyển khoản thành công!",
+  "transfer_failed_msg": "Chuyển khoản thất bại",
+  "search_payee_hint": "Tìm kiếm người nhận...",
+  "recipient_info": "Thông tin thụ hưởng",
+  "sender_info": "Thông tin nguồn gửi",
+  "no_payee_found": "Chưa có người nhận nào được lưu"
 }

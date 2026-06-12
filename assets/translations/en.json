@@ -553,5 +553,20 @@
   "pdf_type_expense": "Expense",
   "pdf_uncategorized": "Uncategorized",
   "pdf_col_converted": "Converted",
-  "pdf_deleted_wallet": "Deleted wallet"
+  "pdf_deleted_wallet": "Deleted wallet",
+  "qr_transfer": "QR Code Scan & Transfer",
+  "qr_transfer_desc": "Pay via VietQR or internal P2P transfer",
+  "scan_qr": "Scan QR Code",
+  "my_qr": "My QR",
+  "payee_list": "Saved Payees",
+  "choose_wallet_to_receive": "Choose wallet to receive",
+  "enter_amount": "Enter amount...",
+  "notes": "Notes / Description",
+  "slide_to_confirm_transfer": "Slide to confirm transfer",
+  "transfer_success_msg": "Transfer completed successfully!",
+  "transfer_failed_msg": "Transfer failed",
+  "search_payee_hint": "Search recipient...",
+  "recipient_info": "Recipient Info",
+  "sender_info": "Sender Info",
+  "no_payee_found": "No saved payees found"
 }

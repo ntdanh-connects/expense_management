@@ -2,20 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<!-- Deep link của App (GitHub OAuth) -->
-				<string>expmgmt</string>
-				<!-- TODO: Copy và dán mã REVERSED_CLIENT_ID từ file GoogleService-Info.plist của bạn vào đây (ví dụ: com.googleusercontent.apps.123-xxx) -->
-				<string>com.googleusercontent.apps.930877244924-ncc5f40a9kbudbqfag72d72udgdammnk</string>
-			</array>
-		</dict>
-	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
@@ -36,10 +22,28 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>expmgmt</string>
+				<string>com.googleusercontent.apps.930877244924-ncc5f40a9kbudbqfag72d72udgdammnk</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Ứng dụng cần quyền truy cập camera để chụp ảnh hóa đơn giao dịch / The app needs camera access to take photos of transaction receipts.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Ứng dụng cần quyền truy cập microphone nếu quay video / The app needs microphone access to record videos for attachments.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Ứng dụng cần quyền truy cập thư viện ảnh để đính kèm hóa đơn / The app needs photo library access to attach receipts from gallery.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -79,11 +83,5 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 	</array>
-	<key>NSCameraUsageDescription</key>
-	<string>Ứng dụng cần quyền truy cập camera để chụp ảnh hóa đơn giao dịch / The app needs camera access to take photos of transaction receipts.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Ứng dụng cần quyền truy cập thư viện ảnh để đính kèm hóa đơn / The app needs photo library access to attach receipts from gallery.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Ứng dụng cần quyền truy cập microphone nếu quay video / The app needs microphone access to record videos for attachments.</string>
 </dict>
 </plist>
