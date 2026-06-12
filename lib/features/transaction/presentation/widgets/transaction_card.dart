@@ -55,6 +55,7 @@ class TransactionCard extends ConsumerWidget {
         ).then((shouldRefresh) {
           if (shouldRefresh == true) {
             ref.invalidate(transactionListProvider);
+            ref.invalidate(filteredTransactionListProvider);
             ref.invalidate(walletNotifierProvider);
           }
         });

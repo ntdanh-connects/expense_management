@@ -55,7 +55,7 @@ class _TransactionHistoryScreenState
     final currentScroll = _scrollController.position.pixels;
     const threshold = 200.0;
     if (maxScroll - currentScroll <= threshold) {
-      ref.read(transactionListProvider.notifier).loadMoreTransactions();
+      ref.read(filteredTransactionListProvider.notifier).loadMoreTransactions();
     }
   }
 
@@ -90,7 +90,7 @@ class _TransactionHistoryScreenState
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final transactionState = ref.watch(transactionListProvider);
+    final transactionState = ref.watch(filteredTransactionListProvider);
     final userCurrency = ref.watch(currentUserProvider)?.currency ?? 'VND';
     final currencySymbol = AppConstant.getCurrencySymbol(userCurrency);
     final ratesData = ref.watch(exchangeRatesProvider).value;
@@ -259,7 +259,7 @@ class _TransactionHistoryScreenState
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: () => ref
-                          .read(transactionListProvider.notifier)
+                          .read(filteredTransactionListProvider.notifier)
                           .refreshTransactions(),
                       child: Text('try_again'.tr(ref)),
                     ),
@@ -1401,7 +1401,7 @@ class _TransactionHistoryScreenState
       } else {
         // Tự động kích hoạt tải thêm nếu danh sách lọc trống nhưng DB vẫn còn giao dịch
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          ref.read(transactionListProvider.notifier).loadMoreTransactions();
+          ref.read(filteredTransactionListProvider.notifier).loadMoreTransactions();
         });
         return Center(
           child: Column(

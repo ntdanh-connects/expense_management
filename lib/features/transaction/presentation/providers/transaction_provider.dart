@@ -27,6 +27,7 @@ import 'package:elegant_notification/resources/arrays.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 final transactionApiServiceProvider = Provider<TransactionApiService>((ref) {
   final dio = ref.watch(dioClientProvider);
@@ -55,53 +56,11 @@ final getTransactionsUseCaseProvider = Provider<GetTransactionsUseCase>((ref) {
   return GetTransactionsUseCase(repository);
 });
 
-class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
-  Timer? _syncTimer;
-  bool _isSyncing = false;
-
-  void _invalidateBudgets() {
-    ref.invalidate(budgetListProvider);
-    ref.invalidate(currentMonthBudgetsProvider);
-  }
-
-  @override
-  FutureOr<List<TransactionEntity>> build() async {
-    final user = ref.watch(currentUserProvider);
-    final userId = user?.id ?? '';
-    if (userId.isEmpty) return [];
-
-    final database = ref.read(appDatabaseProvider);
-    
-    // Đọc cache và các giao dịch đang chờ sync từ Drift DB local
-    final cachedRows = await database.getCachedTransactions(userId);
-    final pendingRows = await database.getPendingTransactions(userId);
-    final categories = await database.getAllCategories();
-    final wallets = await database.select(database.wallets).get();
-
-    final cachedData = cachedRows.map((r) => _mapLocalToEntity(r, categories, wallets)).toList();
-    final pendingData = pendingRows.map((r) => _mapLocalToEntity(r, categories, wallets)).toList();
-
-    final initialList = [...pendingData, ...cachedData];
-
-    ref.onDispose(() {
-      _syncTimer?.cancel();
-    });
-    _startSyncTimer();
-
-    // Tự động tải lại ngầm (silent) từ API nếu đã có cache và userId hợp lệ
-    if (userId.isNotEmpty) {
-      Future.microtask(() => refreshTransactions(silent: initialList.isNotEmpty));
-    }
-
-    return initialList;
-  }
-
-  TransactionEntity _mapLocalToEntity(
+TransactionEntity _mapLocalTransactionToEntity(
     LocalTransaction row,
     List<Category> categories,
     List<Wallet> wallets,
   ) {
-    // Look-up category và wallet local để lấy thông tin hiển thị (tên, icon, màu sắc)
     final categoryList = categories.where((c) => c.id == row.categoryId);
     final category = categoryList.isNotEmpty ? categoryList.first : null;
 
@@ -130,6 +89,47 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
       walletColor: wallet?.color,
       attachmentUrls: const [],
     );
+  }
+
+class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
+  Timer? _syncTimer;
+  bool _isSyncing = false;
+
+  TransactionFilter get currentFilter => TransactionFilter();
+
+  void _invalidateBudgets() {
+    ref.invalidate(budgetListProvider);
+    ref.invalidate(currentMonthBudgetsProvider);
+  }
+
+  @override
+  FutureOr<List<TransactionEntity>> build() async {
+    final user = ref.watch(currentUserProvider);
+    final userId = user?.id ?? '';
+    if (userId.isEmpty) return [];
+
+    final database = ref.read(appDatabaseProvider);
+    
+    final cachedRows = await database.getCachedTransactions(userId);
+    final pendingRows = await database.getPendingTransactions(userId);
+    final categories = await database.getAllCategories();
+    final wallets = await database.select(database.wallets).get();
+
+    final cachedData = cachedRows.map((r) => _mapLocalTransactionToEntity(r, categories, wallets)).toList();
+    final pendingData = pendingRows.map((r) => _mapLocalTransactionToEntity(r, categories, wallets)).toList();
+
+    final initialList = [...pendingData, ...cachedData];
+
+    ref.onDispose(() {
+      _syncTimer?.cancel();
+    });
+    _startSyncTimer();
+
+    if (userId.isNotEmpty) {
+      Future.microtask(() => refreshTransactions(silent: initialList.isNotEmpty));
+    }
+
+    return initialList;
   }
 
   void _startSyncTimer() {
@@ -175,7 +175,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
 
       final categories = await database.getAllCategories();
       final wallets = await database.select(database.wallets).get();
-      final pendingList = pendingRows.map((r) => _mapLocalToEntity(r, categories, wallets)).toList();
+      final pendingList = pendingRows.map((r) => _mapLocalTransactionToEntity(r, categories, wallets)).toList();
 
       final addTxUseCase = ref.read(addTransactionUseCaseProvider);
       bool anySuccess = false;
@@ -286,7 +286,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     }
     final newState = await AsyncValue.guard(() async {
       final useCase = ref.read(getTransactionsUseCaseProvider);
-      final filter = ref.read(transactionFilterProvider);
+      final filter = currentFilter;
       final result = await useCase.execute(
         search: filter.search,
         startDate: filter.startDate,
@@ -312,14 +312,18 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
         isLoadingMore: false,
       );
 
+      final user = ref.read(currentUserProvider);
+      final tzName = user?.timezone ?? 'Asia/Ho_Chi_Minh';
       final pendingRows = await database.getPendingTransactions(userId);
-      final pendingData = pendingRows.map((r) => _mapLocalToEntity(r, categories, wallets)).toList();
+      final pendingData = pendingRows.map((r) => _mapLocalTransactionToEntity(r, categories, wallets)).toList();
+      
+      final filteredPending = _filterLocalList(pendingData, filter, tzName, categories);
       
       if (pendingData.isNotEmpty) {
         _syncPendingTransactions();
       }
 
-      return [...pendingData, ...result.items];
+      return [...filteredPending, ...result.items];
     });
     
     // Nếu chạy silent và gặp lỗi, giữ nguyên danh sách hiện tại thay vì hiện màn hình lỗi
@@ -341,7 +345,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
 
     try {
       final useCase = ref.read(getTransactionsUseCaseProvider);
-      final filter = ref.read(transactionFilterProvider);
+      final filter = currentFilter;
       final result = await useCase.execute(
         search: filter.search,
         startDate: filter.startDate,
@@ -402,6 +406,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
       return newList;
     });
     _invalidateBudgets();
+    ref.invalidate(filteredTransactionListProvider);
   }
 
   Future<void> addPendingTransaction(TransactionParams params) async {
@@ -430,7 +435,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
 
     final categories = await database.getAllCategories();
     final wallets = await database.select(database.wallets).get();
-    final tempTx = _mapLocalToEntity(localTx, categories, wallets);
+    final tempTx = _mapLocalTransactionToEntity(localTx, categories, wallets);
 
     state = await AsyncValue.guard(() async {
       final currentList = state.value ?? [];
@@ -438,6 +443,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     });
 
     _invalidateBudgets();
+    ref.invalidate(filteredTransactionListProvider);
     _syncPendingTransactions();
   }
 
@@ -482,6 +488,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
 
     await ref.read(walletNotifierProvider.notifier).refreshWallets();
     _invalidateBudgets();
+    ref.invalidate(filteredTransactionListProvider);
   }
 
   Future<void> updateTransaction({
@@ -510,6 +517,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     await dio.post(url, data: formData);
 
     ref.invalidate(transactionListProvider);
+    ref.invalidate(filteredTransactionListProvider);
     await ref.read(walletNotifierProvider.notifier).refreshWallets();
     _invalidateBudgets();
   }
@@ -609,6 +617,202 @@ class TransactionFilter {
       sortOrder: sortOrder ?? this.sortOrder,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TransactionFilter &&
+          runtimeType == other.runtimeType &&
+          search == other.search &&
+          startDate == other.startDate &&
+          endDate == other.endDate &&
+          categoryId == other.categoryId &&
+          type == other.type &&
+          walletId == other.walletId &&
+          minAmount == other.minAmount &&
+          maxAmount == other.maxAmount &&
+          sortBy == other.sortBy &&
+          sortOrder == other.sortOrder;
+
+  @override
+  int get hashCode =>
+      Object.hash(
+        search,
+        startDate,
+        endDate,
+        categoryId,
+        type,
+        walletId,
+        minAmount,
+        maxAmount,
+        sortBy,
+        sortOrder,
+      );
+}
+
+List<TransactionEntity> _filterLocalList(
+  List<TransactionEntity> list,
+  TransactionFilter filter,
+  String tzName,
+  List<Category> categories,
+) {
+  var result = List<TransactionEntity>.from(list);
+
+  // 1. Tìm kiếm theo tiêu đề hoặc ghi chú (không phân biệt hoa thường)
+  if (filter.search != null && filter.search!.isNotEmpty) {
+    final query = filter.search!.toLowerCase();
+    result = result.where((tx) =>
+        tx.title.toLowerCase().contains(query) ||
+        (tx.notes?.toLowerCase().contains(query) ?? false)).toList();
+  }
+
+  // 2. Lọc theo khoảng ngày
+  if (filter.startDate != null || filter.endDate != null) {
+    try {
+      final location = tz.getLocation(tzName);
+      if (filter.startDate != null) {
+        final startPart = DateTime.parse(filter.startDate!);
+        final start = tz.TZDateTime(
+          location,
+          startPart.year,
+          startPart.month,
+          startPart.day,
+        );
+        result = result.where((tx) {
+          final txTime = tz.TZDateTime.from(tx.transactionDate.toUtc(), location);
+          return txTime.isAfter(start) || txTime.isAtSameMomentAs(start);
+        }).toList();
+      }
+      if (filter.endDate != null) {
+        final endPart = DateTime.parse(filter.endDate!);
+        final end = tz.TZDateTime(
+          location,
+          endPart.year,
+          endPart.month,
+          endPart.day,
+          23,
+          59,
+          59,
+          999,
+        );
+        result = result.where((tx) {
+          final txTime = tz.TZDateTime.from(tx.transactionDate.toUtc(), location);
+          return txTime.isBefore(end) || txTime.isAtSameMomentAs(end);
+        }).toList();
+      }
+    } catch (_) {
+      if (filter.startDate != null) {
+        final start = DateTime.parse(filter.startDate!);
+        result = result.where((tx) {
+          final txLocal = tx.transactionDate.toLocal();
+          return txLocal.isAfter(start) || txLocal.isAtSameMomentAs(start);
+        }).toList();
+      }
+      if (filter.endDate != null) {
+        final end = DateTime.parse(filter.endDate!).add(const Duration(days: 1)).subtract(const Duration(microseconds: 1));
+        result = result.where((tx) {
+          final txLocal = tx.transactionDate.toLocal();
+          return txLocal.isBefore(end) || txLocal.isAtSameMomentAs(end);
+        }).toList();
+      }
+    }
+  }
+
+  // 3. Lọc theo danh mục (bao gồm cả danh mục con trực thuộc danh mục được chọn)
+  if (filter.categoryId != null) {
+    final childCategoryIds = categories
+        .where((c) => c.parentId == filter.categoryId)
+        .map((c) => c.id)
+        .toList();
+    result = result.where((tx) =>
+        tx.categoryId == filter.categoryId ||
+        childCategoryIds.contains(tx.categoryId)).toList();
+  }
+
+  // 4. Lọc theo loại (income, expense, transfer)
+  if (filter.type != null) {
+    final typeQuery = filter.type!.toLowerCase();
+    if (typeQuery == 'transfer') {
+      result = result.where((tx) => tx.type.toLowerCase() == 'transfer' || tx.sourceType?.toLowerCase() == 'transfer').toList();
+    } else {
+      result = result.where((tx) => tx.type.toLowerCase() == typeQuery && tx.sourceType?.toLowerCase() != 'transfer').toList();
+    }
+  }
+
+  // 5. Lọc theo ví
+  if (filter.walletId != null) {
+    result = result.where((tx) => tx.walletId == filter.walletId).toList();
+  }
+
+  // 6. Lọc theo số tiền tối thiểu/tối đa
+  if (filter.minAmount != null) {
+    result = result.where((tx) => tx.amount >= filter.minAmount!).toList();
+  }
+  if (filter.maxAmount != null) {
+    result = result.where((tx) => tx.amount <= filter.maxAmount!).toList();
+  }
+
+  // 7. Sắp xếp theo lựa chọn
+  result.sort((a, b) {
+    final aPending = a.status == 'pending';
+    final bPending = b.status == 'pending';
+    if (aPending && !bPending) return -1;
+    if (!aPending && bPending) return 1;
+
+    int comparison = 0;
+    if (filter.sortBy == 'amount') {
+      comparison = a.amount.compareTo(b.amount);
+    } else if (filter.sortBy == 'category') {
+      comparison = (a.categoryName ?? '').compareTo(b.categoryName ?? '');
+    } else {
+      comparison = a.transactionDate.compareTo(b.transactionDate);
+    }
+
+    return filter.sortOrder == 'asc' ? comparison : -comparison;
+  });
+
+  return result;
+}
+
+class FilteredTransactionListNotifier extends TransactionListNotifier {
+  @override
+  TransactionFilter get currentFilter => ref.read(transactionFilterProvider);
+
+  @override
+  FutureOr<List<TransactionEntity>> build() async {
+    final user = ref.watch(currentUserProvider);
+    final userId = user?.id ?? '';
+    if (userId.isEmpty) return [];
+
+    final filter = ref.watch(transactionFilterProvider);
+
+    final database = ref.read(appDatabaseProvider);
+    
+    final cachedRows = await database.getCachedTransactions(userId);
+    final pendingRows = await database.getPendingTransactions(userId);
+    final categories = await database.getAllCategories();
+    final wallets = await database.select(database.wallets).get();
+
+    final cachedData = cachedRows.map((r) => _mapLocalTransactionToEntity(r, categories, wallets)).toList();
+    final pendingData = pendingRows.map((r) => _mapLocalTransactionToEntity(r, categories, wallets)).toList();
+
+    final tzName = user?.timezone ?? 'Asia/Ho_Chi_Minh';
+    final filteredCached = _filterLocalList(cachedData, filter, tzName, categories);
+    final filteredPending = _filterLocalList(pendingData, filter, tzName, categories);
+
+    final initialList = [...filteredPending, ...filteredCached];
+
+    ref.onDispose(() {
+      _syncTimer?.cancel();
+    });
+    _startSyncTimer();
+
+    if (userId.isNotEmpty) {
+      Future.microtask(() => refreshTransactions(silent: initialList.isNotEmpty));
+    }
+
+    return initialList;
+  }
 }
 
 final transactionFilterProvider = StateProvider<TransactionFilter>((ref) => TransactionFilter());
@@ -616,4 +820,9 @@ final transactionFilterProvider = StateProvider<TransactionFilter>((ref) => Tran
 final transactionListProvider =
     AsyncNotifierProvider<TransactionListNotifier, List<TransactionEntity>>(() {
   return TransactionListNotifier();
+});
+
+final filteredTransactionListProvider =
+    AsyncNotifierProvider<FilteredTransactionListNotifier, List<TransactionEntity>>(() {
+  return FilteredTransactionListNotifier();
 });
