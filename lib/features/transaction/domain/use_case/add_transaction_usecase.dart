@@ -20,6 +20,7 @@ class AddTransactionUseCase {
     String? timezone,
     MultipartFile? attachment,
     String? payeeId,
+    String? sourceType,
   }) {
     return _repository.createTransaction(
       walletId: walletId,
@@ -34,6 +35,7 @@ class AddTransactionUseCase {
       timezone: timezone,
       attachment: attachment,
       payeeId: payeeId,
+      sourceType: sourceType,
     );
   }
 }

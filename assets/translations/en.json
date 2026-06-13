@@ -267,6 +267,7 @@
   "select_subcategory": "Select Subcategory",
   "search_subcategory_hint": "Search subcategories...",
   "no_categories_found": "No categories found.",
+  "parent_category": "Parent Category",
   "parent_category_label": "Parent Category",
   "result_title": "Transaction Result",
   "transaction_type": "Transaction Type",
@@ -594,5 +595,13 @@
   "qr_transfer_scan_other": "Scan another code",
   "qr_transfer_go_home": "Go to home",
   "qr_transfer_unknown": "Unknown",
-  "qr_receive_no_wallet_warning": "You must have at least one VND Bank or E-wallet configured to generate a payment QR code."
+  "qr_receive_no_wallet_warning": "You must have at least one VND Bank or E-wallet configured to generate a payment QR code.",
+  "check": "Check",
+  "payee_info_title": "Payee Information",
+  "payee_name_hint": "Enter payee name (Required)...",
+  "payee_account_hint": "Enter account or card number...",
+  "payee_bank_hint": "Enter bank name (e.g., Vietcombank)...",
+  "please_enter_payee_name": "Please enter payee name!",
+  "please_enter_payee_account": "Please enter payee account number!",
+  "please_enter_payee_bank": "Please enter payee bank name!"
 }

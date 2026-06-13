@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -11,6 +13,9 @@ import 'package:expense_management/features/wallet/presentation/provider/wallet_
 import 'package:expense_management/features/wallet/presentation/provider/qr_transfer_provider.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:elegant_notification/elegant_notification.dart';
+import 'package:shimmer/shimmer.dart';
+
+final myQrCacheProvider = StateProvider<Map<String, Map<String, dynamic>>>((ref) => {});
 
 class QrScannerScreen extends ConsumerStatefulWidget {
   const QrScannerScreen({super.key});
@@ -24,6 +29,9 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
   final MobileScannerController _scannerController = MobileScannerController(
     detectionSpeed: DetectionSpeed.noDuplicates,
   );
+  
+  // Debounce timer for QR generation
+  Timer? _debounceTimer;
   
   // Scanning state
   bool _isLoadingDecode = false;
@@ -84,6 +92,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
     _amountController.dispose();
     _descController.dispose();
     _searchPayeeController.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
@@ -184,22 +193,52 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
   }
 
   // --- TAB 2: MY QR LOGIC ---
+  void _onQrFieldsChanged() {
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 600), () {
+      _generateMyQrCode();
+    });
+  }
+
   Future<void> _generateMyQrCode() async {
+    final amountText = _amountController.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final amount = double.tryParse(amountText);
+    final desc = _descController.text.trim();
+    
+    final isDefault = amount == null && desc.isEmpty;
+    final walletId = _selectedWallet?.id;
+
+    if (isDefault && walletId != null) {
+      final cache = ref.read(myQrCacheProvider);
+      if (cache.containsKey(walletId)) {
+        setState(() {
+          _generatedQrData = cache[walletId];
+          _isLoadingMyQr = false;
+        });
+        return;
+      }
+    }
+
     setState(() {
       _isLoadingMyQr = true;
     });
 
-    final amount = double.tryParse(_amountController.text.replaceAll(RegExp(r'[^0-9]'), ''));
     final result = await ref.read(qrTransferProvider.notifier).generateMyQrCode(
-      walletId: _selectedWallet?.id,
+      walletId: walletId,
       amount: amount,
-      description: _descController.text.isNotEmpty ? _descController.text : null,
+      description: desc.isNotEmpty ? desc : null,
     );
 
     if (mounted) {
       setState(() {
         _generatedQrData = result;
         _isLoadingMyQr = false;
+        if (isDefault && walletId != null && result != null) {
+          ref.read(myQrCacheProvider.notifier).update((state) => {
+            ...state,
+            walletId: result,
+          });
+        }
       });
     }
   }
@@ -238,6 +277,28 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
   Widget build(BuildContext context) {
     final color = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Listen to wallet changes to set default selection when wallets load asynchronously
+    ref.listen<AsyncValue<List<WalletEntity>>>(walletNotifierProvider, (previous, next) {
+      if (next.hasValue && _selectedWallet == null) {
+        final rawWallets = next.value ?? [];
+        final wallets = rawWallets.where((w) {
+          final type = w.type.toLowerCase();
+          return !w.isHidden &&
+                 (type == 'bank' || type == 'e-wallet' || type == 'e_wallet' || type == 'ewallet') &&
+                 w.currencyCode == 'VND';
+        }).toList();
+        if (wallets.isNotEmpty) {
+          setState(() {
+            _selectedWallet = wallets.firstWhere(
+              (w) => w.type == 'bank',
+              orElse: () => wallets.first,
+            );
+          });
+          _generateMyQrCode();
+        }
+      }
+    });
 
     return Scaffold(
       backgroundColor: color.background,
@@ -396,24 +457,33 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
             ),
             child: Column(
               children: [
-                if (_isLoadingMyQr)
-                  const SizedBox(
-                    height: 250,
-                    child: Center(child: CircularProgressIndicator()),
-                  )
+                if (_isLoadingMyQr && _generatedQrData == null)
+                  _buildMyQrShimmer(color, isDark)
                 else if (_generatedQrData != null) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.network(
-                      _generatedQrData!['qr_image'] ?? '',
-                      height: 250,
-                      width: 250,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => const SizedBox(
-                        height: 250,
-                        child: Icon(Icons.qr_code_2_rounded, size: 120),
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Opacity(
+                        opacity: _isLoadingMyQr ? 0.4 : 1.0,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.network(
+                            _generatedQrData!['qr_image'] ?? '',
+                            height: 250,
+                            width: 250,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => const SizedBox(
+                              height: 250,
+                              child: Icon(Icons.qr_code_2_rounded, size: 120),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      if (_isLoadingMyQr)
+                        CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(color.primary),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -485,6 +555,11 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
                 onChanged: (val) {
                   setState(() {
                     _selectedWallet = val;
+                    // Reset QR image if not cached to show shimmer instantly
+                    final cache = ref.read(myQrCacheProvider);
+                    if (val != null && !cache.containsKey(val.id)) {
+                      _generatedQrData = null;
+                    }
                   });
                   _generateMyQrCode();
                 },
@@ -508,7 +583,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
               fillColor: color.surface,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
             ),
-            onChanged: (_) => _generateMyQrCode(),
+            onChanged: (_) => _onQrFieldsChanged(),
           ),
           const SizedBox(height: 16),
 
@@ -526,9 +601,94 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
               fillColor: color.surface,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
             ),
-            onChanged: (_) => _generateMyQrCode(),
+            onChanged: (_) => _onQrFieldsChanged(),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMyQrShimmer(AppColorsExtension color, bool isDark) {
+    final baseColor = isDark ? Colors.grey[900]! : Colors.grey[300]!;
+    final highlightColor = isDark ? Colors.grey[800]! : Colors.grey[100]!;
+
+    return Shimmer.fromColors(
+      baseColor: baseColor,
+      highlightColor: highlightColor,
+      period: const Duration(milliseconds: 1500),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 250,
+            width: 250,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: 130,
+            height: 14,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: 180,
+            height: 20,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPayeesShimmer(AppColorsExtension color, bool isDark) {
+    final baseColor = isDark ? Colors.grey[900]! : Colors.grey[300]!;
+    final highlightColor = isDark ? Colors.grey[800]! : Colors.grey[100]!;
+
+    return Shimmer.fromColors(
+      baseColor: baseColor,
+      highlightColor: highlightColor,
+      period: const Duration(milliseconds: 1500),
+      child: ListView.builder(
+        itemCount: 5,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemBuilder: (context, index) {
+          return Card(
+            color: color.surface,
+            margin: const EdgeInsets.symmetric(vertical: 6),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: ListTile(
+              leading: const CircleAvatar(radius: 20),
+              title: Container(
+                width: 150,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              subtitle: Container(
+                width: 100,
+                height: 12,
+                margin: const EdgeInsets.only(top: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+            ),
+          );
+        },
       ),
     );
   }
@@ -555,7 +715,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
         ),
         Expanded(
           child: _isLoadingPayees
-              ? const Center(child: CircularProgressIndicator())
+              ? _buildPayeesShimmer(color, isDark)
               : _payees.isEmpty
                   ? Center(
                       child: Column(

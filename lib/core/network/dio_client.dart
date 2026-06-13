@@ -38,6 +38,7 @@ final dioClientProvider = Provider<Dio>((ref) {
   dio.interceptors.addAll([
     AuthInterceptor(ref),
     RefreshTokenInterceptor(ref, dio),
+    RetryOnTimeoutInterceptor(dio: dio),
     ErrorHandlingInterceptor(ref),
   ]);
 
@@ -313,5 +314,55 @@ class ErrorHandlingInterceptor extends Interceptor {
         error: errorMessage,
       ),
     );
+  }
+}
+
+class RetryOnTimeoutInterceptor extends Interceptor {
+  final Dio dio;
+  final int maxRetries;
+  final Duration delay;
+
+  RetryOnTimeoutInterceptor({
+    required this.dio,
+    this.maxRetries = 2,
+    this.delay = const Duration(seconds: 2),
+  });
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) async {
+    final isTimeout = err.type == DioExceptionType.connectionTimeout || 
+                      err.type == DioExceptionType.receiveTimeout;
+    
+    final isGetMethod = err.requestOptions.method.toUpperCase() == 'GET';
+
+    if (isTimeout && isGetMethod) {
+      int retryCount = err.requestOptions.extra['retry_count'] ?? 0;
+
+      if (retryCount < maxRetries) {
+        retryCount++;
+        err.requestOptions.extra['retry_count'] = retryCount;
+
+        AppLogger.warning(
+          "🔄 [Network] Request tới ${err.requestOptions.path} bị timeout. Đang tự động thử lại lần $retryCount/$maxRetries sau ${delay.inSeconds} giây..."
+        );
+
+        await Future.delayed(delay);
+
+        try {
+          final response = await dio.fetch(err.requestOptions);
+          return handler.resolve(response);
+        } on DioException catch (retryErr) {
+          // Lan truyền lỗi để ErrorInterceptor có thể xử lý tiếp (hoặc retry lần sau)
+          return super.onError(retryErr, handler);
+        } catch (e) {
+          return super.onError(
+            DioException(requestOptions: err.requestOptions, error: e),
+            handler,
+          );
+        }
+      }
+    }
+
+    return super.onError(err, handler);
   }
 }
