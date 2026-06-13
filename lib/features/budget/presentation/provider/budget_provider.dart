@@ -7,6 +7,11 @@ import 'package:expense_management/core/network/dio_client.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
+import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
+import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
 
 final budgetApiServiceProvider = Provider<BudgetApiService>((ref) {
   final dio = ref.watch(dioClientProvider);
@@ -102,6 +107,7 @@ final currentMonthBudgetsProvider = FutureProvider<List<BudgetDto>>((ref) async 
 });
 
 Future<List<BudgetDto>> _overrideBudgetUsages(Ref ref, List<BudgetDto> budgets, int month, int year) async {
+  List<BudgetDto> finalBudgets;
   try {
     final reportRepo = ref.read(reportRepositoryProvider);
     final report = await reportRepo.getCategories(
@@ -122,10 +128,91 @@ Future<List<BudgetDto>> _overrideBudgetUsages(Ref ref, List<BudgetDto> budgets, 
       }
     }).toList();
 
-    return _recalculateOverallBudgetUsage(updatedBudgets, report.totalAmount);
+    finalBudgets = _recalculateOverallBudgetUsage(updatedBudgets, report.totalAmount);
   } catch (e) {
-    return _recalculateOverallBudgetUsage(budgets, 0.0);
+    finalBudgets = _recalculateOverallBudgetUsage(budgets, 0.0);
   }
+
+  _checkBudgetThresholds(ref, finalBudgets);
+  return finalBudgets;
+}
+
+void _checkBudgetThresholds(Ref ref, List<BudgetDto> budgets) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    for (final b in budgets) {
+      if (b.limitAmount <= 0) continue;
+      final ratio = b.usedAmount / b.limitAmount;
+      final categoryName = b.category?.name ?? 'Ngân sách chung';
+      final formattedUsed = b.usedAmount.toStringAsFixed(0);
+      final formattedLimit = b.limitAmount.toStringAsFixed(0);
+
+      final notified80Key = 'notified_budget_80_${b.id}';
+      final notified100Key = 'notified_budget_100_${b.id}';
+
+      if (ratio >= 1.0) {
+        final alreadyNotified100 = prefs.getBool(notified100Key) ?? false;
+        if (!alreadyNotified100) {
+          final title = 'Vượt hạn mức ngân sách';
+          final body = 'Chi tiêu cho "$categoryName" đã đạt 100% hạn mức (đã dùng $formattedUsed đ / $formattedLimit đ).';
+
+          await LocalNotificationService.showNotification(
+            id: b.id.hashCode + 100,
+            title: title,
+            body: body,
+          );
+          await prefs.setBool(notified100Key, true);
+          await prefs.setBool(notified80Key, true);
+
+          final userId = ref.read(currentUserProvider)?.id ?? '';
+          if (userId.isNotEmpty) {
+            final localNotif = await LocalNotificationStorage.createAndSave(
+              userId: userId,
+              type: 'budget_warning',
+              title: title,
+              body: body,
+            );
+            if (localNotif != null) {
+              ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
+            }
+          }
+        }
+      } else if (ratio >= 0.8) {
+        final alreadyNotified80 = prefs.getBool(notified80Key) ?? false;
+        if (!alreadyNotified80) {
+          final title = 'Cảnh báo hạn mức ngân sách';
+          final body = 'Chi tiêu cho "$categoryName" đã đạt 80% hạn mức (đã dùng $formattedUsed đ / $formattedLimit đ).';
+
+          await LocalNotificationService.showNotification(
+            id: b.id.hashCode + 80,
+            title: title,
+            body: body,
+          );
+          await prefs.setBool(notified80Key, true);
+
+          final userId = ref.read(currentUserProvider)?.id ?? '';
+          if (userId.isNotEmpty) {
+            final localNotif = await LocalNotificationStorage.createAndSave(
+              userId: userId,
+              type: 'budget_warning',
+              title: title,
+              body: body,
+            );
+            if (localNotif != null) {
+              ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
+            }
+          }
+        }
+      } else {
+        if (prefs.containsKey(notified80Key)) {
+          await prefs.remove(notified80Key);
+        }
+        if (prefs.containsKey(notified100Key)) {
+          await prefs.remove(notified100Key);
+        }
+      }
+    }
+  } catch (_) {}
 }
 
 List<BudgetDto> _recalculateOverallBudgetUsage(List<BudgetDto> budgets, double fallbackTotal) {

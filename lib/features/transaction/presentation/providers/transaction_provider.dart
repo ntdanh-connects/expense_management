@@ -28,6 +28,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
 import 'package:timezone/timezone.dart' as tz;
+import 'package:expense_management/core/constants/app_constant.dart';
+import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
+import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
+import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
 
 final transactionApiServiceProvider = Provider<TransactionApiService>((ref) {
   final dio = ref.watch(dioClientProvider);
@@ -104,6 +108,8 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
   void _invalidateBudgets() {
     ref.invalidate(budgetListProvider);
     ref.invalidate(currentMonthBudgetsProvider);
+    // Force rebuild to trigger budget threshold checks
+    ref.read(currentMonthBudgetsProvider.future).catchError((_) => []);
   }
 
   @override
@@ -418,6 +424,15 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
       final newList = [transaction, ...currentList];
       return newList;
     });
+
+    _notifyTransaction(
+      type: transaction.type,
+      amount: transaction.amount,
+      currencyCode: transaction.currencyCode ?? 'VND',
+      walletName: transaction.walletName,
+      title: transaction.title,
+    );
+
     _invalidateBudgets();
     ref.invalidate(filteredTransactionListProvider);
   }
@@ -458,6 +473,14 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
       final currentList = state.value ?? [];
       return [tempTx, ...currentList];
     });
+
+    _notifyTransaction(
+      type: params.type,
+      amount: params.amount,
+      currencyCode: params.currencyCode ?? 'VND',
+      walletName: params.walletName,
+      title: params.title,
+    );
 
     _invalidateBudgets();
     ref.invalidate(filteredTransactionListProvider);
@@ -527,16 +550,91 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
         'attachments[]': attachments.map((e) => e.clone()).toList(),
       },
     };
-
     final formData = FormData.fromMap(data);
     final url = ApiEndpoints.updateTransaction.replaceAll('{id}', transactionId);
+    final response = await dio.post(url, data: formData);
 
-    await dio.post(url, data: formData);
+    try {
+      final responseData = response.data;
+      if (responseData != null && responseData['data'] != null) {
+        final dto = TransactionDto.fromJson(responseData['data'] as Map<String, dynamic>);
+        final entity = TransactionMapper.toEntity(dto);
+        final database = ref.read(appDatabaseProvider);
+        final userId = ref.read(currentUserProvider)?.id ?? '';
+        
+        final localTx = LocalTransaction(
+          id: entity.id,
+          userId: userId,
+          walletId: entity.walletId,
+          categoryId: entity.categoryId,
+          amount: entity.amount,
+          amountInUserCurrency: entity.amount * (entity.exchangeRate ?? 1.0),
+          type: entity.type,
+          title: entity.title,
+          notes: entity.notes,
+          transactionDate: entity.transactionDate,
+          sourceType: entity.sourceType,
+          createdAt: entity.createdAt ?? DateTime.now(),
+          updatedAt: DateTime.now(),
+          isSynced: true,
+        );
+        await database.saveTransaction(localTx);
+      }
+    } catch (e) {
+      AppLogger.error('🚨 [updateTransaction] Failed to update local DB: $e');
+    }
 
     ref.invalidate(transactionListProvider);
     ref.invalidate(filteredTransactionListProvider);
     await ref.read(walletNotifierProvider.notifier).refreshWallets();
     _invalidateBudgets();
+  }
+
+  void _notifyTransaction({
+    required String type,
+    required double amount,
+    required String currencyCode,
+    required String? walletName,
+    required String title,
+  }) async {
+    try {
+      final currencySymbol = AppConstant.getCurrencySymbol(currencyCode);
+      final formattedAmount = AppConstant.formatMoney(amount, currencyCode);
+      final walletPart = walletName != null ? ' ví "$walletName"' : '';
+
+      String notifTitle = 'Biến động số dư';
+      String notifBody = '';
+
+      if (type.toLowerCase() == 'income') {
+        notifBody = '+$formattedAmount $currencySymbol vào$walletPart. Nội dung: $title';
+      } else if (type.toLowerCase() == 'expense') {
+        notifBody = '-$formattedAmount $currencySymbol từ$walletPart. Nội dung: $title';
+      } else if (type.toLowerCase() == 'transfer') {
+        notifTitle = 'Chuyển tiền';
+        notifBody = 'Chuyển $formattedAmount $currencySymbol từ$walletPart. Nội dung: $title';
+      } else {
+        notifBody = 'Giao dịch mới: $formattedAmount $currencySymbol - $title';
+      }
+
+      await LocalNotificationService.showNotification(
+        id: DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF,
+        title: notifTitle,
+        body: notifBody,
+      );
+
+      final userId = ref.read(currentUserProvider)?.id ?? '';
+      if (userId.isNotEmpty) {
+        final localNotif = await LocalNotificationStorage.createAndSave(
+          userId: userId,
+          type: 'transaction',
+          title: notifTitle,
+          body: notifBody,
+        );
+        if (localNotif != null) {
+          ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
+        }
+      }
+    } catch (_) {}
   }
 }
 

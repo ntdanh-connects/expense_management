@@ -19,10 +19,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:dio_cache_interceptor_file_store/dio_cache_interceptor_file_store.dart';
 import 'package:expense_management/core/network/dio_client.dart';
+import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
 
 void main() async{
   WidgetsFlutterBinding.ensureInitialized();
   tz.initializeTimeZones();
+  await LocalNotificationService.initialize();
   await initializeDateFormatting('vi', null);
   await initializeDateFormatting('en', null);
   final sharedPrefs = await SharedPreferences.getInstance();

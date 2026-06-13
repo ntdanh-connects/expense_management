@@ -5,6 +5,8 @@ import 'package:expense_management/features/notification/data/models/notificatio
 import 'package:expense_management/features/notification/data/repository_impl/notification_repository_impl.dart';
 import 'package:expense_management/features/notification/domain/repositories/notification_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
 
 // ---------------------------------------------------------------------------
 // Service & Repository providers
@@ -67,14 +69,67 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
   Future<NotificationState> _fetchPage(
       int page, List<NotificationDto> existing) async {
     final repo = ref.read(notificationRepositoryProvider);
-    final items = await repo.getNotifications(page: page);
-    final merged = [...existing, ...items];
+    
+    List<NotificationDto> remoteItems = [];
+    try {
+      remoteItems = await repo.getNotifications(page: page);
+    } catch (_) {
+      // Gracefully handle remote errors so local notifications can still be displayed
+    }
+    
+    // Fetch local notifications if this is the first page
+    final user = ref.read(currentUserProvider);
+    final userId = user?.id ?? '';
+    List<NotificationDto> localItems = [];
+    if (userId.isNotEmpty && page == 1) {
+      final allLocal = await LocalNotificationStorage.getNotifications(userId);
+      final now = DateTime.now();
+      localItems = allLocal.where((n) {
+        try {
+          final dt = DateTime.parse(n.createdAt);
+          return dt.isBefore(now) || dt.isAtSameMomentAs(now);
+        } catch (_) {
+          return true;
+        }
+      }).toList();
+    }
+
+    final merged = [...localItems, ...existing, ...remoteItems];
+    
+    // Remove duplicates by ID just in case
+    final seen = <String>{};
+    final uniqueMerged = <NotificationDto>[];
+    for (final item in merged) {
+      if (seen.add(item.id)) {
+        uniqueMerged.add(item);
+      }
+    }
+    
+    // Sort chronologically descending
+    uniqueMerged.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
     return NotificationState(
-      notifications: merged,
+      notifications: uniqueMerged,
       isLoading: false,
-      hasMore: items.length >= 15,
+      hasMore: remoteItems.length >= 15,
       currentPage: page,
     );
+  }
+
+  void addLocalNotification(NotificationDto notif) {
+    final current = state.value;
+    if (current == null) return;
+    
+    final merged = [notif, ...current.notifications];
+    final seen = <String>{};
+    final uniqueMerged = <NotificationDto>[];
+    for (final item in merged) {
+      if (seen.add(item.id)) {
+        uniqueMerged.add(item);
+      }
+    }
+    uniqueMerged.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    state = AsyncValue.data(current.copyWith(notifications: uniqueMerged));
   }
 
   Future<void> refresh() async {
@@ -100,8 +155,18 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
     final current = state.value;
     if (current == null) return;
     try {
-      final repo = ref.read(notificationRepositoryProvider);
-      await repo.markAsRead(id);
+      final user = ref.read(currentUserProvider);
+      final userId = user?.id ?? '';
+      
+      if (id.startsWith('local_')) {
+        if (userId.isNotEmpty) {
+          await LocalNotificationStorage.markAsRead(userId, id);
+        }
+      } else {
+        final repo = ref.read(notificationRepositoryProvider);
+        await repo.markAsRead(id);
+      }
+      
       final updated = current.notifications.map((n) {
         if (n.id == id) {
           return NotificationDto(
@@ -126,8 +191,16 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
     final current = state.value;
     if (current == null) return;
     try {
+      final user = ref.read(currentUserProvider);
+      final userId = user?.id ?? '';
+      
+      if (userId.isNotEmpty) {
+        await LocalNotificationStorage.markAllAsRead(userId);
+      }
+      
       final repo = ref.read(notificationRepositoryProvider);
       await repo.markAllAsRead();
+      
       final now = DateTime.now().toIso8601String();
       final updated = current.notifications.map((n) {
         if (!n.isRead) {
@@ -153,8 +226,18 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
     final current = state.value;
     if (current == null) return;
     try {
-      final repo = ref.read(notificationRepositoryProvider);
-      await repo.deleteNotification(id);
+      final user = ref.read(currentUserProvider);
+      final userId = user?.id ?? '';
+      
+      if (id.startsWith('local_')) {
+        if (userId.isNotEmpty) {
+          await LocalNotificationStorage.deleteNotification(userId, id);
+        }
+      } else {
+        final repo = ref.read(notificationRepositoryProvider);
+        await repo.deleteNotification(id);
+      }
+      
       final updated = current.notifications.where((n) => n.id != id).toList();
       state = AsyncValue.data(current.copyWith(notifications: updated));
     } catch (_) {}

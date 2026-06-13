@@ -14,6 +14,9 @@ import 'package:expense_management/features/wallet/presentation/provider/interna
 import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/core/language/app_language.dart';
+import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
+import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
+import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 final showHiddenWalletsProvider = StateProvider<bool>((ref) => false);
@@ -636,12 +639,46 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         }
         _showSnackBar(errorMsg, isError: true);
       } else {
+        // Lưu thông tin ví trước khi reset state để hiển thị thông báo chính xác
+        final sourceWalletName = _fromWallet?.name;
+        final targetWalletName = _toWallet?.name;
+        final currencyCode = _fromWallet?.currencyCode ?? 'VND';
+
         _amountController.clear();
         setState(() {
           _fromWallet = null;
           _toWallet = null;
         });
         _showSnackBar('transfer_success'.tr(ref), isError: false);
+
+        // Hiển thị thông báo chuyển khoản ngoài app
+        try {
+          final amt = double.tryParse(amountStr) ?? 0.0;
+          final currencySymbol = AppConstant.getCurrencySymbol(currencyCode);
+          final formattedAmount = _formatMoney(amt, currencyCode);
+          
+          final title = 'Chuyển tiền';
+          final body = 'Chuyển $formattedAmount $currencySymbol từ ví "$sourceWalletName" sang ví "$targetWalletName".';
+
+          await LocalNotificationService.showNotification(
+            id: DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF,
+            title: title,
+            body: body,
+          );
+
+          final userId = ref.read(currentUserProvider)?.id ?? '';
+          if (userId.isNotEmpty) {
+            final localNotif = await LocalNotificationStorage.createAndSave(
+              userId: userId,
+              type: 'transaction',
+              title: title,
+              body: body,
+            );
+            if (localNotif != null) {
+              ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
+            }
+          }
+        } catch (_) {}
       }
     } finally {
       if (mounted) {

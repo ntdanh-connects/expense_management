@@ -45,6 +45,7 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> with WidgetsB
       // Khi người dùng quay lại app, âm thầm làm mới dữ liệu ví và giao dịch mới nhất từ server
       ref.read(walletNotifierProvider.notifier).refreshWallets();
       ref.read(transactionListProvider.notifier).refreshTransactions(silent: true);
+      ref.read(filteredTransactionListProvider.notifier).refreshTransactions(silent: true);
     }
   }
 
@@ -59,6 +60,10 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> with WidgetsB
           if (index != 2) {
             // Reset sub-tab of Analytics screen back to 'statistics' when switching away
             ref.read(selectedAnalyticTabProvider.notifier).state = 'statistics';
+          }
+          if (index == 1) {
+            // Lịch sử giao dịch tự động làm mới ngầm khi chuyển tab
+            ref.read(filteredTransactionListProvider.notifier).refreshTransactions(silent: true);
           }
           widget.navigationShell.goBranch(
             index,
