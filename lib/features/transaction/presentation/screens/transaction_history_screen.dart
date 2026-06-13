@@ -199,71 +199,94 @@ class _TransactionHistoryScreenState
 
           const SizedBox(height: 6),
 
-          // ── 4. DANH SÁCH GIAO DỊCH
           Expanded(
-            child: transactionState.when(
-              data: (txList) {
-                final filtered = _applyFilters(txList);
-                final pagination = ref.watch(transactionPaginationProvider);
+            child: RefreshIndicator(
+              color: colors.primary,
+              onRefresh: () async {
+                await ref
+                    .read(filteredTransactionListProvider.notifier)
+                    .refreshTransactions(silent: false);
+              },
+              child: transactionState.when(
+                data: (txList) {
+                  final filtered = _applyFilters(txList);
+                  final pagination = ref.watch(transactionPaginationProvider);
 
-                if (filtered.isEmpty) {
-                  return _buildEmptyState(colors, pagination.hasMore, pagination.isLoadingMore);
-                }
+                  if (filtered.isEmpty) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(
+                        parent: BouncingScrollPhysics(),
+                      ),
+                      children: [
+                        SizedBox(height: MediaQuery.of(context).size.height * 0.18),
+                        _buildEmptyState(colors, pagination.hasMore, pagination.isLoadingMore),
+                      ],
+                    );
+                  }
 
-                // Nhóm theo ngày
-                final grouped = _groupByDate(filtered);
+                  // Nhóm theo ngày
+                  final grouped = _groupByDate(filtered);
 
-                return ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: grouped.length + (pagination.hasMore && !_showRecentOnly ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index == grouped.length) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Center(
-                          child: SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+                  return ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
+                    itemCount: grouped.length + (pagination.hasMore && !_showRecentOnly ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index == grouped.length) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+                              ),
                             ),
                           ),
-                        ),
+                        );
+                      }
+                      return _buildDaySection(
+                        grouped[index],
+                        colors,
+                        userCurrency,
+                        currencySymbol,
+                        ratesData,
                       );
-                    }
-                    return _buildDaySection(
-                      grouped[index],
-                      colors,
-                      userCurrency,
-                      currencySymbol,
-                      ratesData,
-                    );
-                  },
-                );
-              },
-              loading: () => const TransactionListShimmer(
-                itemCount: 8,
-                padding: EdgeInsets.symmetric(horizontal: 16),
-              ),
-              error: (err, _) => Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'load_transactions_error'.tr(ref),
-                      style: TextStyle(color: colors.textPrimary),
+                    },
+                  );
+                },
+                loading: () => const TransactionListShimmer(
+                  itemCount: 8,
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                ),
+                error: (err, _) => SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.5,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'load_transactions_error'.tr(ref),
+                            style: TextStyle(color: colors.textPrimary),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () => ref
+                                .read(filteredTransactionListProvider.notifier)
+                                .refreshTransactions(),
+                            child: Text('try_again'.tr(ref)),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => ref
-                          .read(filteredTransactionListProvider.notifier)
-                          .refreshTransactions(),
-                      child: Text('try_again'.tr(ref)),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),

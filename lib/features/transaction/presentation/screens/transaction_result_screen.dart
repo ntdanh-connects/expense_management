@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_params.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
@@ -12,7 +13,10 @@ import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
+import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
 import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
+import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
+import 'package:expense_management/core/constants/app_constant.dart';
 
 enum TransactionStatus { processing, success, failure, offlineSuccess }
 
@@ -86,6 +90,50 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
       // Invalidate budget providers to refresh budget lists and totals immediately
       ref.invalidate(budgetListProvider);
       ref.invalidate(currentMonthBudgetsProvider);
+      ref.invalidate(filteredTransactionListProvider);
+      // Force rebuild to trigger budget threshold checks
+      ref.read(currentMonthBudgetsProvider.future).catchError((_) => []);
+
+      // Hiển thị thông báo giao dịch thành công ngoài app
+      try {
+        final currencyCode = widget.params.currencyCode ?? 'VND';
+        final currencySymbol = AppConstant.getCurrencySymbol(currencyCode);
+        final formattedAmount = AppConstant.formatMoney(widget.params.amount, currencyCode);
+        final walletPart = widget.params.walletName != null ? ' ví "${widget.params.walletName}"' : '';
+
+        String notifTitle = 'Biến động số dư';
+        String notifBody = '';
+
+        if (widget.params.type.toLowerCase() == 'income') {
+          notifBody = '+$formattedAmount $currencySymbol vào$walletPart. Nội dung: ${widget.params.title}';
+        } else if (widget.params.type.toLowerCase() == 'expense') {
+          notifBody = '-$formattedAmount $currencySymbol từ$walletPart. Nội dung: ${widget.params.title}';
+        } else if (widget.params.type.toLowerCase() == 'transfer') {
+          notifTitle = 'Chuyển tiền';
+          notifBody = 'Chuyển $formattedAmount $currencySymbol từ$walletPart. Nội dung: ${widget.params.title}';
+        } else {
+          notifBody = 'Giao dịch mới: $formattedAmount $currencySymbol - ${widget.params.title}';
+        }
+
+        await LocalNotificationService.showNotification(
+          id: DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF,
+          title: notifTitle,
+          body: notifBody,
+        );
+
+        final userId = ref.read(currentUserProvider)?.id ?? '';
+        if (userId.isNotEmpty) {
+          final localNotif = await LocalNotificationStorage.createAndSave(
+            userId: userId,
+            type: 'transaction',
+            title: notifTitle,
+            body: notifBody,
+          );
+          if (localNotif != null) {
+            ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
+          }
+        }
+      } catch (_) {}
 
       if (mounted) {
         setState(() {

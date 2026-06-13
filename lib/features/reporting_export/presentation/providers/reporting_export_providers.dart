@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +9,10 @@ import 'package:expense_management/features/reporting_export/data/repository_imp
 import 'package:expense_management/features/reporting_export/domain/repositories/reporting_export_repository.dart';
 import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
+import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
+import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
+import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
 
 // 1. Api Service Provider
 final reportingExportApiServiceProvider = Provider<ReportingExportApiService>((ref) {
@@ -50,8 +55,14 @@ class ExportHistoryItem {
 
 // 4. Combined export history notifier (Server CSV + Local PDF)
 class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
+  Timer? _pollingTimer;
+
   @override
   Future<List<ExportHistoryItem>> build() async {
+    ref.onDispose(() {
+      _pollingTimer?.cancel();
+    });
+
     final repo = ref.watch(reportingExportRepositoryProvider);
 
     // Fetch remote history
@@ -60,6 +71,16 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
       remoteList = await repo.fetchRemoteExports();
     } catch (e) {
       // Allow local file viewing even if offline/server error
+    }
+
+    _checkRemoteExportNotifications(remoteList);
+
+    final hasPending = remoteList.any((dto) => dto.status == 'pending' || dto.status == 'processing');
+    if (hasPending) {
+      _pollingTimer?.cancel();
+      _pollingTimer = Timer(const Duration(seconds: 10), () {
+        ref.invalidateSelf();
+      });
     }
 
     // Fetch local files history
@@ -168,6 +189,86 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
     } catch (_) {}
 
     ref.invalidateSelf();
+  }
+
+  Future<void> _checkRemoteExportNotifications(List<ReportExportDto> remoteList) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      for (final dto in remoteList) {
+        final completedKey = 'notified_export_${dto.id}_completed';
+        final failedKey = 'notified_export_${dto.id}_failed';
+
+        if (dto.status == 'completed') {
+          final alreadyNotified = prefs.getBool(completedKey) ?? false;
+          if (!alreadyNotified) {
+            String dateLabel = 'Báo cáo CSV';
+            if (dto.filters != null) {
+              final start = dto.filters!['start_date']?.toString().split('T').first;
+              final end = dto.filters!['end_date']?.toString().split('T').first;
+              if (start != null && end != null) {
+                dateLabel = 'Báo cáo từ $start đến $end';
+              }
+            }
+            final title = 'Xuất dữ liệu thành công';
+            final body = '$dateLabel đã được xuất xong và sẵn sàng tải về.';
+
+            await LocalNotificationService.showNotification(
+              id: dto.id.hashCode,
+              title: title,
+              body: body,
+            );
+            await prefs.setBool(completedKey, true);
+
+            final userId = ref.read(currentUserProvider)?.id ?? '';
+            if (userId.isNotEmpty) {
+              final localNotif = await LocalNotificationStorage.createAndSave(
+                userId: userId,
+                type: 'transaction',
+                title: title,
+                body: body,
+              );
+              if (localNotif != null) {
+                ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
+              }
+            }
+          }
+        } else if (dto.status == 'failed') {
+          final alreadyNotified = prefs.getBool(failedKey) ?? false;
+          if (!alreadyNotified) {
+            String dateLabel = 'Báo cáo CSV';
+            if (dto.filters != null) {
+              final start = dto.filters!['start_date']?.toString().split('T').first;
+              final end = dto.filters!['end_date']?.toString().split('T').first;
+              if (start != null && end != null) {
+                dateLabel = 'Báo cáo từ $start đến $end';
+              }
+            }
+            final title = 'Xuất dữ liệu thất bại';
+            final body = 'Xuất dữ liệu $dateLabel gặp lỗi.';
+
+            await LocalNotificationService.showNotification(
+              id: dto.id.hashCode,
+              title: title,
+              body: body,
+            );
+            await prefs.setBool(failedKey, true);
+
+            final userId = ref.read(currentUserProvider)?.id ?? '';
+            if (userId.isNotEmpty) {
+              final localNotif = await LocalNotificationStorage.createAndSave(
+                userId: userId,
+                type: 'transaction',
+                title: title,
+                body: body,
+              );
+              if (localNotif != null) {
+                ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
   }
 }
 

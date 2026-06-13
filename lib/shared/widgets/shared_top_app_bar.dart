@@ -115,19 +115,6 @@ class SharedTopAppBar extends ConsumerWidget implements PreferredSizeWidget {
                             textAlign: TextAlign.center,
                           ),
                         ),
-                      )
-                    else
-                      Positioned(
-                        right: 2,
-                        top: 2,
-                        child: Container(
-                          width: 7,
-                          height: 7,
-                          decoration: const BoxDecoration(
-                            color: Colors.red,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
                       ),
                   ],
                 ),

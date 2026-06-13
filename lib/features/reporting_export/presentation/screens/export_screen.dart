@@ -15,6 +15,9 @@ import 'package:expense_management/features/profile/category_provider.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/features/reporting_export/presentation/providers/reporting_export_providers.dart';
 import 'package:elegant_notification/elegant_notification.dart';
+import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
+import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
+import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
 
 class ExportScreen extends ConsumerStatefulWidget {
   const ExportScreen({super.key});
@@ -92,6 +95,29 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
         );
 
         if (mounted) {
+          final title = 'Xuất dữ liệu thành công';
+          final body = 'Báo cáo PDF "${file.path.split('/').last.split('\\').last}" đã được xuất thành công.';
+
+          LocalNotificationService.showNotification(
+            id: file.path.hashCode,
+            title: title,
+            body: body,
+          );
+
+          final userId = ref.read(currentUserProvider)?.id ?? '';
+          if (userId.isNotEmpty) {
+            LocalNotificationStorage.createAndSave(
+              userId: userId,
+              type: 'transaction',
+              title: title,
+              body: body,
+            ).then((localNotif) {
+              if (localNotif != null) {
+                ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
+              }
+            });
+          }
+
           ElegantNotification.success(
             title: Text('success'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
             description: Text('export_success'.tr(ref)),
