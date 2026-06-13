@@ -525,9 +525,9 @@ class _TransactionDetailScreenState
                         ),
                         const SizedBox(height: 8),
                         InkWell(
-                          onTap: isTransfer ? null : _showCategorySelection,
+                          onTap: tx.isTransferLocked ? null : _showCategorySelection,
                           child: Opacity(
-                            opacity: isTransfer ? 0.6 : 1.0,
+                            opacity: tx.isTransferLocked ? 0.6 : 1.0,
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
@@ -574,7 +574,7 @@ class _TransactionDetailScreenState
                                       ),
                                     ),
                                   ),
-                                  if (!isTransfer)
+                                  if (!tx.isTransferLocked)
                                     Icon(
                                       Icons.arrow_forward_ios_rounded,
                                       color: colors.textSecondary.withOpacity(
@@ -632,6 +632,197 @@ class _TransactionDetailScreenState
                             ],
                           ),
                         ),
+
+                        if (tx.payeeName != null && tx.payeeName!.isNotEmpty) ...[
+                          const SizedBox(height: 18),
+                          Text(
+                            'qr_transfer_recipient'.tr(ref),
+                            style: TextStyle(
+                              color: colors.textPrimary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.surface,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.person_outline_rounded,
+                                      color: colors.primary,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        tx.payeeName!,
+                                        style: TextStyle(
+                                          color: colors.textPrimary,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (tx.payeeAccountNumber != null && tx.payeeAccountNumber!.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.credit_card_rounded,
+                                        color: colors.textSecondary,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: Text(
+                                          tx.payeeAccountNumber!,
+                                          style: TextStyle(
+                                            color: colors.textSecondary,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                                if (tx.payeeBankName != null && tx.payeeBankName!.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.account_balance_rounded,
+                                        color: colors.textSecondary,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: Text(
+                                          tx.payeeBankName!,
+                                          style: TextStyle(
+                                            color: colors.textSecondary,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        if (tx.senderName != null && tx.senderName!.isNotEmpty) ...[
+                          const SizedBox(height: 18),
+                          Text(
+                            'qr_transfer_sender'.tr(ref),
+                            style: TextStyle(
+                              color: colors.textPrimary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.surface,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.person_rounded,
+                                      color: colors.primary,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        tx.senderName!,
+                                        style: TextStyle(
+                                          color: colors.textPrimary,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (tx.senderWalletName != null && tx.senderWalletName!.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.account_balance_wallet_rounded,
+                                        color: colors.textSecondary,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: Text(
+                                          tx.senderWalletName!,
+                                          style: TextStyle(
+                                            color: colors.textSecondary,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                                if (tx.senderIdentifier != null && tx.senderIdentifier!.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.fingerprint_rounded,
+                                        color: colors.textSecondary,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: Text(
+                                          'ID: ${tx.senderIdentifier!}',
+                                          style: TextStyle(
+                                            color: colors.textSecondary,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+
                         const SizedBox(height: 18),
 
                         Text(

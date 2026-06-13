@@ -13,6 +13,7 @@ class TransactionEntity {
   final String? notes;
   final String? timezone;
   final String? sourceType;
+  final bool isTransferLocked;
   final DateTime transactionDate;
   final DateTime? createdAt;
   
@@ -24,6 +25,17 @@ class TransactionEntity {
   final String? walletIcon;
   final String? walletColor;
   final List<String> attachmentUrls;
+
+  // Beneficiary fields
+  final String? payeeId;
+  final String? payeeName;
+  final String? payeeAccountNumber;
+  final String? payeeBankName;
+
+  // Payer/Sender fields (for income transactions)
+  final String? senderName;
+  final String? senderWalletName;
+  final String? senderIdentifier;
 
   TransactionEntity({
     required this.id,
@@ -38,6 +50,7 @@ class TransactionEntity {
     this.notes,
     this.timezone,
     this.sourceType,
+    this.isTransferLocked = false,
     required this.transactionDate,
     this.createdAt,
     this.categoryName,
@@ -47,11 +60,20 @@ class TransactionEntity {
     this.walletIcon,
     this.walletColor,
     this.attachmentUrls = const [],
+    this.payeeId,
+    this.payeeName,
+    this.payeeAccountNumber,
+    this.payeeBankName,
+    this.senderName,
+    this.senderWalletName,
+    this.senderIdentifier,
   });
 
   bool get isIncome => type == 'income';
 
   factory TransactionEntity.fromJson(Map<String, dynamic> json) {
+    final payee = json['payee'] as Map<String, dynamic>?;
+    final sender = json['sender'] as Map<String, dynamic>?;
     return TransactionEntity(
       id: json['id'] as String,
       walletId: json['wallet_id'] as String,
@@ -65,6 +87,7 @@ class TransactionEntity {
       notes: json['notes'] as String?,
       timezone: json['timezone'] as String?,
       sourceType: json['source_type'] as String?,
+      isTransferLocked: json['is_transfer_locked'] as bool? ?? false,
       transactionDate: DateTime.parse(json['transaction_date'] as String),
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null,
       categoryName: json['category_name'] as String?,
@@ -74,6 +97,13 @@ class TransactionEntity {
       walletIcon: json['wallet_icon'] as String?,
       walletColor: json['wallet_color'] as String?,
       attachmentUrls: List<String>.from(json['attachment_urls'] ?? []),
+      payeeId: json['payee_id'] as String?,
+      payeeName: payee != null ? payee['payee_name'] as String? : null,
+      payeeAccountNumber: payee != null ? payee['identifier'] as String? : null,
+      payeeBankName: payee != null ? payee['bank_name'] as String? : null,
+      senderName: sender != null ? sender['name'] as String? : null,
+      senderWalletName: sender != null ? sender['wallet_name'] as String? : null,
+      senderIdentifier: sender != null ? sender['identifier'] as String? : null,
     );
   }
 
@@ -91,6 +121,7 @@ class TransactionEntity {
       'notes': notes,
       'timezone': timezone,
       'source_type': sourceType,
+      'is_transfer_locked': isTransferLocked,
       'transaction_date': transactionDate.toUtc().toIso8601String(),
       'created_at': createdAt?.toUtc().toIso8601String(),
       'category_name': categoryName,
@@ -100,6 +131,18 @@ class TransactionEntity {
       'wallet_icon': walletIcon,
       'wallet_color': walletColor,
       'attachment_urls': attachmentUrls,
+      'payee_id': payeeId,
+      'payee': payeeId != null ? {
+        'id': payeeId,
+        'payee_name': payeeName,
+        'identifier': payeeAccountNumber,
+        'bank_name': payeeBankName,
+      } : null,
+      'sender': senderName != null ? {
+        'name': senderName,
+        'wallet_name': senderWalletName,
+        'identifier': senderIdentifier,
+      } : null,
     };
   }
 }

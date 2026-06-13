@@ -106,6 +106,10 @@ class TransactionRepositoryImpl implements TransactionRepository {
             createdAt: tx.createdAt ?? DateTime.now(),
             updatedAt: DateTime.now(),
             isSynced: true,
+            payeeId: tx.payeeId,
+            payeeName: tx.payeeName,
+            payeeAccountNumber: tx.payeeAccountNumber,
+            payeeBankName: tx.payeeBankName,
           );
         }).toList();
         
@@ -141,6 +145,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
     double? exchangeRate,
     String? timezone,
     MultipartFile? attachment,
+    String? payeeId,
   }) async {
     try {
       final response = await _apiService.createRemoteTransaction(
@@ -155,6 +160,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
         exchangeRate: exchangeRate,
         timezone: timezone,
         attachment: attachment,
+        payeeId: payeeId,
       );
       return TransactionMapper.toEntity(response.data);
     } catch (e, stackTrace) {

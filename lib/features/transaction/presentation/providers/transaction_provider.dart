@@ -88,6 +88,10 @@ TransactionEntity _mapLocalTransactionToEntity(
       walletIcon: wallet?.icon,
       walletColor: wallet?.color,
       attachmentUrls: const [],
+      payeeId: row.payeeId,
+      payeeName: row.payeeName,
+      payeeAccountNumber: row.payeeAccountNumber,
+      payeeBankName: row.payeeBankName,
     );
   }
 
@@ -206,6 +210,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
             exchangeRate: tx.exchangeRate,
             timezone: tx.timezone,
             attachment: attachmentFile,
+            payeeId: tx.payeeId,
           );
 
           // Xóa dòng pending cũ khỏi DB và lưu lại transaction mới từ BE trả về
@@ -226,6 +231,10 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
             createdAt: newTx.createdAt ?? DateTime.now(),
             updatedAt: DateTime.now(),
             isSynced: true,
+            payeeId: newTx.payeeId,
+            payeeName: newTx.payeeName,
+            payeeAccountNumber: newTx.payeeAccountNumber,
+            payeeBankName: newTx.payeeBankName,
           );
           await database.saveTransaction(localTx);
           anySuccess = true;
@@ -398,6 +407,10 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
         createdAt: transaction.createdAt ?? DateTime.now(),
         updatedAt: DateTime.now(),
         isSynced: true,
+        payeeId: transaction.payeeId,
+        payeeName: transaction.payeeName,
+        payeeAccountNumber: transaction.payeeAccountNumber,
+        payeeBankName: transaction.payeeBankName,
       );
       await database.saveTransaction(localTx);
 
@@ -430,6 +443,10 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
       isSynced: false,
+      payeeId: params.payeeId,
+      payeeName: params.payeeName,
+      payeeAccountNumber: params.payeeAccountNumber,
+      payeeBankName: params.payeeBankName,
     );
     await database.saveTransaction(localTx);
 

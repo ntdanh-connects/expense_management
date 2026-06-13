@@ -382,6 +382,10 @@
   "recurring_title_hint": "TRANSACTION NAME\nEx: Rent, Monthly salary...",
   "recurring_title_hint_edit": "TRANSACTION NAME\nEx: Rent, Netflix...",
   "recurring_wallet_section": "SELECT WALLET",
+  "recurring_payee_section": "BENEFICIARY",
+  "recurring_select_payee": "Select beneficiary",
+  "recurring_no_payee": "No beneficiary",
+  "recurring_search_payee": "Search beneficiary...",
   "recurring_select_wallet": "Select wallet",
   "recurring_category_section": "CATEGORY",
   "recurring_see_all": "See all",
@@ -589,5 +593,6 @@
   "qr_transfer_transaction_id": "Transaction ID",
   "qr_transfer_scan_other": "Scan another code",
   "qr_transfer_go_home": "Go to home",
-  "qr_transfer_unknown": "Unknown"
+  "qr_transfer_unknown": "Unknown",
+  "qr_receive_no_wallet_warning": "You must have at least one VND Bank or E-wallet configured to generate a payment QR code."
 }

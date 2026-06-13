@@ -12,6 +12,8 @@ import 'package:expense_management/features/profile/presentation/widgets/add_edi
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:expense_management/features/dashboard/presentation/providers/recurring_provider.dart';
+import 'package:expense_management/features/wallet/presentation/provider/qr_transfer_provider.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 class RecurringCreateScreen extends ConsumerStatefulWidget {
   const RecurringCreateScreen({super.key});
@@ -45,6 +47,8 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
   bool _isRemind = false;
 
   bool _isLoading = false;
+  Map<String, dynamic>? _selectedPayee;
+  bool _isLoadingPayees = false;
 
   @override
   void initState() {
@@ -259,6 +263,107 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
     );
   }
 
+  void _showPayeeSheet() {
+    final colors = context.colors;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _PayeePickerSheet(
+        onSelected: (payee) {
+          setState(() {
+            _selectedPayee = payee;
+          });
+        },
+        selectedPayeeId: _selectedPayee?['id'],
+      ),
+    );
+  }
+
+  Widget _buildBeneficiaryTile(AppColorsExtension colors, bool isDark) {
+    return GestureDetector(
+      onTap: _showPayeeSheet,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isDark ? colors.surface : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colors.textSecondary.withOpacity(0.1)),
+        ),
+        child: _selectedPayee == null
+            ? Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: colors.primary.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.person_outline_rounded, color: colors.primary, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'recurring_select_payee'.tr(ref),
+                      style: TextStyle(color: colors.textSecondary, fontSize: 15),
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: colors.textSecondary.withOpacity(0.5)),
+                ],
+              )
+            : Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: colors.primary.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _selectedPayee!['payee_type'] == 'bank'
+                          ? Icons.account_balance_rounded
+                          : _selectedPayee!['payee_type'] == 'p2p'
+                              ? Icons.person_rounded
+                              : Icons.qr_code_scanner_rounded,
+                      color: colors.primary,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _selectedPayee!['payee_name'] ?? '',
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                        Text(
+                          _selectedPayee!['payee_type'] == 'bank'
+                              ? '${_selectedPayee!['bank_name']} - ${_selectedPayee!['identifier']}'
+                              : '${_selectedPayee!['identifier']}',
+                          style: TextStyle(color: colors.textSecondary, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      setState(() => _selectedPayee = null);
+                    },
+                    child: Icon(Icons.cancel_rounded, color: colors.textSecondary, size: 20),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
   Future<void> _save() async {
     if (_amount <= 0) {
       _showSnack('recurring_error_amount'.trRead(ref));
@@ -278,6 +383,7 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
       final data = {
         'wallet_id': _selectedWallet!.id,
         'category_id': _selectedCategory?.id,
+        'payee_id': _selectedPayee?['id'],
         'type': _selectedType,
         'amount': _amount,
         'title': _titleController.text.trim(),
@@ -378,6 +484,12 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
                   _buildSectionLabel('recurring_wallet_section'.tr(ref), colors),
                   const SizedBox(height: 8),
                   _buildWalletTile(colors, isDark),
+                  const SizedBox(height: 20),
+
+                  // ── Beneficiary
+                  _buildSectionLabel('recurring_payee_section'.tr(ref), colors),
+                  const SizedBox(height: 8),
+                  _buildBeneficiaryTile(colors, isDark),
                   const SizedBox(height: 20),
 
                   // ── Category (like add_transaction_screen)
@@ -1285,6 +1397,296 @@ class _CategoryPickerSheetState extends ConsumerState<_CategoryPickerSheet> {
                       );
                     },
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Payee Picker Bottom Sheet (shared for creating/editing) ──────────────────
+
+class _PayeePickerSheet extends ConsumerStatefulWidget {
+  final void Function(Map<String, dynamic>? payee) onSelected;
+  final String? selectedPayeeId;
+
+  const _PayeePickerSheet({
+    required this.onSelected,
+    this.selectedPayeeId,
+  });
+
+  @override
+  ConsumerState<_PayeePickerSheet> createState() => _PayeePickerSheetState();
+}
+
+class _PayeePickerSheetState extends ConsumerState<_PayeePickerSheet> {
+  final _searchController = TextEditingController();
+  List<Map<String, dynamic>> _payees = [];
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPayees();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadPayees({String? search}) async {
+    setState(() => _isLoading = true);
+    try {
+      final res = await ref.read(qrTransferProvider.notifier).fetchPayees(
+        search: search,
+        perPage: 100,
+      );
+      if (res != null && res['data'] is List) {
+        setState(() {
+          _payees = List<Map<String, dynamic>>.from(res['data']);
+        });
+      }
+    } catch (_) {
+      // Ignore
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.7,
+      decoration: BoxDecoration(
+        color: colors.background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 38, height: 4.5,
+            decoration: BoxDecoration(
+              color: Colors.grey[400],
+              borderRadius: BorderRadius.circular(2.5),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+            child: Row(
+              children: [
+                Text(
+                  'recurring_select_payee'.tr(ref),
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: Icon(Icons.qr_code_scanner_rounded, color: colors.primary),
+                  onPressed: () async {
+                    final qrString = await Navigator.push<String>(
+                      context,
+                      MaterialPageRoute(builder: (_) => const _SimpleQrScannerPage()),
+                    );
+                    if (qrString != null) {
+                      setState(() => _isLoading = true);
+                      try {
+                        final res = await ref.read(qrTransferProvider.notifier).decodeQrCode(qrString);
+                        if (res != null) {
+                          final payeeMap = {
+                            'id': res['payee_id'],
+                            'payee_name': res['payee_name'],
+                            'identifier': res['account_number'] ?? res['identifier'],
+                            'bank_name': res['bank_name'],
+                            'payee_type': res['type'],
+                          };
+                          widget.onSelected(payeeMap);
+                          if (mounted) Navigator.pop(context); // Close sheet
+                        } else {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Mã QR không hợp lệ hoặc không thể giải mã!')),
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Lỗi: $e')),
+                          );
+                        }
+                      } finally {
+                        if (mounted) setState(() => _isLoading = false);
+                      }
+                    }
+                  },
+                ),
+                const Spacer(),
+                if (widget.selectedPayeeId != null)
+                  TextButton(
+                    onPressed: () {
+                      widget.onSelected(null);
+                      Navigator.pop(context);
+                    },
+                    child: Text('cancel'.tr(ref), style: TextStyle(color: colors.expenseRed)),
+                  ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? colors.surface : Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  Icon(Icons.search_rounded, color: colors.textSecondary, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      style: TextStyle(color: colors.textPrimary, fontSize: 14),
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        hintText: 'recurring_search_payee'.tr(ref),
+                        hintStyle: TextStyle(color: colors.textSecondary.withOpacity(0.5)),
+                      ),
+                      onChanged: (val) {
+                        _loadPayees(search: val.trim());
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1, thickness: 0.5),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _payees.isEmpty
+                    ? Center(
+                        child: Text(
+                          'recurring_no_payee'.tr(ref),
+                          style: TextStyle(color: colors.textSecondary),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        itemCount: _payees.length,
+                        itemBuilder: (context, index) {
+                          final payee = _payees[index];
+                          final isSelected = widget.selectedPayeeId == payee['id'];
+                          final payeeName = payee['payee_name'] ?? '';
+                          final payeeType = payee['payee_type'] ?? '';
+                          final identifier = payee['identifier'] ?? '';
+                          final bankName = payee['bank_name'] ?? '';
+
+                          IconData iconData = Icons.account_balance_rounded;
+                          if (payeeType == 'e-wallet' || payeeType == 'e_wallet') {
+                            iconData = Icons.qr_code_scanner_rounded;
+                          } else if (payeeType == 'p2p') {
+                            iconData = Icons.person_rounded;
+                          }
+
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                            leading: CircleAvatar(
+                              backgroundColor: colors.primary.withOpacity(0.1),
+                              child: Icon(iconData, color: colors.primary, size: 20),
+                            ),
+                            title: Text(
+                              payeeName,
+                              style: TextStyle(
+                                color: isSelected ? colors.primary : colors.textPrimary,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              ),
+                            ),
+                            subtitle: Text(
+                              payeeType == 'bank'
+                                  ? '$bankName - $identifier'
+                                  : identifier,
+                              style: TextStyle(color: colors.textSecondary, fontSize: 12),
+                            ),
+                            trailing: isSelected
+                                ? Icon(Icons.check_circle_rounded, color: colors.primary)
+                                : null,
+                            onTap: () {
+                              widget.onSelected(payee);
+                              Navigator.pop(context);
+                            },
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Simple QR Scanner Page ───────────────────────────────────────────────────
+
+class _SimpleQrScannerPage extends StatefulWidget {
+  const _SimpleQrScannerPage();
+
+  @override
+  State<_SimpleQrScannerPage> createState() => _SimpleQrScannerPageState();
+}
+
+class _SimpleQrScannerPageState extends State<_SimpleQrScannerPage> {
+  final MobileScannerController _controller = MobileScannerController(
+    detectionSpeed: DetectionSpeed.noDuplicates,
+  );
+  bool _isScanned = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Quét mã QR người thụ hưởng'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: Stack(
+        children: [
+          MobileScanner(
+            controller: _controller,
+            onDetect: (capture) {
+              if (_isScanned) return;
+              final List<Barcode> barcodes = capture.barcodes;
+              if (barcodes.isNotEmpty && barcodes.first.rawValue != null) {
+                _isScanned = true;
+                Navigator.pop(context, barcodes.first.rawValue);
+              }
+            },
+          ),
+          Center(
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.green, width: 3),
+                borderRadius: BorderRadius.circular(16),
+                color: Colors.transparent,
+              ),
+            ),
           ),
         ],
       ),

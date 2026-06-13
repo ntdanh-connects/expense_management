@@ -220,10 +220,12 @@ class TransactionCard extends ConsumerWidget {
         : 'đ';
 
     if (isTransfer) {
+      final sign = isIncome ? '+' : '-';
+      final color = isIncome ? colors.incomeGreen : colors.expenseRed;
       return Text(
-        _fmtAmount(tx.amount, currencySymbol),
+        '$sign${_fmtAmount(tx.amount, currencySymbol)}',
         style: TextStyle(
-          color: colors.textSecondary,
+          color: color,
           fontWeight: FontWeight.bold,
           fontSize: 15.5,
         ),

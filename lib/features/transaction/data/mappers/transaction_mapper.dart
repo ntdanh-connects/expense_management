@@ -26,6 +26,14 @@ class TransactionMapper {
       walletIcon: dto.wallet?.icon,
       walletColor: dto.wallet?.color,
       attachmentUrls: dto.attachments?.map((a) => a.fileUrl).toList() ?? [],
+      isTransferLocked: dto.isTransferLocked ?? false,
+      payeeId: dto.payeeId ?? dto.payee?.id,
+      payeeName: dto.payee?.payeeName,
+      payeeAccountNumber: dto.payee?.identifier,
+      payeeBankName: dto.payee?.bankName,
+      senderName: dto.sender?.name,
+      senderWalletName: dto.sender?.walletName,
+      senderIdentifier: dto.sender?.identifier,
     );
   }
 }

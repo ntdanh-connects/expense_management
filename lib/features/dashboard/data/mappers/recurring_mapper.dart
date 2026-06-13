@@ -24,6 +24,10 @@ class RecurringMapper {
       categoryName: dto.category?.name,
       categoryIcon: dto.category?.icon,
       categoryColor: dto.category?.color,
+      payeeId: dto.payeeId,
+      payeeName: dto.payee?.payeeName,
+      payeeAccountNumber: dto.payee?.identifier,
+      payeeBankName: dto.payee?.bankName,
     );
   }
 }

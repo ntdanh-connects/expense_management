@@ -39,5 +39,6 @@ abstract class TransactionApiService {
     @Part(name: 'exchange_rate') double? exchangeRate,
     @Part(name: 'timezone') String? timezone,
     @Part(name: 'attachment') MultipartFile? attachment,
+    @Part(name: 'payee_id') String? payeeId,
   });
 }
