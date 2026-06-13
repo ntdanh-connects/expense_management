@@ -28,6 +28,9 @@ class RecurringRuleDto {
   final bool isActive;
   final RecurringWalletDto? wallet;
   final RecurringCategoryDto? category;
+  @JsonKey(name: 'payee_id')
+  final String? payeeId;
+  final RecurringPayeeDto? payee;
 
   RecurringRuleDto({
     required this.id,
@@ -45,6 +48,8 @@ class RecurringRuleDto {
     required this.isActive,
     this.wallet,
     this.category,
+    this.payeeId,
+    this.payee,
   });
 
   static double _amountFromJson(dynamic v) {
@@ -104,4 +109,31 @@ class RecurringCategoryDto {
   factory RecurringCategoryDto.fromJson(Map<String, dynamic> json) =>
       _$RecurringCategoryDtoFromJson(json);
   Map<String, dynamic> toJson() => _$RecurringCategoryDtoToJson(this);
+}
+
+@JsonSerializable()
+class RecurringPayeeDto {
+  final String id;
+  @JsonKey(name: 'payee_name')
+  final String payeeName;
+  @JsonKey(name: 'payee_type')
+  final String payeeType;
+  final String identifier;
+  @JsonKey(name: 'bank_code')
+  final String? bankCode;
+  @JsonKey(name: 'bank_name')
+  final String? bankName;
+
+  RecurringPayeeDto({
+    required this.id,
+    required this.payeeName,
+    required this.payeeType,
+    required this.identifier,
+    this.bankCode,
+    this.bankName,
+  });
+
+  factory RecurringPayeeDto.fromJson(Map<String, dynamic> json) =>
+      _$RecurringPayeeDtoFromJson(json);
+  Map<String, dynamic> toJson() => _$RecurringPayeeDtoToJson(this);
 }

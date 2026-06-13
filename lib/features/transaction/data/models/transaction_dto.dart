@@ -51,6 +51,13 @@ class TransactionDto {
   final WalletDto? wallet;
   final List<TransactionAttachmentDto>? attachments;
 
+  @JsonKey(name: 'is_transfer_locked')
+  final bool? isTransferLocked;
+  @JsonKey(name: 'payee_id')
+  final String? payeeId;
+  final TransactionPayeeDto? payee;
+  final TransactionSenderDto? sender;
+
   TransactionDto({
     required this.id,
     required this.walletId,
@@ -69,6 +76,10 @@ class TransactionDto {
     this.category,
     this.wallet,
     this.attachments,
+    this.isTransferLocked,
+    this.payeeId,
+    this.payee,
+    this.sender,
   });
 
   static double _amountFromJson(dynamic value) {
@@ -103,4 +114,49 @@ class TransactionDto {
   factory TransactionDto.fromJson(Map<String, dynamic> json) =>
       _$TransactionDtoFromJson(json);
   Map<String, dynamic> toJson() => _$TransactionDtoToJson(this);
+}
+
+@JsonSerializable()
+class TransactionPayeeDto {
+  final String id;
+  @JsonKey(name: 'payee_name')
+  final String payeeName;
+  @JsonKey(name: 'payee_type')
+  final String payeeType;
+  final String identifier;
+  @JsonKey(name: 'bank_code')
+  final String? bankCode;
+  @JsonKey(name: 'bank_name')
+  final String? bankName;
+
+  TransactionPayeeDto({
+    required this.id,
+    required this.payeeName,
+    required this.payeeType,
+    required this.identifier,
+    this.bankCode,
+    this.bankName,
+  });
+
+  factory TransactionPayeeDto.fromJson(Map<String, dynamic> json) =>
+      _$TransactionPayeeDtoFromJson(json);
+  Map<String, dynamic> toJson() => _$TransactionPayeeDtoToJson(this);
+}
+
+@JsonSerializable()
+class TransactionSenderDto {
+  final String name;
+  @JsonKey(name: 'wallet_name')
+  final String? walletName;
+  final String? identifier;
+
+  TransactionSenderDto({
+    required this.name,
+    this.walletName,
+    this.identifier,
+  });
+
+  factory TransactionSenderDto.fromJson(Map<String, dynamic> json) =>
+      _$TransactionSenderDtoFromJson(json);
+  Map<String, dynamic> toJson() => _$TransactionSenderDtoToJson(this);
 }

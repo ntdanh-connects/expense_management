@@ -19,6 +19,7 @@ class AddTransactionUseCase {
     double? exchangeRate,
     String? timezone,
     MultipartFile? attachment,
+    String? payeeId,
   }) {
     return _repository.createTransaction(
       walletId: walletId,
@@ -32,6 +33,7 @@ class AddTransactionUseCase {
       exchangeRate: exchangeRate,
       timezone: timezone,
       attachment: attachment,
+      payeeId: payeeId,
     );
   }
 }

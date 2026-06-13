@@ -22,6 +22,13 @@ class RecurringRuleEntity {
   final String? categoryIcon;
   final String? categoryColor;
 
+  // Beneficiary fields
+  final String? payeeId;
+  final String? payeeName;
+  final String? payeeAccountNumber;
+  final String? payeeBankName;
+  final String? payeeType;
+
   RecurringRuleEntity({
     required this.id,
     required this.userId,
@@ -43,6 +50,11 @@ class RecurringRuleEntity {
     this.categoryName,
     this.categoryIcon,
     this.categoryColor,
+    this.payeeId,
+    this.payeeName,
+    this.payeeAccountNumber,
+    this.payeeBankName,
+    this.payeeType,
   });
 
   String get frequencyLabel {

@@ -49,7 +49,13 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
     
     // Listen to wallet changes to set default selection
     Future.microtask(() {
-      final wallets = ref.read(walletNotifierProvider).value ?? [];
+      final rawWallets = ref.read(walletNotifierProvider).value ?? [];
+      final wallets = rawWallets.where((w) {
+        final type = w.type.toLowerCase();
+        return !w.isHidden &&
+               (type == 'bank' || type == 'e-wallet' || type == 'e_wallet' || type == 'ewallet') &&
+               w.currencyCode == 'VND';
+      }).toList();
       if (wallets.isNotEmpty) {
         setState(() {
           _selectedWallet = wallets.firstWhere(
@@ -344,7 +350,33 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
   // --- TAB 2 WIDGET BUILDER ---
   Widget _buildMyQrTab(AppColorsExtension color, bool isDark) {
     final walletsAsync = ref.watch(walletNotifierProvider);
-    final wallets = walletsAsync.value ?? [];
+    final rawWallets = walletsAsync.value ?? [];
+    final wallets = rawWallets.where((w) {
+      final type = w.type.toLowerCase();
+      return !w.isHidden &&
+             (type == 'bank' || type == 'e-wallet' || type == 'e_wallet' || type == 'ewallet') &&
+             w.currencyCode == 'VND';
+    }).toList();
+
+    if (wallets.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 48.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.qr_code_scanner_rounded, size: 80, color: color.textSecondary.withOpacity(0.3)),
+              const SizedBox(height: 16),
+              Text(
+                'qr_receive_no_wallet_warning'.tr(ref),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: color.textSecondary, fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),

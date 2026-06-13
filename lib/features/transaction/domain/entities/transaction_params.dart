@@ -14,6 +14,10 @@ class TransactionParams {
   final double exchangeRate;
   final String timezone;
   final String? attachmentPath; // Đường dẫn file ảnh biên nhận lưu tạm để upload
+  final String? payeeId;
+  final String? payeeName;
+  final String? payeeAccountNumber;
+  final String? payeeBankName;
 
   TransactionParams({
     required this.walletId,
@@ -29,5 +33,9 @@ class TransactionParams {
     required this.exchangeRate,
     required this.timezone,
     this.attachmentPath,
+    this.payeeId,
+    this.payeeName,
+    this.payeeAccountNumber,
+    this.payeeBankName,
   });
 }

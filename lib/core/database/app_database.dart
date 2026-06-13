@@ -67,6 +67,12 @@ class LocalTransactions extends Table {
   DateTimeColumn get deletedAt => dateTime().nullable()();
   BoolColumn get isSynced => boolean().withDefault(const Constant(true))();
 
+  // Beneficiary fields
+  TextColumn get payeeId => text().nullable()();
+  TextColumn get payeeName => text().nullable()();
+  TextColumn get payeeAccountNumber => text().nullable()();
+  TextColumn get payeeBankName => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -97,7 +103,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(): super(_openConnection());
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -143,6 +149,16 @@ class AppDatabase extends _$AppDatabase {
           await m.createTable(localRecurringTransactions);
         } catch (e) {
           // Bỏ qua nếu bảng đã tồn tại
+        }
+      }
+      if (from < 8) {
+        try {
+          await m.addColumn(localTransactions, localTransactions.payeeId);
+          await m.addColumn(localTransactions, localTransactions.payeeName);
+          await m.addColumn(localTransactions, localTransactions.payeeAccountNumber);
+          await m.addColumn(localTransactions, localTransactions.payeeBankName);
+        } catch (e) {
+          // Bỏ qua nếu cột đã tồn tại
         }
       }
     },

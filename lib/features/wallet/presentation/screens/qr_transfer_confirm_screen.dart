@@ -7,6 +7,7 @@ import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/core/utils/app_logger.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:expense_management/features/wallet/presentation/provider/qr_transfer_provider.dart';
+import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/presentation/widget/swipe_to_confirm_button.dart';
 import 'package:elegant_notification/elegant_notification.dart';
@@ -139,6 +140,8 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
       
       // Sync local SQLite DB with updated remote balances
       await ref.read(walletNotifierProvider.notifier).refreshWallets();
+      // Refresh transactions history to include the new transfer with payee info
+      await ref.read(transactionListProvider.notifier).refreshTransactions(silent: true);
       
       final identifier = widget.payeeData['identifier'] ?? widget.payeeData['account_number'] ?? '';
       final bankName = widget.payeeData['bank_name'] ?? '';

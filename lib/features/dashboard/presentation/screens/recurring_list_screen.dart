@@ -427,6 +427,27 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
                         'recurring_label_${rule.frequency}'.tr(ref),
                         style: TextStyle(color: colors.textSecondary, fontSize: 12),
                       ),
+                      if (rule.payeeName != null && rule.payeeName!.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            Icon(Icons.person_outline_rounded, color: colors.textSecondary, size: 13),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                rule.payeeName!,
+                                style: TextStyle(
+                                  color: colors.textSecondary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -747,6 +768,10 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
       currencyCode: currencyCode,
       exchangeRate: 1.0,
       timezone: tzName,
+      payeeId: rule.payeeId,
+      payeeName: rule.payeeName,
+      payeeAccountNumber: rule.payeeAccountNumber,
+      payeeBankName: rule.payeeBankName,
     );
 
     try {

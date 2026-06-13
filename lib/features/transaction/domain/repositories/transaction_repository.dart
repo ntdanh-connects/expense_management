@@ -30,5 +30,6 @@ abstract class TransactionRepository {
     double? exchangeRate,
     String? timezone,
     MultipartFile? attachment,
+    String? payeeId,
   });
 }

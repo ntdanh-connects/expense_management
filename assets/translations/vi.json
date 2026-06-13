@@ -388,6 +388,10 @@
   "recurring_title_hint": "TÊN GIAO DỊCH\nVD: Tiền thuê nhà, Lương tháng...",
   "recurring_title_hint_edit": "TÊN GIAO DỊCH\nVD: Tiền thuê nhà, Netflix...",
   "recurring_wallet_section": "CHỌN VÍ",
+  "recurring_payee_section": "NGƯỜI THỤ HƯỞNG",
+  "recurring_select_payee": "Chọn người thụ hưởng",
+  "recurring_no_payee": "Không có người thụ hưởng",
+  "recurring_search_payee": "Tìm kiếm người thụ hưởng...",
   "recurring_select_wallet": "Chọn ví",
   "recurring_category_section": "DANH MỤC",
   "recurring_see_all": "Xem tất cả",
@@ -587,6 +591,7 @@
   "qr_transfer_vietqr": "Chuyển khoản VietQR",
   "qr_transfer_sender": "Người gửi",
   "qr_transfer_recipient": "Người nhận",
+  "qr_transfer_sender": "Người chuyển khoản",
   "qr_transfer_recipient_bank": "Ngân hàng nhận",
   "qr_transfer_identifier": "Mã định danh",
   "qr_transfer_account_number": "Số tài khoản",
@@ -595,5 +600,6 @@
   "qr_transfer_transaction_id": "Mã giao dịch",
   "qr_transfer_scan_other": "Quét mã khác",
   "qr_transfer_go_home": "Về trang chủ",
-  "qr_transfer_unknown": "Không xác định"
+  "qr_transfer_unknown": "Không xác định",
+  "qr_receive_no_wallet_warning": "Bạn cần có ít nhất một ví Ngân hàng hoặc Ví điện tử (VNĐ) để tạo mã nhận tiền QR."
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/core/network/base_response_dto.dart';
+import 'package:expense_management/core/utils/app_logger.dart';
 import '../../data/data_source/remote/qr_transfer_api_service.dart';
 
 // API Service provider
@@ -55,15 +56,27 @@ class QrTransferNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>?>
       };
 
       final response = await _apiService.transferQr(payload);
-      return response.data as Map<String, dynamic>?;
-    } catch (e) {
+      return {
+        'status': 'success',
+        'message': response.message,
+        'data': response.data,
+      };
+    } catch (e, stack) {
+      AppLogger.error("🚨 [QR-Transfer] Exception during executeTransfer: $e\n$stack");
       if (e is DioException && e.response?.data != null) {
         final data = e.response?.data;
         if (data is Map<String, dynamic>) {
-          return data;
+          return {
+            'status': 'error',
+            'message': data['message'] ?? 'Chuyển khoản thất bại',
+            'data': data['data'],
+          };
         }
       }
-      return null;
+      return {
+        'status': 'error',
+        'message': e.toString(),
+      };
     }
   }
 
