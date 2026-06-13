@@ -13,6 +13,7 @@ class TransactionEntity {
   final String? notes;
   final String? timezone;
   final String? sourceType;
+  final String? sourceId;
   final bool isTransferLocked;
   final DateTime transactionDate;
   final DateTime? createdAt;
@@ -50,6 +51,7 @@ class TransactionEntity {
     this.notes,
     this.timezone,
     this.sourceType,
+    this.sourceId,
     this.isTransferLocked = false,
     required this.transactionDate,
     this.createdAt,
@@ -87,6 +89,7 @@ class TransactionEntity {
       notes: json['notes'] as String?,
       timezone: json['timezone'] as String?,
       sourceType: json['source_type'] as String?,
+      sourceId: json['source_id'] as String?,
       isTransferLocked: json['is_transfer_locked'] as bool? ?? false,
       transactionDate: DateTime.parse(json['transaction_date'] as String),
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null,
@@ -121,6 +124,7 @@ class TransactionEntity {
       'notes': notes,
       'timezone': timezone,
       'source_type': sourceType,
+      'source_id': sourceId,
       'is_transfer_locked': isTransferLocked,
       'transaction_date': transactionDate.toUtc().toIso8601String(),
       'created_at': createdAt?.toUtc().toIso8601String(),

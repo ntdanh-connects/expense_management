@@ -66,6 +66,8 @@ dependencies:
   open_file: ^3.5.11
   mobile_scanner: ^7.2.0
   flutter_local_notifications: ^20.1.0
+  firebase_core: ^4.10.0
+  firebase_messaging: ^16.3.0
 
 dev_dependencies:
   flutter_test:

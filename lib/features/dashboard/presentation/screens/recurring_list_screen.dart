@@ -489,28 +489,32 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 // Toggle
-                GestureDetector(
-                  onTap: () => ref.read(recurringNotifierProvider.notifier).toggleRule(rule.id),
-                  child: Row(
-                    children: [
-                      Switch.adaptive(
-                        value: rule.isActive,
-                        activeColor: colors.primary,
-                        activeTrackColor: colors.primary.withOpacity(0.3),
-                        onChanged: (_) =>
-                            ref.read(recurringNotifierProvider.notifier).toggleRule(rule.id),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        rule.isActive ? 'recurring_active'.tr(ref) : 'recurring_inactive'.tr(ref),
-                        style: TextStyle(
-                          color: rule.isActive ? colors.primary : colors.textSecondary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                Row(
+                  children: [
+                    Switch.adaptive(
+                      value: rule.isActive,
+                      activeColor: colors.primary,
+                      activeTrackColor: colors.primary.withOpacity(0.3),
+                      onChanged: (_) =>
+                          ref.read(recurringNotifierProvider.notifier).toggleRule(rule.id),
+                    ),
+                    const SizedBox(width: 4),
+                    GestureDetector(
+                      onTap: () => ref.read(recurringNotifierProvider.notifier).toggleRule(rule.id),
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+                        child: Text(
+                          rule.isActive ? 'recurring_active'.tr(ref) : 'recurring_inactive'.tr(ref),
+                          style: TextStyle(
+                            color: rule.isActive ? colors.primary : colors.textSecondary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
 
                 // Actions: Ghi nhận ngay + Edit
@@ -518,19 +522,20 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
                   children: [
                     (() {
                       final isRecorded = _isRuleRecordedToday(rule);
+                      final isEnabled = rule.isActive && !isRecorded;
                       return GestureDetector(
-                        onTap: isRecorded
-                            ? null
-                            : () => _executeRuleImmediately(context, ref, rule),
+                        onTap: isEnabled
+                            ? () => _executeRuleImmediately(context, ref, rule)
+                            : null,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
-                            color: isRecorded
+                            color: !isEnabled
                                 ? colors.textSecondary.withOpacity(0.06)
                                 : colors.primary.withOpacity(0.08),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: isRecorded
+                              color: !isEnabled
                                   ? Colors.transparent
                                   : colors.primary.withOpacity(0.2),
                             ),
@@ -541,7 +546,7 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
                                 isRecorded
                                     ? Icons.check_circle_rounded
                                     : Icons.add_task_rounded,
-                                color: isRecorded
+                                color: !isEnabled
                                     ? colors.textSecondary
                                     : colors.primary,
                                 size: 14,
@@ -550,7 +555,7 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
                               Text(
                                 isRecorded ? 'recurring_recorded'.tr(ref) : 'recurring_record'.tr(ref),
                                 style: TextStyle(
-                                  color: isRecorded
+                                  color: !isEnabled
                                       ? colors.textSecondary
                                       : colors.primary,
                                   fontSize: 12,

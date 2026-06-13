@@ -39,6 +39,7 @@ class _TransactionHistoryScreenState
 
   late final ScrollController _scrollController;
   Timer? _debounceTimer;
+  Timer? _autoRefreshTimer;
 
   @override
   void initState() {
@@ -47,6 +48,13 @@ class _TransactionHistoryScreenState
       _showRecentOnly = true;
     }
     _scrollController = ScrollController()..addListener(_onScroll);
+
+    // Tự động làm mới danh sách ngầm mỗi 10 giây
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      if (mounted) {
+        ref.read(filteredTransactionListProvider.notifier).refreshTransactions(silent: true);
+      }
+    });
   }
 
   void _onScroll() {
@@ -70,6 +78,7 @@ class _TransactionHistoryScreenState
   void dispose() {
     _scrollController.dispose();
     _debounceTimer?.cancel();
+    _autoRefreshTimer?.cancel();
     super.dispose();
   }
 
@@ -1288,7 +1297,14 @@ class _TransactionHistoryScreenState
     double dayExpense = 0;
 
     for (final tx in txList) {
-      if (tx.sourceType == 'transfer') continue;
+      if (tx.sourceType == 'transfer') {
+        final hasCounterpart = tx.sourceId != null &&
+            txList.any((other) =>
+                other.id != tx.id &&
+                other.sourceId == tx.sourceId &&
+                other.walletId != tx.walletId);
+        if (hasCounterpart) continue;
+      }
       final txCurrency = (tx.currencyCode ?? 'VND').toUpperCase();
 
       // Quy đổi về tiền tệ profile trước khi cộng vào tổng

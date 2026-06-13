@@ -7,6 +7,11 @@ import 'package:expense_management/features/notification/domain/repositories/not
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/notification/data/datasource/remote/fcm_service.dart';
+import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
+import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
+import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
+import 'package:flutter/foundation.dart';
 
 // ---------------------------------------------------------------------------
 // Service & Repository providers
@@ -15,6 +20,24 @@ import 'package:expense_management/features/profile/user_provider.dart';
 final notificationApiServiceProvider = Provider<NotificationApiService>((ref) {
   final dio = ref.watch(dioClientProvider);
   return NotificationApiService(dio);
+});
+
+final fcmServiceProvider = Provider<FcmService>((ref) {
+  final apiService = ref.watch(notificationApiServiceProvider);
+  final fcmService = FcmService(apiService);
+  fcmService.onDataChanged = () {
+    try {
+      ref.read(transactionListProvider.notifier).refreshTransactions(silent: true);
+      ref.read(filteredTransactionListProvider.notifier).refreshTransactions(silent: true);
+      ref.read(walletNotifierProvider.notifier).refreshWallets();
+      ref.invalidate(budgetListProvider);
+      ref.invalidate(currentMonthBudgetsProvider);
+      ref.read(notificationNotifierProvider.notifier).refresh();
+    } catch (e) {
+      debugPrint("🚨 [FCM-Service] Error refreshing data on notification: $e");
+    }
+  };
+  return fcmService;
 });
 
 final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
