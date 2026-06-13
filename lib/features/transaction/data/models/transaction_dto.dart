@@ -43,6 +43,8 @@ class TransactionDto {
   final String? timezone;
   @JsonKey(name: 'source_type')
   final String? sourceType;
+  @JsonKey(name: 'source_id')
+  final String? sourceId;
   @JsonKey(name: 'transaction_date', fromJson: _dateTimeFromJson)
   final DateTime transactionDate;
   @JsonKey(name: 'created_at', fromJson: _dateTimeFromJson)
@@ -71,6 +73,7 @@ class TransactionDto {
     this.notes,
     this.timezone,
     this.sourceType,
+    this.sourceId,
     required this.transactionDate,
     this.createdAt,
     this.category,

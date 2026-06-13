@@ -74,7 +74,14 @@ class DashboardScreen extends ConsumerWidget {
 
         double income = 0;
         for (final tx in transactions) {
-          if (tx.sourceType == 'transfer') continue;
+          if (tx.sourceType == 'transfer') {
+            final hasCounterpart = tx.sourceId != null &&
+                transactions.any((other) =>
+                    other.id != tx.id &&
+                    other.sourceId == tx.sourceId &&
+                    other.walletId != tx.walletId);
+            if (hasCounterpart) continue;
+          }
           final txDate = tx.transactionDate.toLocal();
           if ((txDate.isAfter(startOfMonth) && txDate.isBefore(endOfMonth)) ||
               txDate.isAtSameMomentAs(startOfMonth) ||
@@ -100,7 +107,14 @@ class DashboardScreen extends ConsumerWidget {
 
         double expense = 0;
         for (final tx in transactions) {
-          if (tx.sourceType == 'transfer') continue;
+          if (tx.sourceType == 'transfer') {
+            final hasCounterpart = tx.sourceId != null &&
+                transactions.any((other) =>
+                    other.id != tx.id &&
+                    other.sourceId == tx.sourceId &&
+                    other.walletId != tx.walletId);
+            if (hasCounterpart) continue;
+          }
           final txDate = tx.transactionDate.toLocal();
           if ((txDate.isAfter(startOfMonth) && txDate.isBefore(endOfMonth)) ||
               txDate.isAtSameMomentAs(startOfMonth) ||

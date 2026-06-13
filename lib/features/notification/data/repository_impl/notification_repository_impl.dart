@@ -12,7 +12,7 @@ class NotificationRepositoryImpl implements NotificationRepository {
   @override
   Future<List<NotificationDto>> getNotifications({int page = 1}) async {
     try {
-      final response = await _apiService.getNotifications(page: page);
+      final response = await _apiService.getNotifications(page: page) as Map<String, dynamic>;
       final items = (response['data'] as List<dynamic>?) ?? [];
       return items
           .map((e) => NotificationDto.fromJson(e as Map<String, dynamic>))
@@ -89,7 +89,9 @@ class NotificationRepositoryImpl implements NotificationRepository {
   @override
   Future<NotificationPreferenceDto> getPreferences() async {
     try {
-      return await _apiService.getPreferences();
+      final response = await _apiService.getPreferencesRaw() as Map<String, dynamic>;
+      final data = response['data'];
+      return NotificationPreferenceDto.fromJson(data as Map<String, dynamic>);
     } on DioException catch (e, stackTrace) {
       AppLogger.error(
         '🚨 [Notification-Repo] getPreferences: ${e.message}',
@@ -116,7 +118,9 @@ class NotificationRepositoryImpl implements NotificationRepository {
         if (dailyReminderEnabled != null)
           'daily_reminder_enabled': dailyReminderEnabled,
       };
-      return await _apiService.updatePreferences(body);
+      final response = await _apiService.updatePreferencesRaw(body) as Map<String, dynamic>;
+      final data = response['data'];
+      return NotificationPreferenceDto.fromJson(data as Map<String, dynamic>);
     } on DioException catch (e, stackTrace) {
       AppLogger.error(
         '🚨 [Notification-Repo] updatePreferences: ${e.message}',

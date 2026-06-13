@@ -6,7 +6,9 @@ import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/core/database/app_database.dart' as db;
 import 'package:expense_management/core/error/app_exception.dart';
 import 'package:expense_management/core/storage/secure_storage_service.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:expense_management/core/utils/app_logger.dart';
+import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
 import 'package:expense_management/features/auth/auth_provider.dart';
 import 'package:expense_management/features/auth/data/mappers/auth_mapper.dart';
 import 'package:expense_management/features/auth/data/models/auth_response_dto.dart';
@@ -168,6 +170,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   void _startWatchingUser(String userId) {
+    // Register FCM Device Token on Backend using FcmService
+    Future.microtask(() {
+      ref.read(fcmServiceProvider).initialize();
+    });
+
     _userSubscription?.cancel();
     final dbInstance = ref.read(db.appDatabaseProvider);
     _userSubscription = dbInstance.watchUserProfile(userId).listen((
@@ -222,6 +229,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    // Unregister FCM Device Token on Backend first
+    try {
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token != null) {
+        await ref.read(notificationApiServiceProvider).unregisterDeviceToken({
+          'device_token': token,
+        });
+      }
+    } catch (_) {}
+
     _stopWatchingUser();
 
     try {

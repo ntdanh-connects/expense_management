@@ -92,8 +92,12 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
     }
 
     // Read client-side deleted remote export IDs
+    final user = ref.watch(currentUserProvider);
+    final userId = user?.id ?? '';
+    final prefsKey = userId.isNotEmpty ? 'deleted_remote_export_ids_$userId' : 'deleted_remote_export_ids';
+
     final prefs = await SharedPreferences.getInstance();
-    final deletedRemoteIds = prefs.getStringList('deleted_remote_export_ids') ?? [];
+    final deletedRemoteIds = List<String>.from(prefs.getStringList(prefsKey) ?? []);
 
     final List<ExportHistoryItem> items = [];
 
@@ -155,11 +159,15 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
       await repo.deleteLocalPdf(item.pathOrUrl);
     } else {
       if (item.remoteId != null) {
+        final user = ref.read(currentUserProvider);
+        final userId = user?.id ?? '';
+        final prefsKey = userId.isNotEmpty ? 'deleted_remote_export_ids_$userId' : 'deleted_remote_export_ids';
+
         final prefs = await SharedPreferences.getInstance();
-        final deletedRemoteIds = prefs.getStringList('deleted_remote_export_ids') ?? [];
+        final deletedRemoteIds = List<String>.from(prefs.getStringList(prefsKey) ?? []);
         if (!deletedRemoteIds.contains(item.remoteId)) {
           deletedRemoteIds.add(item.remoteId!);
-          await prefs.setStringList('deleted_remote_export_ids', deletedRemoteIds);
+          await prefs.setStringList(prefsKey, deletedRemoteIds);
         }
       }
     }
@@ -178,14 +186,18 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
     // Clear remote items locally by adding them to deletedRemoteIds
     try {
       final remoteList = await repo.fetchRemoteExports();
+      final user = ref.read(currentUserProvider);
+      final userId = user?.id ?? '';
+      final prefsKey = userId.isNotEmpty ? 'deleted_remote_export_ids_$userId' : 'deleted_remote_export_ids';
+
       final prefs = await SharedPreferences.getInstance();
-      final deletedRemoteIds = prefs.getStringList('deleted_remote_export_ids') ?? [];
+      final deletedRemoteIds = List<String>.from(prefs.getStringList(prefsKey) ?? []);
       for (final dto in remoteList) {
         if (!deletedRemoteIds.contains(dto.id)) {
           deletedRemoteIds.add(dto.id);
         }
       }
-      await prefs.setStringList('deleted_remote_export_ids', deletedRemoteIds);
+      await prefs.setStringList(prefsKey, deletedRemoteIds);
     } catch (_) {}
 
     ref.invalidateSelf();
