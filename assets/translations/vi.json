@@ -273,6 +273,7 @@
   "select_subcategory": "Chọn danh mục con",
   "search_subcategory_hint": "Tìm kiếm danh mục con...",
   "no_categories_found": "Không tìm thấy danh mục nào.",
+  "parent_category": "Danh mục cha",
   "parent_category_label": "Danh mục cha",
   "result_title": "Kết quả giao dịch",
   "transaction_type": "Loại giao dịch",
@@ -601,5 +602,13 @@
   "qr_transfer_scan_other": "Quét mã khác",
   "qr_transfer_go_home": "Về trang chủ",
   "qr_transfer_unknown": "Không xác định",
-  "qr_receive_no_wallet_warning": "Bạn cần có ít nhất một ví Ngân hàng hoặc Ví điện tử (VNĐ) để tạo mã nhận tiền QR."
+  "qr_receive_no_wallet_warning": "Bạn cần có ít nhất một ví Ngân hàng hoặc Ví điện tử (VNĐ) để tạo mã nhận tiền QR.",
+  "check": "Kiểm tra",
+  "payee_info_title": "Thông tin người hưởng thụ",
+  "payee_name_hint": "Nhập tên người hưởng thụ (Bắt buộc)...",
+  "payee_account_hint": "Nhập số tài khoản/số thẻ...",
+  "payee_bank_hint": "Nhập tên ngân hàng (ví dụ: Vietcombank)...",
+  "please_enter_payee_name": "Vui lòng nhập tên người thụ hưởng!",
+  "please_enter_payee_account": "Vui lòng nhập số tài khoản người thụ hưởng!",
+  "please_enter_payee_bank": "Vui lòng nhập tên ngân hàng người thụ hưởng!"
 }

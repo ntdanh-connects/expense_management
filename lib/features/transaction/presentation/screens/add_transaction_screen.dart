@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:currency_text_input_formatter/currency_text_input_formatter.dart';
 import 'package:dio/dio.dart';
@@ -21,6 +22,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:timezone/timezone.dart' as tz;
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:expense_management/features/wallet/presentation/provider/qr_transfer_provider.dart';
 
 class AddTransactionScreen extends ConsumerStatefulWidget {
   const AddTransactionScreen({super.key});
@@ -34,6 +37,11 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   final _amountController = TextEditingController();
   final _notesController = TextEditingController();
   final _titleController = TextEditingController();
+  final _payeeIdentifierController = TextEditingController();
+
+  String? _fetchedPayeeId;
+  String? _fetchedPayeeName;
+  bool _isSearchingPayee = false;
 
   CategoryDto? _selectedParentCategory;
   CategoryDto? _selectedCategory;
@@ -109,10 +117,102 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     _amountController.dispose();
     _notesController.dispose();
     _titleController.dispose();
+    _payeeIdentifierController.dispose();
     super.dispose();
   }
 
   bool get _isIncome => _selectedParentCategory?.type == 'income';
+
+  bool get _shouldShowPayeeInfo {
+    if (_selectedWallet == null) return false;
+    final type = _selectedWallet!.type.toLowerCase();
+    return type == 'bank' || type == 'e-wallet';
+  }
+
+  String _normalizeIdentifier(String input) {
+    String trimmed = input.trim();
+    // Nếu chỉ nhập 6 số, tự động thêm USR
+    if (RegExp(r'^\d{6}$').hasMatch(trimmed)) {
+      return 'USR$trimmed';
+    }
+    // Nếu nhập usr... hoặc USR..., đảm bảo viết hoa USR ở đầu
+    if (trimmed.toLowerCase().startsWith('usr')) {
+      return 'USR${trimmed.substring(3)}';
+    }
+    return trimmed;
+  }
+
+  String _extractIdentifierFromQr(String qrString) {
+    final trimmed = qrString.trim();
+    // 1. Nếu là JSON
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        final Map<String, dynamic> data = json.decode(trimmed);
+        if (data['identifier'] != null) {
+          return data['identifier'].toString();
+        }
+      } catch (_) {}
+    }
+    // 2. Nếu là URL hoặc Deep link
+    if (trimmed.contains('?')) {
+      try {
+        final uri = Uri.parse(trimmed);
+        final id = uri.queryParameters['id'];
+        if (id != null) {
+          return id;
+        }
+      } catch (_) {}
+    }
+    return trimmed;
+  }
+
+  Future<void> _lookupPayee(String identifier) async {
+    final normalized = _normalizeIdentifier(identifier);
+    if (normalized.isEmpty) return;
+
+    // Cập nhật lại text trên UI hiển thị mã đẹp sau khi chuẩn hóa
+    _payeeIdentifierController.text = normalized;
+    
+    setState(() {
+      _isSearchingPayee = true;
+      _fetchedPayeeName = null;
+      _fetchedPayeeId = null;
+    });
+
+    try {
+      final result = await ref.read(qrTransferProvider.notifier).decodeQrCode(normalized);
+      if (result != null) {
+        setState(() {
+          _fetchedPayeeName = result['payee_name'];
+          _fetchedPayeeId = result['payee_id']?.toString();
+        });
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Không tìm thấy người thụ hưởng hoặc mã không hợp lệ!'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi tra cứu: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSearchingPayee = false;
+        });
+      }
+    }
+  }
 
   double _getAmount() {
     return _formatter.getDouble();
@@ -476,6 +576,28 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       return;
     }
 
+    // Validate Payee information for Bank and E-wallet
+    if (_shouldShowPayeeInfo) {
+      if (_payeeIdentifierController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vui lòng nhập hoặc quét mã định danh người thụ hưởng!'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      if (_fetchedPayeeName == null || _fetchedPayeeId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vui lòng bấm "Kiểm tra" để xác thực mã định danh người nhận!'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
+
     final title = _titleController.text.trim().isEmpty
         ? _selectedCategory!.name
         : _titleController.text.trim();
@@ -499,15 +621,23 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       exchangeRate: 1.0,
       timezone: ref.read(currentUserProvider)?.timezone ?? 'Asia/Ho_Chi_Minh',
       attachmentPath: _imageFile?.path,
+      payeeName: _shouldShowPayeeInfo ? _fetchedPayeeName : null,
+      payeeId: _shouldShowPayeeInfo ? _fetchedPayeeId : null,
+      payeeAccountNumber: _shouldShowPayeeInfo ? _payeeIdentifierController.text.trim() : null,
+      payeeBankName: null,
+      sourceType: (_selectedWallet!.type.toLowerCase() == 'bank' || 
+                   _selectedWallet!.type.toLowerCase().contains('wallet'))
+          ? 'transfer' 
+          : 'manual',
     );
 
-    // Chuyển hướng sang màn hình kết quả Momo-style để xử lý lưu
     context.push(RoutePaths.transactionResult, extra: params).then((_) {
       if (mounted) {
         // Có thể dọn dẹp hoặc reset UI sau khi quay lại chỉnh sửa
       }
     });
   }
+
 
   // Helper method to resolve dynamic parent icons & colors
   Map<String, dynamic> _getParentStyle(
@@ -572,10 +702,11 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     subCategoryList.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     final quickSubcategories = subCategoryList.take(4).toList();
 
-    // Thêm giao dịch thủ công chỉ được dùng ví Tiền mặt (VND)
+    // Thêm giao dịch thủ công hỗ trợ ví Tiền mặt, Ngân hàng, và Ví điện tử (chỉ VND)
     final rawWalletList = walletsAsync.value ?? [];
     final walletList = rawWalletList.where((w) {
-      return w.type.toLowerCase() == 'cash' && w.currencyCode == 'VND';
+      final type = w.type.toLowerCase();
+      return (type == 'cash' || type == 'bank' || type == 'e-wallet') && w.currencyCode == 'VND';
     }).toList();
 
     if (_selectedWallet == null && walletList.isNotEmpty) {
@@ -1136,6 +1267,146 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                 ),
                 const SizedBox(height: 24),
 
+                if (_shouldShowPayeeInfo) ...[
+                  Text(
+                    'payee_info_title'.tr(ref),
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.authCardBg,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: colors.textSecondary.withOpacity(0.06),
+                            ),
+                          ),
+                          child: TextField(
+                            controller: _payeeIdentifierController,
+                            style: TextStyle(color: colors.textPrimary),
+                            decoration: InputDecoration(
+                              border: InputBorder.none,
+                              hintText: 'Mã định danh (ví dụ: USR123456)',
+                              hintStyle: TextStyle(
+                                color: colors.textSecondary.withOpacity(0.5),
+                                fontSize: 13,
+                              ),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  Icons.qr_code_scanner_rounded,
+                                  color: colors.primary,
+                                  size: 20,
+                                ),
+                                onPressed: () async {
+                                  final qrString = await Navigator.push<String>(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const _SimpleQrScannerPage(),
+                                    ),
+                                  );
+                                  if (qrString != null) {
+                                    final extracted = _extractIdentifierFromQr(qrString);
+                                    _payeeIdentifierController.text = extracted;
+                                    await _lookupPayee(extracted);
+                                  }
+                                },
+                              ),
+                            ),
+                            onChanged: (val) {
+                              if (_fetchedPayeeName != null) {
+                                setState(() {
+                                  _fetchedPayeeName = null;
+                                  _fetchedPayeeId = null;
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: _isSearchingPayee
+                            ? null
+                            : () => _lookupPayee(_payeeIdentifierController.text),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colors.primary,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: _isSearchingPayee
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(
+                                'check'.tr(ref),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                      ),
+                    ],
+                  ),
+                  if (_fetchedPayeeName != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.incomeGreen.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: colors.incomeGreen.withOpacity(0.2),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.check_circle_rounded,
+                            color: colors.incomeGreen,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Người thụ hưởng: $_fetchedPayeeName',
+                              style: TextStyle(
+                                color: colors.textPrimary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                ],
+
                 // 📷 7. Attachments
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1454,6 +1725,65 @@ class AddTransactionShimmer extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SimpleQrScannerPage extends StatefulWidget {
+  const _SimpleQrScannerPage();
+
+  @override
+  State<_SimpleQrScannerPage> createState() => _SimpleQrScannerPageState();
+}
+
+class _SimpleQrScannerPageState extends State<_SimpleQrScannerPage> {
+  final MobileScannerController _controller = MobileScannerController(
+    detectionSpeed: DetectionSpeed.noDuplicates,
+  );
+  bool _isScanned = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Quét mã QR người thụ hưởng'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: Stack(
+        children: [
+          MobileScanner(
+            controller: _controller,
+            onDetect: (capture) {
+              if (_isScanned) return;
+              final List<Barcode> barcodes = capture.barcodes;
+              if (barcodes.isNotEmpty && barcodes.first.rawValue != null) {
+                _isScanned = true;
+                Navigator.pop(context, barcodes.first.rawValue);
+              }
+            },
+          ),
+          Center(
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.green, width: 3),
+                borderRadius: BorderRadius.circular(16),
+                color: Colors.transparent,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

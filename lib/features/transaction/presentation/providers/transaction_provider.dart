@@ -204,6 +204,8 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
             }
           }
 
+          AppLogger.info("🔄 [Sync] Bắt đầu đồng bộ transaction: title='${tx.title}', sourceType='${tx.sourceType}', walletId='${tx.walletId}', payeeId='${tx.payeeId}'");
+
           final newTx = await addTxUseCase.execute(
             walletId: tx.walletId,
             categoryId: tx.categoryId,
@@ -217,6 +219,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
             timezone: tx.timezone,
             attachment: attachmentFile,
             payeeId: tx.payeeId,
+            sourceType: tx.sourceType,
           );
 
           // Xóa dòng pending cũ khỏi DB và lưu lại transaction mới từ BE trả về
@@ -454,7 +457,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
       title: params.title,
       notes: params.notes,
       transactionDate: DateTime.parse(params.transactionDate),
-      sourceType: 'manual',
+      sourceType: params.sourceType ?? 'manual',
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
       isSynced: false,

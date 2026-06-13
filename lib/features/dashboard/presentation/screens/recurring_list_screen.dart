@@ -516,53 +516,55 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
                 // Actions: Ghi nhận ngay + Edit
                 Row(
                   children: [
-                    (() {
-                      final isRecorded = _isRuleRecordedToday(rule);
-                      return GestureDetector(
-                        onTap: isRecorded
-                            ? null
-                            : () => _executeRuleImmediately(context, ref, rule),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: isRecorded
-                                ? colors.textSecondary.withOpacity(0.06)
-                                : colors.primary.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
+                    if (rule.isActive) ...[
+                      (() {
+                        final isRecorded = _isRuleRecordedToday(rule);
+                        return GestureDetector(
+                          onTap: isRecorded
+                              ? null
+                              : () => _executeRuleImmediately(context, ref, rule),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
                               color: isRecorded
-                                  ? Colors.transparent
-                                  : colors.primary.withOpacity(0.2),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                isRecorded
-                                    ? Icons.check_circle_rounded
-                                    : Icons.add_task_rounded,
+                                  ? colors.textSecondary.withOpacity(0.06)
+                                  : colors.primary.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
                                 color: isRecorded
-                                    ? colors.textSecondary
-                                    : colors.primary,
-                                size: 14,
+                                    ? Colors.transparent
+                                    : colors.primary.withOpacity(0.2),
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                isRecorded ? 'recurring_recorded'.tr(ref) : 'recurring_record'.tr(ref),
-                                style: TextStyle(
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isRecorded
+                                      ? Icons.check_circle_rounded
+                                      : Icons.add_task_rounded,
                                   color: isRecorded
                                       ? colors.textSecondary
                                       : colors.primary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
+                                  size: 14,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 4),
+                                Text(
+                                  isRecorded ? 'recurring_recorded'.tr(ref) : 'recurring_record'.tr(ref),
+                                  style: TextStyle(
+                                    color: isRecorded
+                                        ? colors.textSecondary
+                                        : colors.primary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    })(),
-                    const SizedBox(width: 8),
+                        );
+                      })(),
+                      const SizedBox(width: 8),
+                    ],
                     GestureDetector(
                       onTap: () => Navigator.push(
                         context,
@@ -772,6 +774,7 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
       payeeName: rule.payeeName,
       payeeAccountNumber: rule.payeeAccountNumber,
       payeeBankName: rule.payeeBankName,
+      sourceType: 'recurring',
     );
 
     try {

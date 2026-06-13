@@ -40,5 +40,6 @@ abstract class TransactionApiService {
     @Part(name: 'timezone') String? timezone,
     @Part(name: 'attachment') MultipartFile? attachment,
     @Part(name: 'payee_id') String? payeeId,
+    @Part(name: 'source_type') String? sourceType,
   });
 }

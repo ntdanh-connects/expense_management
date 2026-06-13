@@ -146,6 +146,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
     String? timezone,
     MultipartFile? attachment,
     String? payeeId,
+    String? sourceType,
   }) async {
     try {
       final response = await _apiService.createRemoteTransaction(
@@ -161,6 +162,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
         timezone: timezone,
         attachment: attachment,
         payeeId: payeeId,
+        sourceType: sourceType,
       );
       return TransactionMapper.toEntity(response.data);
     } catch (e, stackTrace) {

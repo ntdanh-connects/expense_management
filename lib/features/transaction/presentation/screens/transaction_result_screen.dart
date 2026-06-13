@@ -75,6 +75,8 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
         exchangeRate: widget.params.exchangeRate,
         timezone: widget.params.timezone,
         attachment: attachmentFile,
+        payeeId: widget.params.payeeId,
+        sourceType: widget.params.sourceType,
       );
 
       // Lưu trữ mã giao dịch trả về từ API
