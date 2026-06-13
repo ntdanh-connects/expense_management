@@ -20,9 +20,27 @@ import 'package:path/path.dart' as p;
 import 'package:dio_cache_interceptor_file_store/dio_cache_interceptor_file_store.dart';
 import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  if (message.notification == null && message.data.containsKey('title') && message.data.containsKey('body')) {
+    await LocalNotificationService.initialize();
+    await LocalNotificationService.showNotification(
+      id: message.hashCode,
+      title: message.data['title'] ?? '',
+      body: message.data['body'] ?? '',
+      payload: message.data.toString(),
+    );
+  }
+}
 
 void main() async{
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   tz.initializeTimeZones();
   await LocalNotificationService.initialize();
   await initializeDateFormatting('vi', null);

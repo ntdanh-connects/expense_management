@@ -90,7 +90,14 @@ class PdfReportGenerator {
           
           for (final tx in transactions) {
             if (tx.status != 'completed') continue; // only count completed transactions
-            if (tx.sourceType == 'transfer') continue; // skip transfers
+            if (tx.sourceType == 'transfer') {
+              final hasCounterpart = tx.sourceId != null &&
+                  transactions.any((other) =>
+                      other.id != tx.id &&
+                      other.sourceId == tx.sourceId &&
+                      other.walletId != tx.walletId);
+              if (hasCounterpart) continue;
+            }
             
             final txCurrency = tx.currencyCode ?? 'VND';
             final amt = _convertToUserCurrency(tx.amount, txCurrency, userCurrency, ratesData);

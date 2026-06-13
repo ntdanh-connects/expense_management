@@ -11,6 +11,11 @@ import 'package:expense_management/features/transaction/presentation/providers/t
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/presentation/widget/swipe_to_confirm_button.dart';
 import 'package:elegant_notification/elegant_notification.dart';
+import 'package:expense_management/core/constants/app_constant.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
+import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
+import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
 
 class QrTransferConfirmScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> payeeData;
@@ -145,6 +150,35 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
       
       final identifier = widget.payeeData['identifier'] ?? widget.payeeData['account_number'] ?? '';
       final bankName = widget.payeeData['bank_name'] ?? '';
+
+      // Trigger system and local in-app notifications
+      try {
+        final currencySymbol = AppConstant.getCurrencySymbol(_selectedWallet?.currencyCode ?? 'VND');
+        final formattedAmount = AppConstant.formatMoney(amount, _selectedWallet?.currencyCode ?? 'VND');
+        final walletPart = _selectedWallet != null ? ' ví "${_selectedWallet!.name}"' : '';
+        final destination = isInternal ? payeeName : '$bankName - $identifier ($payeeName)';
+        final title = 'Chuyển tiền';
+        final body = 'Đã chuyển $formattedAmount $currencySymbol từ$walletPart đến "$destination".';
+
+        await LocalNotificationService.showNotification(
+          id: DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF,
+          title: title,
+          body: body,
+        );
+
+        final userId = ref.read(currentUserProvider)?.id ?? '';
+        if (userId.isNotEmpty) {
+          final localNotif = await LocalNotificationStorage.createAndSave(
+            userId: userId,
+            type: 'transaction',
+            title: title,
+            body: body,
+          );
+          if (localNotif != null) {
+            ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
+          }
+        }
+      } catch (_) {}
 
       if (mounted) {
         context.push('/qr-transfer-result', extra: {

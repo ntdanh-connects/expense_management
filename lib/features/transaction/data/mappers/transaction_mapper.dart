@@ -17,6 +17,7 @@ class TransactionMapper {
       notes: dto.notes,
       timezone: dto.timezone,
       sourceType: dto.sourceType,
+      sourceId: dto.sourceId,
       transactionDate: AppConstant.adjustOldTransactionDate(dto.transactionDate, dto.timezone, dto.createdAt),
       createdAt: dto.createdAt,
       categoryName: dto.category?.name,

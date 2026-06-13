@@ -62,6 +62,7 @@ class LocalTransactions extends Table {
   TextColumn get notes => text().nullable()();
   DateTimeColumn get transactionDate => dateTime()();
   TextColumn get sourceType => text().nullable()(); // manual / recurring / transfer
+  TextColumn get sourceId => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
   DateTimeColumn get deletedAt => dateTime().nullable()();
@@ -103,7 +104,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(): super(_openConnection());
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -157,6 +158,20 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(localTransactions, localTransactions.payeeName);
           await m.addColumn(localTransactions, localTransactions.payeeAccountNumber);
           await m.addColumn(localTransactions, localTransactions.payeeBankName);
+        } catch (e) {
+          // Bỏ qua nếu cột đã tồn tại
+        }
+      }
+      if (from < 9) {
+        try {
+          await m.addColumn(localTransactions, localTransactions.sourceId);
+        } catch (e) {
+          // Bỏ qua nếu cột đã tồn tại
+        }
+      }
+      if (from < 10) {
+        try {
+          await m.addColumn(localTransactions, localTransactions.sourceId);
         } catch (e) {
           // Bỏ qua nếu cột đã tồn tại
         }

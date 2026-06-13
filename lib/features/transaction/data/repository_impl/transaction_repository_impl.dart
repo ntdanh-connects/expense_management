@@ -103,6 +103,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
             notes: tx.notes,
             transactionDate: tx.transactionDate,
             sourceType: tx.sourceType,
+            sourceId: tx.sourceId,
             createdAt: tx.createdAt ?? DateTime.now(),
             updatedAt: DateTime.now(),
             isSynced: true,
