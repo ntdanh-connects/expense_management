@@ -48,6 +48,7 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
 
   bool _isLoading = false;
   Map<String, dynamic>? _selectedPayee;
+  String? _recipientWalletName;
   bool _isLoadingPayees = false;
 
   @override
@@ -271,10 +272,21 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => _PayeePickerSheet(
-        onSelected: (payee) {
+        onSelected: (payee) async {
           setState(() {
             _selectedPayee = payee;
+            _recipientWalletName = null;
           });
+          if (payee != null && (payee['payee_type'] == 'internal' || payee['payee_type'] == 'p2p')) {
+            try {
+              final result = await ref.read(qrTransferProvider.notifier).decodeQrCode(payee['identifier']);
+              if (result != null && mounted) {
+                setState(() {
+                  _recipientWalletName = result['recipient_wallet_name']?.toString();
+                });
+              }
+            } catch (_) {}
+          }
         },
         selectedPayeeId: _selectedPayee?['id'],
       ),
@@ -349,12 +361,26 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
                               : '${_selectedPayee!['identifier']}',
                           style: TextStyle(color: colors.textSecondary, fontSize: 12),
                         ),
+                        if ((_selectedPayee!['payee_type'] == 'internal' || _selectedPayee!['payee_type'] == 'p2p') && _recipientWalletName != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'Ví nhận: $_recipientWalletName',
+                            style: TextStyle(
+                              color: colors.primary,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
                   GestureDetector(
                     onTap: () {
-                      setState(() => _selectedPayee = null);
+                      setState(() {
+                        _selectedPayee = null;
+                        _recipientWalletName = null;
+                      });
                     },
                     child: Icon(Icons.cancel_rounded, color: colors.textSecondary, size: 20),
                   ),
