@@ -18,7 +18,8 @@ class RecurringListScreen extends ConsumerStatefulWidget {
   const RecurringListScreen({super.key});
 
   @override
-  ConsumerState<RecurringListScreen> createState() => _RecurringListScreenState();
+  ConsumerState<RecurringListScreen> createState() =>
+      _RecurringListScreenState();
 }
 
 class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
@@ -36,7 +37,11 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
         backgroundColor: colors.background,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded, color: colors.textPrimary, size: 20),
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: colors.textPrimary,
+            size: 20,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -49,8 +54,18 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.add_circle_rounded, color: colors.primary, size: 28),
-            onPressed: () => context.push(RoutePaths.recurringCreate).then((_) => ref.read(recurringNotifierProvider.notifier).refresh(silent: true)),
+            icon: Icon(
+              Icons.add_circle_rounded,
+              color: colors.primary,
+              size: 28,
+            ),
+            onPressed: () => context
+                .push(RoutePaths.recurringCreate)
+                .then(
+                  (_) => ref
+                      .read(recurringNotifierProvider.notifier)
+                      .refresh(silent: true),
+                ),
           ),
           const SizedBox(width: 8),
         ],
@@ -62,12 +77,17 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline_rounded, color: colors.expenseRed, size: 48),
+              Icon(
+                Icons.error_outline_rounded,
+                color: colors.expenseRed,
+                size: 48,
+              ),
               const SizedBox(height: 12),
               Text(e.toString(), style: TextStyle(color: colors.textSecondary)),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: () => ref.read(recurringNotifierProvider.notifier).refresh(),
+                onPressed: () =>
+                    ref.read(recurringNotifierProvider.notifier).refresh(),
                 child: Text('try_again'.tr(ref)),
               ),
             ],
@@ -88,30 +108,42 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
     // Tính tổng chi định kỳ (chỉ expense, isActive, theo khoảng thời gian được chọn)
     final totalThisPeriod = rules
         .where((r) => r.isActive && r.type == 'expense')
-        .fold<double>(0, (sum, r) => sum + (r.amount * _getOccurrencesInPeriod(r, now, _selectedPeriod)));
+        .fold<double>(
+          0,
+          (sum, r) =>
+              sum +
+              (r.amount * _getOccurrencesInPeriod(r, now, _selectedPeriod)),
+        );
 
     final activeCount = rules.where((r) => r.isActive).length;
     final inactiveCount = rules.where((r) => !r.isActive).length;
 
     // Đếm sắp đến hạn (next_run_at trong vòng 7 ngày)
     final upcomingCount = rules
-        .where((r) =>
-            r.isActive &&
-            r.nextRunAt != null &&
-            r.nextRunAt!.isAfter(now) &&
-            r.nextRunAt!.difference(now).inDays <= 7)
+        .where(
+          (r) =>
+              r.isActive &&
+              r.nextRunAt != null &&
+              r.nextRunAt!.isAfter(now) &&
+              r.nextRunAt!.difference(now).inDays <= 7,
+        )
         .length;
 
     // Đã thực hiện (next_run_at trong quá khứ, isActive)
     final executedCount = rules
-        .where((r) => r.isActive && r.nextRunAt != null && r.nextRunAt!.isBefore(now))
+        .where(
+          (r) =>
+              r.isActive && r.nextRunAt != null && r.nextRunAt!.isBefore(now),
+        )
         .length;
 
     return RefreshIndicator(
       onRefresh: () => ref.read(recurringNotifierProvider.notifier).refresh(),
       color: colors.primary,
       child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -148,7 +180,9 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          _getPeriodTotalTitleKey(_selectedPeriod).tr(ref).toUpperCase(),
+                          _getPeriodTotalTitleKey(
+                            _selectedPeriod,
+                          ).tr(ref).toUpperCase(),
                           style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 11,
@@ -190,7 +224,10 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
                     children: [
                       Expanded(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(12),
@@ -200,7 +237,10 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
                             children: [
                               Text(
                                 'recurring_executed'.tr(ref),
-                                style: const TextStyle(color: Colors.white70, fontSize: 11),
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                ),
                               ),
                               const SizedBox(height: 4),
                               Text(
@@ -218,7 +258,10 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(12),
@@ -228,7 +271,10 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
                             children: [
                               Text(
                                 'recurring_upcoming'.tr(ref),
-                                style: const TextStyle(color: Colors.white70, fontSize: 11),
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                ),
                               ),
                               const SizedBox(height: 4),
                               Text(
@@ -284,7 +330,9 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
               const SizedBox(height: 12),
 
               // ── Danh sách rules
-              ...rules.map((rule) => _buildRuleCard(context, ref, rule, colors)),
+              ...rules.map(
+                (rule) => _buildRuleCard(context, ref, rule, colors),
+              ),
             ] else ...[
               // Empty state
               const SizedBox(height: 48),
@@ -297,7 +345,11 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
                         color: colors.primary.withOpacity(0.08),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.autorenew_rounded, color: colors.primary, size: 40),
+                      child: Icon(
+                        Icons.autorenew_rounded,
+                        color: colors.primary,
+                        size: 40,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -312,20 +364,37 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
                     Text(
                       'recurring_empty_desc'.tr(ref),
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: colors.textSecondary, fontSize: 14),
+                      style: TextStyle(
+                        color: colors.textSecondary,
+                        fontSize: 14,
+                      ),
                     ),
                     const SizedBox(height: 24),
                     ElevatedButton.icon(
-                      onPressed: () => context.push(RoutePaths.recurringCreate).then((_) => ref.read(recurringNotifierProvider.notifier).refresh(silent: true)),
+                      onPressed: () => context
+                          .push(RoutePaths.recurringCreate)
+                          .then(
+                            (_) => ref
+                                .read(recurringNotifierProvider.notifier)
+                                .refresh(silent: true),
+                          ),
                       icon: const Icon(Icons.add_rounded, color: Colors.white),
                       label: Text(
                         'recurring_add_first'.tr(ref),
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: colors.primary,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 14,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                         elevation: 0,
                       ),
                     ),
@@ -349,7 +418,11 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
       ),
       child: Text(
         label,
-        style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          color: textColor,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -367,14 +440,21 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
     final currencySymbol = AppConstant.getCurrencySymbol(currencyCode);
 
     // Lấy icon & màu danh mục
-    final catIcon = CategoryUIConstants.getIconData(rule.categoryIcon, categoryName: rule.categoryName);
-    final catColor = CategoryUIConstants.getColorFromHex(rule.categoryColor, categoryName: rule.categoryName);
+    final catIcon = CategoryUIConstants.getIconData(
+      rule.categoryIcon,
+      categoryName: rule.categoryName,
+    );
+    final catColor = CategoryUIConstants.getColorFromHex(
+      rule.categoryColor,
+      categoryName: rule.categoryName,
+    );
 
     // Tính ngày kỳ tới
     String nextRunStr = '';
     if (rule.nextRunAt != null) {
       final d = rule.nextRunAt!;
-      nextRunStr = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+      nextRunStr =
+          '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
     }
 
     return Container(
@@ -425,13 +505,21 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
                       const SizedBox(height: 3),
                       Text(
                         'recurring_label_${rule.frequency}'.tr(ref),
-                        style: TextStyle(color: colors.textSecondary, fontSize: 12),
+                        style: TextStyle(
+                          color: colors.textSecondary,
+                          fontSize: 12,
+                        ),
                       ),
-                      if (rule.payeeName != null && rule.payeeName!.isNotEmpty) ...[
+                      if (rule.payeeName != null &&
+                          rule.payeeName!.isNotEmpty) ...[
                         const SizedBox(height: 3),
                         Row(
                           children: [
-                            Icon(Icons.person_outline_rounded, color: colors.textSecondary, size: 13),
+                            Icon(
+                              Icons.person_outline_rounded,
+                              color: colors.textSecondary,
+                              size: 13,
+                            ),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
@@ -468,7 +556,10 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
                       const SizedBox(height: 2),
                       Text(
                         '${'recurring_next_run'.tr(ref)}: $nextRunStr',
-                        style: TextStyle(color: colors.textSecondary, fontSize: 11),
+                        style: TextStyle(
+                          color: colors.textSecondary,
+                          fontSize: 11,
+                        ),
                       ),
                     ],
                   ],
@@ -495,19 +586,29 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
                       value: rule.isActive,
                       activeColor: colors.primary,
                       activeTrackColor: colors.primary.withOpacity(0.3),
-                      onChanged: (_) =>
-                          ref.read(recurringNotifierProvider.notifier).toggleRule(rule.id),
+                      onChanged: (_) => ref
+                          .read(recurringNotifierProvider.notifier)
+                          .toggleRule(rule.id),
                     ),
                     const SizedBox(width: 4),
                     GestureDetector(
-                      onTap: () => ref.read(recurringNotifierProvider.notifier).toggleRule(rule.id),
+                      onTap: () => ref
+                          .read(recurringNotifierProvider.notifier)
+                          .toggleRule(rule.id),
                       behavior: HitTestBehavior.opaque,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 8.0,
+                          horizontal: 4.0,
+                        ),
                         child: Text(
-                          rule.isActive ? 'recurring_active'.tr(ref) : 'recurring_inactive'.tr(ref),
+                          rule.isActive
+                              ? 'recurring_active'.tr(ref)
+                              : 'recurring_inactive'.tr(ref),
                           style: TextStyle(
-                            color: rule.isActive ? colors.primary : colors.textSecondary,
+                            color: rule.isActive
+                                ? colors.primary
+                                : colors.textSecondary,
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
@@ -526,9 +627,13 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
                         return GestureDetector(
                           onTap: isRecorded
                               ? null
-                              : () => _executeRuleImmediately(context, ref, rule),
+                              : () =>
+                                    _executeRuleImmediately(context, ref, rule),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: isRecorded
                                   ? colors.textSecondary.withOpacity(0.06)
@@ -553,7 +658,9 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  isRecorded ? 'recurring_recorded'.tr(ref) : 'recurring_record'.tr(ref),
+                                  isRecorded
+                                      ? 'recurring_recorded'.tr(ref)
+                                      : 'recurring_record'.tr(ref),
                                   style: TextStyle(
                                     color: isRecorded
                                         ? colors.textSecondary
@@ -570,17 +677,28 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
                       const SizedBox(width: 8),
                     ],
                     GestureDetector(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => RecurringEditScreen(rule: rule)),
-                      ).then((_) => ref.read(recurringNotifierProvider.notifier).refresh(silent: true)),
+                      onTap: () =>
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => RecurringEditScreen(rule: rule),
+                            ),
+                          ).then(
+                            (_) => ref
+                                .read(recurringNotifierProvider.notifier)
+                                .refresh(silent: true),
+                          ),
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: colors.textSecondary.withOpacity(0.06),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(Icons.edit_outlined, color: colors.textSecondary, size: 18),
+                        child: Icon(
+                          Icons.edit_outlined,
+                          color: colors.textSecondary,
+                          size: 18,
+                        ),
                       ),
                     ),
                   ],
@@ -593,7 +711,11 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
     );
   }
 
-  int _getOccurrencesInPeriod(RecurringRuleEntity rule, DateTime now, String period) {
+  int _getOccurrencesInPeriod(
+    RecurringRuleEntity rule,
+    DateTime now,
+    String period,
+  ) {
     if (!rule.isActive) return 0;
 
     DateTime start;
@@ -654,7 +776,8 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
         break;
       case 'monthly':
         if (current.isBefore(start)) {
-          int monthsDiff = (start.year - current.year) * 12 + (start.month - current.month);
+          int monthsDiff =
+              (start.year - current.year) * 12 + (start.month - current.month);
           int skipIntervals = monthsDiff ~/ interval;
           current = DateTime(
             current.year + (current.month + skipIntervals * interval - 1) ~/ 12,
@@ -662,7 +785,11 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
             current.day,
           );
           while (current.isBefore(start)) {
-            current = DateTime(current.year, current.month + interval, current.day);
+            current = DateTime(
+              current.year,
+              current.month + interval,
+              current.day,
+            );
           }
         }
         break;
@@ -670,9 +797,17 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
         if (current.isBefore(start)) {
           int yearsDiff = start.year - current.year;
           int skipIntervals = yearsDiff ~/ interval;
-          current = DateTime(current.year + skipIntervals * interval, current.month, current.day);
+          current = DateTime(
+            current.year + skipIntervals * interval,
+            current.month,
+            current.day,
+          );
           while (current.isBefore(start)) {
-            current = DateTime(current.year + interval, current.month, current.day);
+            current = DateTime(
+              current.year + interval,
+              current.month,
+              current.day,
+            );
           }
         }
         break;
@@ -699,10 +834,18 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
           current = current.add(Duration(days: 7 * interval));
           break;
         case 'monthly':
-          current = DateTime(current.year, current.month + interval, current.day);
+          current = DateTime(
+            current.year,
+            current.month + interval,
+            current.day,
+          );
           break;
         case 'yearly':
-          current = DateTime(current.year + interval, current.month, current.day);
+          current = DateTime(
+            current.year + interval,
+            current.month,
+            current.day,
+          );
           break;
         default:
           return count;
@@ -752,7 +895,11 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
     );
   }
 
-  Future<void> _executeRuleImmediately(BuildContext context, WidgetRef ref, RecurringRuleEntity rule) async {
+  Future<void> _executeRuleImmediately(
+    BuildContext context,
+    WidgetRef ref,
+    RecurringRuleEntity rule,
+  ) async {
     final walletName = rule.walletName ?? '';
     final categoryName = rule.categoryName ?? '';
     final categoryId = rule.categoryId ?? '';
@@ -782,7 +929,9 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
     );
 
     try {
-      await ref.read(transactionListProvider.notifier).addPendingTransaction(params);
+      await ref
+          .read(transactionListProvider.notifier)
+          .addPendingTransaction(params);
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).clearSnackBars();
@@ -794,7 +943,9 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'recurring_record_success'.tr(ref).replaceFirst('{title}', rule.title),
+                    'recurring_record_success'
+                        .tr(ref)
+                        .replaceFirst('{title}', rule.title),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -802,7 +953,9 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
             ),
             backgroundColor: const Color(0xFF10B981), // incomeGreen
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
       }
@@ -810,7 +963,11 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('recurring_record_failed'.tr(ref).replaceFirst('{error}', e.toString())),
+            content: Text(
+              'recurring_record_failed'
+                  .tr(ref)
+                  .replaceFirst('{error}', e.toString()),
+            ),
             backgroundColor: const Color(0xFFEF4444), // expenseRed
           ),
         );
@@ -828,7 +985,8 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
 
         return transactions.any((tx) {
           final txDate = tx.transactionDate.toLocal();
-          final isSameDay = (txDate.isAfter(startOfToday) && txDate.isBefore(endOfToday)) ||
+          final isSameDay =
+              (txDate.isAfter(startOfToday) && txDate.isBefore(endOfToday)) ||
               txDate.isAtSameMomentAs(startOfToday) ||
               txDate.isAtSameMomentAs(endOfToday);
 
@@ -858,18 +1016,42 @@ class _RecurringShimmer extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(width: 200, height: 28, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8))),
+            Container(
+              width: 200,
+              height: 28,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
             const SizedBox(height: 8),
-            Container(width: 160, height: 16, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
+            Container(
+              width: 160,
+              height: 16,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
             const SizedBox(height: 20),
-            Container(width: double.infinity, height: 140, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20))),
+            Container(
+              width: double.infinity,
+              height: 140,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
             const SizedBox(height: 20),
             for (int i = 0; i < 4; i++) ...[
               Container(
                 width: double.infinity,
                 height: 100,
                 margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                ),
               ),
             ],
           ],

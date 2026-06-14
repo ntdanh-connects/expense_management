@@ -365,10 +365,10 @@ class DashboardScreen extends ConsumerWidget {
                         Expanded(
                           child: _buildQuickActionItem(
                             context: context,
-                            icon: Icons.autorenew_rounded,
-                            label: 'Schedule'.tr(ref),
-                            iconColor: const Color(0xFFF97316),
-                            onTap: () => context.go(RoutePaths.recurringList),
+                            icon: Icons.qr_code_scanner_rounded,
+                            label: 'qr_transfer'.tr(ref),
+                            iconColor: const Color(0xFF0D9488),
+                            onTap: () => context.push('/qr-scanner'),
                           ),
                         ),
                         Expanded(
@@ -436,10 +436,10 @@ class DashboardScreen extends ConsumerWidget {
                         Expanded(
                           child: _buildQuickActionItem(
                             context: context,
-                            icon: Icons.history_rounded,
-                            label: 'history'.tr(ref),
-                            iconColor: const Color(0xFF6366F1),
-                            onTap: () => context.go(RoutePaths.history),
+                            icon: Icons.autorenew_rounded,
+                            label: 'Schedule'.tr(ref),
+                            iconColor: const Color(0xFFF97316),
+                            onTap: () => context.push(RoutePaths.recurringList),
                           ),
                         ),
                       ],
