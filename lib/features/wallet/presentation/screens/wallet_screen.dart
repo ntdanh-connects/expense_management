@@ -43,8 +43,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
   final TextEditingController _payeeIdentifierController = TextEditingController();
   String? _fetchedPayeeId;
+  String? _fetchedPayeeUserId;
   String? _fetchedPayeeName;
   String? _recipientWalletName;
+  String? _fetchedToWalletId;
   bool _isSearchingPayee = false;
 
   WalletEntity? _selectedExternalSourceWallet;
@@ -55,7 +57,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   void initState() {
     super.initState();
     // 🔄 Tự động đồng bộ hóa ngầm danh sách ví từ Backend ngay khi người dùng vào màn hình này
-    Future.microtask(() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(walletNotifierProvider.notifier).refreshWallets();
     });
   }
@@ -465,7 +467,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                                   setState(() {
                                     _fetchedPayeeName = null;
                                     _fetchedPayeeId = null;
+                                    _fetchedPayeeUserId = null;
                                     _recipientWalletName = null;
+                                    _fetchedToWalletId = null;
                                     _selectedExternalSourceWallet = null;
                                     _externalAmountController.clear();
                                     _externalNotesController.clear();
@@ -765,7 +769,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                                   final mappedPayee = {
                                     'payee_id': _fetchedPayeeId,
                                     'type': 'internal',
-                                    'payee_user_id': _fetchedPayeeId,
+                                    'payee_user_id': _fetchedPayeeUserId,
                                     'identifier': _payeeIdentifierController.text.trim(),
                                     'payee_name': _fetchedPayeeName,
                                     'recipient_wallet_name': _recipientWalletName,
@@ -774,6 +778,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                                     'description': _externalNotesController.text.trim().isNotEmpty
                                         ? _externalNotesController.text.trim()
                                         : 'Chuyển tiền cho $_fetchedPayeeName',
+                                    'to_wallet_id': _fetchedToWalletId,
                                   };
                                   context.push('/qr-transfer-confirm', extra: mappedPayee);
                                 },
@@ -1294,7 +1299,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       _isSearchingPayee = true;
       _fetchedPayeeName = null;
       _fetchedPayeeId = null;
+      _fetchedPayeeUserId = null;
       _recipientWalletName = null;
+      _fetchedToWalletId = null;
       _selectedExternalSourceWallet = null;
       _externalAmountController.clear();
       _externalNotesController.clear();
@@ -1306,7 +1313,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         setState(() {
           _fetchedPayeeName = result['payee_name'];
           _fetchedPayeeId = result['payee_id']?.toString();
+          _fetchedPayeeUserId = result['payee_user_id']?.toString();
           _recipientWalletName = result['recipient_wallet_name']?.toString();
+          _fetchedToWalletId = result['to_wallet_id']?.toString();
 
           final showHidden = ref.read(showHiddenWalletsProvider);
           final wallets = ref.read(walletNotifierProvider).value ?? [];

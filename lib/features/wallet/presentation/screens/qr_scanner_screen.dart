@@ -57,7 +57,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
     _tabController.addListener(_handleTabChange);
     
     // Listen to wallet changes to set default selection
-    Future.microtask(() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       final rawWallets = ref.read(walletNotifierProvider).value ?? [];
       final wallets = rawWallets.where((w) {
         final type = w.type.toLowerCase();

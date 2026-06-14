@@ -72,7 +72,7 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
         'payee_type': rule.payeeType,
       };
       if (rule.payeeType == 'internal' || rule.payeeType == 'p2p') {
-        Future.microtask(() async {
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
           try {
             final result = await ref.read(qrTransferProvider.notifier).decodeQrCode(rule.payeeAccountNumber!);
             if (result != null && mounted) {

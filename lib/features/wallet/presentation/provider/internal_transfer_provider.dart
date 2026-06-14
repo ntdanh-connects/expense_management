@@ -12,7 +12,15 @@ class InternalTransferHistoryNotifier extends StateNotifier<AsyncValue<List<Inte
   final Ref _ref;
 
   InternalTransferHistoryNotifier(this._repository, this._ref) : super(const AsyncValue.loading()) {
-    fetchTransferHistory();
+    _init();
+  }
+
+  void _init() {
+    Future.delayed(Duration.zero, () {
+      if (mounted) {
+        fetchTransferHistory();
+      }
+    });
   }
 
   Future<void> fetchTransferHistory() async {

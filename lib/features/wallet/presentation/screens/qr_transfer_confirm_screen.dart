@@ -38,7 +38,7 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
     }
 
     // Set default wallet from filtered list
-    Future.microtask(() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       final wallets = ref.read(walletNotifierProvider).value ?? [];
       final isInternal = widget.payeeData['type'] == 'internal';
       
