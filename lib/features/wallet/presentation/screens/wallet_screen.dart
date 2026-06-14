@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -18,6 +19,9 @@ import 'package:expense_management/features/notification/data/datasource/local/l
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
 import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
 import 'package:timezone/timezone.dart' as tz;
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:expense_management/features/wallet/presentation/provider/qr_transfer_provider.dart';
+import 'package:intl/intl.dart';
 
 final showHiddenWalletsProvider = StateProvider<bool>((ref) => false);
 
@@ -34,6 +38,19 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   final TextEditingController _amountController = TextEditingController();
   bool _isTransferring = false;
 
+  bool _isInternalTransferExpanded = false;
+  bool _isExternalTransferExpanded = false;
+
+  final TextEditingController _payeeIdentifierController = TextEditingController();
+  String? _fetchedPayeeId;
+  String? _fetchedPayeeName;
+  String? _recipientWalletName;
+  bool _isSearchingPayee = false;
+
+  WalletEntity? _selectedExternalSourceWallet;
+  final TextEditingController _externalAmountController = TextEditingController();
+  final TextEditingController _externalNotesController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +63,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   @override
   void dispose() {
     _amountController.dispose();
+    _payeeIdentifierController.dispose();
+    _externalAmountController.dispose();
+    _externalNotesController.dispose();
     super.dispose();
   }
 
@@ -148,7 +168,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                // 🔁 2. CHUYỂN KHOẢN NỘI BỘ
+                // 🔁 2. CHUYỂN TIỀN NỘI BỘ (COLLAPSIBLE)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Container(
@@ -164,162 +184,618 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Tiêu đề + Icon
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.swap_horiz_rounded,
-                              color: colors.primary,
-                              size: 24,
+                        // Clickable Header
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _isInternalTransferExpanded = !_isInternalTransferExpanded;
+                            });
+                          },
+                          behavior: HitTestBehavior.opaque,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.swap_horiz_rounded,
+                                    color: colors.primary,
+                                    size: 24,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'internal_transfer'.tr(ref),
+                                    style: TextStyle(
+                                      color: colors.textPrimary,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Icon(
+                                _isInternalTransferExpanded
+                                    ? Icons.keyboard_arrow_up_rounded
+                                    : Icons.keyboard_arrow_down_rounded,
+                                color: colors.textSecondary,
+                                size: 24,
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        if (_isInternalTransferExpanded) ...[
+                          const SizedBox(height: 24),
+                          // Cụm Trích Từ -> Đến Ví
+                          Row(
+                            children: [
+                              // Trích Từ
+                              Expanded(
+                                child: _buildWalletDropdown(
+                                  label: 'transfer_from'.tr(ref),
+                                  value: _fromWallet,
+                                  items: displayedWallets,
+                                  onChanged: (val) {
+                                    setState(() {
+                                      _fromWallet = val;
+                                    });
+                                  },
+                                  colors: colors,
+                                ),
+                              ),
+                              
+                              // Nút arrow ở giữa
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                child: Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: colors.primary,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: colors.primary.withOpacity(0.3),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 4),
+                                      )
+                                    ]
+                                  ),
+                                  child: const Icon(
+                                    Icons.arrow_forward_rounded,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+
+                              // Đến Ví
+                              Expanded(
+                                child: _buildWalletDropdown(
+                                  label: 'transfer_to'.tr(ref),
+                                  value: _toWallet,
+                                  items: displayedWallets,
+                                  onChanged: (val) {
+                                    setState(() {
+                                      _toWallet = val;
+                                    });
+                                  },
+                                  colors: colors,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Ô nhập số tiền
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.white.withOpacity(0.04) : Colors.white,
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: colors.textSecondary.withOpacity(0.12),
+                              ),
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'internal_transfer'.tr(ref),
+                            child: TextField(
+                              controller: _amountController,
+                              keyboardType: TextInputType.number,
                               style: TextStyle(
                                 color: colors.textPrimary,
-                                fontSize: 18,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'enter_amount_hint'.tr(ref),
+                                hintStyle: TextStyle(
+                                  color: colors.textSecondary.withOpacity(0.6),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.normal,
+                                ),
+                                border: InputBorder.none,
+                                suffixIcon: Container(
+                                  alignment: Alignment.centerRight,
+                                  width: 20,
+                                  child: Text(
+                                    _fromWallet != null ? AppConstant.getCurrencySymbol(_fromWallet!.currencyCode) : currencySymbol,
+                                    style: TextStyle(
+                                      color: colors.textPrimary,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Nút chuyển tiền
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: ElevatedButton(
+                              onPressed: _isTransferring ? null : () => _executeTransfer(colors),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _isTransferring ? colors.primary.withOpacity(0.5) : colors.primary,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                              ),
+                              child: _isTransferring
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : Text(
+                                      'transfer_now'.tr(ref),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // 🔁 3. CHUYỂN TIỀN ĐẾN NGƯỜI KHÁC (COLLAPSIBLE)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Container(
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      color: panelBg,
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(
+                        color: colors.primary.withOpacity(0.08),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Clickable Header
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _isExternalTransferExpanded = !_isExternalTransferExpanded;
+                            });
+                          },
+                          behavior: HitTestBehavior.opaque,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.send_rounded,
+                                    color: colors.primary,
+                                    size: 24,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Chuyển tiền đến người khác',
+                                    style: TextStyle(
+                                      color: colors.textPrimary,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Icon(
+                                _isExternalTransferExpanded
+                                    ? Icons.keyboard_arrow_up_rounded
+                                    : Icons.keyboard_arrow_down_rounded,
+                                color: colors.textSecondary,
+                                size: 24,
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        if (_isExternalTransferExpanded) ...[
+                          const SizedBox(height: 24),
+                          
+                          // Nhập mã định danh người nhận
+                          Text(
+                            'payee_info_title'.tr(ref),
+                            style: TextStyle(
+                              color: colors.textPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.white.withOpacity(0.04) : Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: colors.textSecondary.withOpacity(0.12),
+                              ),
+                            ),
+                            child: TextField(
+                              controller: _payeeIdentifierController,
+                              style: TextStyle(color: colors.textPrimary),
+                              decoration: InputDecoration(
+                                border: InputBorder.none,
+                                hintText: 'Mã định danh (ví dụ: USR123456)',
+                                hintStyle: TextStyle(
+                                  color: colors.textSecondary.withOpacity(0.5),
+                                  fontSize: 13,
+                                ),
+                              ),
+                              onChanged: (val) {
+                                if (_fetchedPayeeName != null) {
+                                  setState(() {
+                                    _fetchedPayeeName = null;
+                                    _fetchedPayeeId = null;
+                                    _recipientWalletName = null;
+                                    _selectedExternalSourceWallet = null;
+                                    _externalAmountController.clear();
+                                    _externalNotesController.clear();
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              // Nút Chọn danh bạ
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _showPayeeSelector(context),
+                                  icon: const Icon(Icons.contacts_rounded, size: 18),
+                                  label: const Text(
+                                    'Danh bạ',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: colors.primary.withOpacity(0.1),
+                                    foregroundColor: colors.primary,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+
+                              // Nút Quét mã QR
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () async {
+                                    final qrString = await Navigator.push<String>(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const _SimpleQrScannerPage(),
+                                      ),
+                                    );
+                                    if (qrString != null) {
+                                      final extracted = _extractIdentifierFromQr(qrString);
+                                      _payeeIdentifierController.text = extracted;
+                                      await _lookupPayee(extracted);
+                                    }
+                                  },
+                                  icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                                  label: const Text(
+                                    'Quét QR',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: colors.primary.withOpacity(0.1),
+                                    foregroundColor: colors.primary,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+
+                              // Nút Kiểm tra
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: _isSearchingPayee
+                                      ? null
+                                      : () => _lookupPayee(_payeeIdentifierController.text),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: colors.primary,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                  child: _isSearchingPayee
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : Text(
+                                          'check'.tr(ref),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          
+                          if (_fetchedPayeeName != null) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colors.incomeGreen.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: colors.incomeGreen.withOpacity(0.2),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.check_circle_rounded,
+                                    color: colors.incomeGreen,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Người thụ hưởng: $_fetchedPayeeName',
+                                          style: TextStyle(
+                                            color: colors.textPrimary,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        if (_recipientWalletName != null) ...[
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Ví nhận: $_recipientWalletName',
+                                            style: TextStyle(
+                                              color: colors.primary,
+                                              fontWeight: FontWeight.w500,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Chọn ví nguồn
+                            _buildWalletDropdown(
+                              label: 'Chọn ví nguồn để chuyển',
+                              value: _selectedExternalSourceWallet,
+                              items: displayedWallets.where((w) => w.type != 'cash').toList(),
+                              onChanged: (val) {
+                                setState(() {
+                                  _selectedExternalSourceWallet = val;
+                                });
+                              },
+                              colors: colors,
+                              labelSize: 15,
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Ô nhập số tiền
+                            Text(
+                              'Nhập số tiền chuyển',
+                              style: TextStyle(
+                                color: colors.textPrimary,
+                                fontSize: 15,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Cụm Trích Từ -> Đến Ví
-                        Row(
-                          children: [
-                            // Trích Từ
-                            Expanded(
-                              child: _buildWalletDropdown(
-                                label: 'transfer_from'.tr(ref),
-                                value: _fromWallet,
-                                items: displayedWallets,
-                                onChanged: (val) {
-                                  setState(() {
-                                    _fromWallet = val;
-                                  });
-                                },
-                                colors: colors,
-                              ),
-                            ),
-                            
-                            // Nút arrow ở giữa
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 10),
-                              child: Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: colors.primary,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: colors.primary.withOpacity(0.3),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 4),
-                                    )
-                                  ]
-                                ),
-                                child: const Icon(
-                                  Icons.arrow_forward_rounded,
-                                  color: Colors.white,
-                                  size: 16,
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.white.withOpacity(0.04) : Colors.white,
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: colors.textSecondary.withOpacity(0.12),
                                 ),
                               ),
-                            ),
-
-                            // Đến Ví
-                            Expanded(
-                              child: _buildWalletDropdown(
-                                label: 'transfer_to'.tr(ref),
-                                value: _toWallet,
-                                items: displayedWallets,
+                              child: TextField(
+                                controller: _externalAmountController,
+                                keyboardType: TextInputType.number,
+                                style: TextStyle(
+                                  color: colors.textPrimary,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: 'Nhập số tiền (đ)',
+                                  hintStyle: TextStyle(
+                                    color: colors.textSecondary.withOpacity(0.6),
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.normal,
+                                  ),
+                                  border: InputBorder.none,
+                                ),
                                 onChanged: (val) {
-                                  setState(() {
-                                    _toWallet = val;
-                                  });
+                                  if (val.isEmpty) return;
+                                  final cleanString = val.replaceAll(RegExp(r'[^0-9]'), '');
+                                  final double? amt = double.tryParse(cleanString);
+                                  if (amt != null) {
+                                    final formatted = NumberFormat('#,###').format(amt);
+                                    _externalAmountController.value = TextEditingValue(
+                                      text: formatted,
+                                      selection: TextSelection.fromPosition(TextPosition(offset: formatted.length)),
+                                    );
+                                  }
                                 },
-                                colors: colors,
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
+                            const SizedBox(height: 20),
 
-                        // Ô nhập số tiền
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isDark ? Colors.white.withOpacity(0.04) : Colors.white,
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                              color: colors.textSecondary.withOpacity(0.12),
-                            ),
-                          ),
-                          child: TextField(
-                            controller: _amountController,
-                            keyboardType: TextInputType.number,
-                            style: TextStyle(
-                              color: colors.textPrimary,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'enter_amount_hint'.tr(ref),
-                              hintStyle: TextStyle(
-                                color: colors.textSecondary.withOpacity(0.6),
+                            // Lời nhắn chuyển tiền
+                            Text(
+                              'Lời nhắn chuyển tiền',
+                              style: TextStyle(
+                                color: colors.textPrimary,
                                 fontSize: 15,
-                                fontWeight: FontWeight.normal,
+                                fontWeight: FontWeight.bold,
                               ),
-                              border: InputBorder.none,
-                              suffixIcon: Container(
-                                alignment: Alignment.centerRight,
-                                width: 20,
-                                child: Text(
-                                  _fromWallet != null ? AppConstant.getCurrencySymbol(_fromWallet!.currencyCode) : currencySymbol,
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.white.withOpacity(0.04) : Colors.white,
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: colors.textSecondary.withOpacity(0.12),
+                                ),
+                              ),
+                              child: TextField(
+                                controller: _externalNotesController,
+                                style: TextStyle(color: colors.textPrimary),
+                                decoration: InputDecoration(
+                                  hintText: 'Nhập lời nhắn chuyển tiền...',
+                                  hintStyle: TextStyle(
+                                    color: colors.textSecondary.withOpacity(0.6),
+                                    fontSize: 15,
+                                  ),
+                                  border: InputBorder.none,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            
+                            // Nút Tiếp tục để chuyển tiếp đến màn hình xác nhận chuyển khoản
+                            SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  if (_selectedExternalSourceWallet == null) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Vui lòng chọn ví nguồn để chuyển khoản!'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                    return;
+                                  }
+
+                                  final cleanAmountString = _externalAmountController.text.replaceAll(RegExp(r'[^0-9]'), '');
+                                  final double? amount = double.tryParse(cleanAmountString);
+                                  
+                                  if (amount == null || amount <= 0) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Vui lòng nhập số tiền chuyển hợp lệ!'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                    return;
+                                  }
+
+                                  if (amount > _selectedExternalSourceWallet!.balance) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Số dư ví "${_selectedExternalSourceWallet!.name}" không đủ!'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                    return;
+                                  }
+
+                                  final mappedPayee = {
+                                    'payee_id': _fetchedPayeeId,
+                                    'type': 'internal',
+                                    'payee_user_id': _fetchedPayeeId,
+                                    'identifier': _payeeIdentifierController.text.trim(),
+                                    'payee_name': _fetchedPayeeName,
+                                    'recipient_wallet_name': _recipientWalletName,
+                                    'from_wallet_id': _selectedExternalSourceWallet!.id,
+                                    'amount': amount,
+                                    'description': _externalNotesController.text.trim().isNotEmpty
+                                        ? _externalNotesController.text.trim()
+                                        : 'Chuyển tiền cho $_fetchedPayeeName',
+                                  };
+                                  context.push('/qr-transfer-confirm', extra: mappedPayee);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: colors.primary,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Tiếp tục',
                                   style: TextStyle(
-                                    color: colors.textPrimary,
+                                    color: Colors.white,
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Nút chuyển tiền
-                        SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: ElevatedButton(
-                            onPressed: _isTransferring ? null : () => _executeTransfer(colors),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _isTransferring ? colors.primary.withOpacity(0.5) : colors.primary,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                            ),
-                            child: _isTransferring
-                                ? const SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : Text(
-                                    'transfer_now'.tr(ref),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                          ),
-                        ),
+                          ],
+                        ],
                       ],
                     ),
                   ),
@@ -418,22 +894,25 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     required List<WalletEntity> items,
     required ValueChanged<WalletEntity?> onChanged,
     required AppColorsExtension colors,
+    double labelSize = 10,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: colors.textSecondary,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
+        if (label.isNotEmpty) ...[
+          Text(
+            label,
+            style: TextStyle(
+              color: labelSize > 10 ? colors.textPrimary : colors.textSecondary,
+              fontSize: labelSize,
+              fontWeight: FontWeight.bold,
+              letterSpacing: labelSize > 10 ? 0.0 : 0.5,
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
+          const SizedBox(height: 8),
+        ],
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
@@ -771,6 +1250,221 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
     return '$hour:$minute:$second $day/$month/$year ($formattedOffset)';
   }
+
+  String _normalizeIdentifier(String input) {
+    String trimmed = input.trim();
+    if (RegExp(r'^\d{6}$').hasMatch(trimmed)) {
+      return 'USR$trimmed';
+    }
+    if (trimmed.toLowerCase().startsWith('usr')) {
+      return 'USR${trimmed.substring(3)}';
+    }
+    return trimmed;
+  }
+
+  String _extractIdentifierFromQr(String qrString) {
+    final trimmed = qrString.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        final Map<String, dynamic> data = json.decode(trimmed);
+        if (data['identifier'] != null) {
+          return data['identifier'].toString();
+        }
+      } catch (_) {}
+    }
+    if (trimmed.contains('?')) {
+      try {
+        final uri = Uri.parse(trimmed);
+        final id = uri.queryParameters['id'];
+        if (id != null) {
+          return id;
+        }
+      } catch (_) {}
+    }
+    return trimmed;
+  }
+
+  Future<void> _lookupPayee(String identifier) async {
+    final normalized = _normalizeIdentifier(identifier);
+    if (normalized.isEmpty) return;
+
+    _payeeIdentifierController.text = normalized;
+    
+    setState(() {
+      _isSearchingPayee = true;
+      _fetchedPayeeName = null;
+      _fetchedPayeeId = null;
+      _recipientWalletName = null;
+      _selectedExternalSourceWallet = null;
+      _externalAmountController.clear();
+      _externalNotesController.clear();
+    });
+
+    try {
+      final result = await ref.read(qrTransferProvider.notifier).decodeQrCode(normalized);
+      if (result != null) {
+        setState(() {
+          _fetchedPayeeName = result['payee_name'];
+          _fetchedPayeeId = result['payee_id']?.toString();
+          _recipientWalletName = result['recipient_wallet_name']?.toString();
+
+          final showHidden = ref.read(showHiddenWalletsProvider);
+          final wallets = ref.read(walletNotifierProvider).value ?? [];
+          final displayed = showHidden ? wallets : wallets.where((w) => !w.isHidden).toList();
+          final eligible = displayed.where((w) => w.type != 'cash').toList();
+          if (eligible.isNotEmpty) {
+            _selectedExternalSourceWallet = eligible.firstWhere(
+              (w) => w.type == 'bank',
+              orElse: () => eligible.first,
+            );
+          }
+        });
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Không tìm thấy người thụ hưởng hoặc mã không hợp lệ!'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi tra cứu: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSearchingPayee = false;
+        });
+      }
+    }
+  }
+
+  void _showPayeeSelector(BuildContext context) async {
+    final colors = context.colors;
+    setState(() {
+      _isSearchingPayee = true;
+    });
+
+    try {
+      final notifier = ref.read(qrTransferProvider.notifier);
+      final result = await notifier.fetchPayees(perPage: 50);
+      final List<dynamic> payees = result?['data'] ?? [];
+
+      if (!mounted) return;
+      setState(() {
+        _isSearchingPayee = false;
+      });
+
+      if (payees.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Danh bạ người nhận trống!'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      final internalPayees = payees.where((p) => p['payee_type'] == 'internal').toList();
+
+      if (internalPayees.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không có người nhận nội bộ nào trong danh bạ!'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Chọn người nhận',
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: internalPayees.length,
+                    itemBuilder: (context, idx) {
+                      final payee = internalPayees[idx];
+                      final name = payee['payee_name']?.toString().trim() ?? '';
+                      final displayName = name.isEmpty ? 'Không xác định' : name;
+                      final identifier = payee['identifier'] ?? '';
+
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(
+                          backgroundImage: payee['avatar_url'] != null
+                              ? NetworkImage(payee['avatar_url'])
+                              : null,
+                          child: payee['avatar_url'] == null ? const Icon(Icons.person) : null,
+                        ),
+                        title: Text(
+                          displayName,
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        subtitle: Text(
+                          identifier,
+                          style: TextStyle(
+                            color: colors.textSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          _lookupPayee(identifier);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      setState(() {
+        _isSearchingPayee = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi lấy danh sách người nhận: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 }
 
 // Painter vẽ viền đứt nét (Dashed Border) sang xịn mịn chuẩn mockup
@@ -899,6 +1593,65 @@ class TransferHistoryShimmer extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _SimpleQrScannerPage extends StatefulWidget {
+  const _SimpleQrScannerPage();
+
+  @override
+  State<_SimpleQrScannerPage> createState() => _SimpleQrScannerPageState();
+}
+
+class _SimpleQrScannerPageState extends State<_SimpleQrScannerPage> {
+  final MobileScannerController _controller = MobileScannerController(
+    detectionSpeed: DetectionSpeed.noDuplicates,
+  );
+  bool _isScanned = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Quét mã QR người thụ hưởng'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: Stack(
+        children: [
+          MobileScanner(
+            controller: _controller,
+            onDetect: (capture) {
+              if (_isScanned) return;
+              final List<Barcode> barcodes = capture.barcodes;
+              if (barcodes.isNotEmpty && barcodes.first.rawValue != null) {
+                _isScanned = true;
+                Navigator.pop(context, barcodes.first.rawValue);
+              }
+            },
+          ),
+          Center(
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.green, width: 3),
+                borderRadius: BorderRadius.circular(16),
+                color: Colors.transparent,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

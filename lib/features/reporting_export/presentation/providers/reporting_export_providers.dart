@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/features/reporting_export/data/datasource/remote/reporting_export_api_service.dart';
 import 'package:expense_management/features/reporting_export/data/models/report_export_dto.dart';
@@ -59,6 +60,9 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
 
   @override
   Future<List<ExportHistoryItem>> build() async {
+    final user = ref.watch(currentUserProvider);
+    final userId = user?.id ?? '';
+
     ref.onDispose(() {
       _pollingTimer?.cancel();
     });
@@ -67,10 +71,12 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
 
     // Fetch remote history
     List<ReportExportDto> remoteList = [];
-    try {
-      remoteList = await repo.fetchRemoteExports();
-    } catch (e) {
-      // Allow local file viewing even if offline/server error
+    if (userId.isNotEmpty) {
+      try {
+        remoteList = await repo.fetchRemoteExports();
+      } catch (e) {
+        // Allow local file viewing even if offline/server error
+      }
     }
 
     _checkRemoteExportNotifications(remoteList);
@@ -92,8 +98,6 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
     }
 
     // Read client-side deleted remote export IDs
-    final user = ref.watch(currentUserProvider);
-    final userId = user?.id ?? '';
     final prefsKey = userId.isNotEmpty ? 'deleted_remote_export_ids_$userId' : 'deleted_remote_export_ids';
 
     final prefs = await SharedPreferences.getInstance();
@@ -169,6 +173,17 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
           deletedRemoteIds.add(item.remoteId!);
           await prefs.setStringList(prefsKey, deletedRemoteIds);
         }
+
+        // Also physically delete the downloaded CSV file from the device disk
+        try {
+          final tempDir = await getTemporaryDirectory();
+          final localFile = File('${tempDir.path}/${item.name}');
+          if (await localFile.exists()) {
+            await localFile.delete();
+          }
+        } catch (_) {
+          // Ignore
+        }
       }
     }
     ref.invalidateSelf();
@@ -183,19 +198,39 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
       await repo.deleteLocalPdf(f.path);
     }
 
-    // Clear remote items locally by adding them to deletedRemoteIds
+    // Clear remote items locally by adding them to deletedRemoteIds and deleting downloaded CSVs
     try {
-      final remoteList = await repo.fetchRemoteExports();
       final user = ref.read(currentUserProvider);
       final userId = user?.id ?? '';
       final prefsKey = userId.isNotEmpty ? 'deleted_remote_export_ids_$userId' : 'deleted_remote_export_ids';
 
       final prefs = await SharedPreferences.getInstance();
       final deletedRemoteIds = List<String>.from(prefs.getStringList(prefsKey) ?? []);
+
+      final remoteList = await repo.fetchRemoteExports();
+      final tempDir = await getTemporaryDirectory();
+
       for (final dto in remoteList) {
         if (!deletedRemoteIds.contains(dto.id)) {
           deletedRemoteIds.add(dto.id);
         }
+
+        // Generate the name to locate and delete the downloaded CSV file
+        String dateLabel = 'Giao dịch';
+        if (dto.filters != null) {
+          final start = dto.filters!['start_date']?.toString().split('T').first;
+          final end = dto.filters!['end_date']?.toString().split('T').first;
+          if (start != null && end != null) {
+            dateLabel = 'gd_${start}_to_$end';
+          }
+        }
+        final name = '$dateLabel.csv';
+        try {
+          final localFile = File('${tempDir.path}/$name');
+          if (await localFile.exists()) {
+            await localFile.delete();
+          }
+        } catch (_) {}
       }
       await prefs.setStringList(prefsKey, deletedRemoteIds);
     } catch (_) {}

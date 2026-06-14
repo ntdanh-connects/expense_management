@@ -49,8 +49,14 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
       }).toList();
 
       if (filtered.isNotEmpty) {
+        final prefilledWalletId = widget.payeeData['from_wallet_id'];
+        WalletEntity? prefilledWallet;
+        if (prefilledWalletId != null) {
+          prefilledWallet = filtered.where((w) => w.id == prefilledWalletId).firstOrNull;
+        }
+
         setState(() {
-          _selectedWallet = filtered.firstWhere(
+          _selectedWallet = prefilledWallet ?? filtered.firstWhere(
             (w) => w.type == 'bank',
             orElse: () => filtered.first,
           );
