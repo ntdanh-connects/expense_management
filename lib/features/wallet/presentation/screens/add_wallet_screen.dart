@@ -34,6 +34,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
   String _selectedColor = '#4C4DDC'; // Royal Indigo làm mặc định
   bool _isLoading = false; // Trạng thái loading khi call API tạo ví
   bool _isHidden = false; // Trạng thái ẩn ví trên Dashboard
+  bool _isDefaultReceiving = false; // Trạng thái nhận mặc định
   String _selectedCurrency = 'VND';
   bool _selectedCurrencyInitialized = false;
 
@@ -51,6 +52,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
       _isHidden = widget.walletToEdit!.isHidden;
       _selectedCurrency = widget.walletToEdit!.currencyCode;
       _selectedCurrencyInitialized = true;
+      _isDefaultReceiving = widget.walletToEdit!.isDefaultReceiving;
     } else {
       // Đợi frame đầu tiên vẽ xong để ref đã sẵn sàng
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -496,6 +498,79 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
                 ],
               ),
             ),
+            
+            // 📥 6.6. ĐẶT LÀM VÍ NHẬN MẶC ĐỊNH (SWITCH/BADGE)
+            if (widget.walletToEdit != null &&
+                (_selectedType == 'bank' || _selectedType == 'e-wallet' || _selectedType == 'ewallet')) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: _isDefaultReceiving
+                        ? colors.incomeGreen.withOpacity(0.3)
+                        : Colors.transparent,
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: _isDefaultReceiving
+                            ? colors.incomeGreen.withOpacity(0.12)
+                            : (isDark ? Colors.white.withOpacity(0.04) : Colors.white),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _isDefaultReceiving
+                            ? Icons.check_circle_rounded
+                            : Icons.check_circle_outline_rounded,
+                        color: _isDefaultReceiving ? colors.incomeGreen : colors.textSecondary,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'set_as_default_receiving'.tr(ref),
+                            style: TextStyle(
+                              color: colors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'default_receiving_wallet_hint'.tr(ref),
+                            style: TextStyle(
+                              color: colors.textSecondary.withOpacity(0.8),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch.adaptive(
+                      value: _isDefaultReceiving,
+                      activeColor: colors.incomeGreen,
+                      activeTrackColor: colors.incomeGreen.withOpacity(0.3),
+                      onChanged: _isDefaultReceiving
+                          ? null // Đã bật rồi thì không cho tự gạt tắt về false
+                          : (val) {
+                              _executeSetDefaultReceiving(colors);
+                            },
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 28),
 
              // 🚀 7. NÚT SUBMIT ⊕
@@ -922,6 +997,27 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
         _isLoading = false;
       });
       // 🚨 Bắt lỗi đàng hoàng, hiển thị Dialog thông báo lỗi chi tiết từ Server
+      _showErrorDialog(e.toString(), colors);
+    }
+  }
+
+  void _executeSetDefaultReceiving(AppColorsExtension colors) async {
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      await ref.read(setDefaultReceivingWalletUseCaseProvider).execute(widget.walletToEdit!.id);
+      setState(() {
+        _isDefaultReceiving = true;
+        _isLoading = false;
+      });
+      if (!mounted) return;
+      _showSnackBar('set_default_receiving_success'.tr(ref), isError: false);
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (!mounted) return;
       _showErrorDialog(e.toString(), colors);
     }
   }

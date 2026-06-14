@@ -2,7 +2,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:expense_management/core/network/dio_client.dart';
-import 'package:expense_management/core/network/base_response_dto.dart';
 import 'package:expense_management/core/utils/app_logger.dart';
 import '../../data/data_source/remote/qr_transfer_api_service.dart';
 
@@ -42,6 +41,7 @@ class QrTransferNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>?>
     String? bankCode,
     String? accountNumber,
     String? payeeName,
+    String? toWalletId,
   }) async {
     try {
       final payload = {
@@ -53,6 +53,7 @@ class QrTransferNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>?>
         if (bankCode != null) 'bank_code': bankCode,
         if (accountNumber != null) 'account_number': accountNumber,
         if (payeeName != null) 'payee_name': payeeName,
+        if (toWalletId != null) 'to_wallet_id': toWalletId,
       };
 
       final response = await _apiService.transferQr(payload);

@@ -24,4 +24,7 @@ abstract class WalletRepository {
 
   // 🧾 Lấy lịch sử chuyển tiền nội bộ của tất cả các ví
   Future<List<InternalTransferRecord>> getTransferHistory();
+
+  // 📥 Thiết lập ví nhận mặc định
+  Future<void> setDefaultReceivingWallet(String id);
 }

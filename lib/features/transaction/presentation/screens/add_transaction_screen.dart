@@ -1,20 +1,20 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:currency_text_input_formatter/currency_text_input_formatter.dart';
-import 'package:dio/dio.dart';
+
 import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/profile/category_provider.dart';
 import 'package:expense_management/features/profile/data/models/category_dto.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
-import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
+
 import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_params.dart';
 import 'package:expense_management/features/transaction/presentation/screens/sub_category_selection_screen.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:expense_management/core/language/app_language.dart';
-import 'package:expense_management/core/language/app_provider.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -41,6 +41,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
   String? _fetchedPayeeId;
   String? _fetchedPayeeName;
+  String? _recipientWalletName;
   bool _isSearchingPayee = false;
 
   CategoryDto? _selectedParentCategory;
@@ -177,6 +178,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       _isSearchingPayee = true;
       _fetchedPayeeName = null;
       _fetchedPayeeId = null;
+      _recipientWalletName = null;
     });
 
     try {
@@ -185,6 +187,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
         setState(() {
           _fetchedPayeeName = result['payee_name'];
           _fetchedPayeeId = result['payee_id']?.toString();
+          _recipientWalletName = result['recipient_wallet_name']?.toString();
         });
       } else {
         if (mounted) {
@@ -211,6 +214,126 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
           _isSearchingPayee = false;
         });
       }
+    }
+  }
+
+  void _showPayeeSelector(BuildContext context) async {
+    final colors = context.colors;
+    setState(() {
+      _isSearchingPayee = true;
+    });
+
+    try {
+      final notifier = ref.read(qrTransferProvider.notifier);
+      final result = await notifier.fetchPayees(perPage: 50);
+      final List<dynamic> payees = result?['data'] ?? [];
+
+      if (!mounted) return;
+      setState(() {
+        _isSearchingPayee = false;
+      });
+
+      if (payees.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Danh bạ người nhận trống!'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      // Chỉ lọc những payee thuộc loại internal
+      final internalPayees = payees.where((p) => p['payee_type'] == 'internal').toList();
+
+      if (internalPayees.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không có người nhận nội bộ nào trong danh bạ!'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Chọn người nhận',
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: internalPayees.length,
+                    itemBuilder: (context, idx) {
+                      final payee = internalPayees[idx];
+                      final name = payee['payee_name']?.toString().trim() ?? '';
+                      final displayName = name.isEmpty ? 'Không xác định' : name;
+                      final identifier = payee['identifier'] ?? '';
+
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(
+                          backgroundImage: payee['avatar_url'] != null
+                              ? NetworkImage(payee['avatar_url'])
+                              : null,
+                          child: payee['avatar_url'] == null ? const Icon(Icons.person) : null,
+                        ),
+                        title: Text(
+                          displayName,
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        subtitle: Text(
+                          identifier,
+                          style: TextStyle(
+                            color: colors.textSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          _lookupPayee(identifier);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      setState(() {
+        _isSearchingPayee = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi lấy danh sách người nhận: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -1302,25 +1425,38 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                                 color: colors.textSecondary.withOpacity(0.5),
                                 fontSize: 13,
                               ),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  Icons.qr_code_scanner_rounded,
-                                  color: colors.primary,
-                                  size: 20,
-                                ),
-                                onPressed: () async {
-                                  final qrString = await Navigator.push<String>(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const _SimpleQrScannerPage(),
+                              suffixIcon: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.contacts_rounded,
+                                      color: colors.primary,
+                                      size: 20,
                                     ),
-                                  );
-                                  if (qrString != null) {
-                                    final extracted = _extractIdentifierFromQr(qrString);
-                                    _payeeIdentifierController.text = extracted;
-                                    await _lookupPayee(extracted);
-                                  }
-                                },
+                                    onPressed: () => _showPayeeSelector(context),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.qr_code_scanner_rounded,
+                                      color: colors.primary,
+                                      size: 20,
+                                    ),
+                                    onPressed: () async {
+                                      final qrString = await Navigator.push<String>(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => const _SimpleQrScannerPage(),
+                                        ),
+                                      );
+                                      if (qrString != null) {
+                                        final extracted = _extractIdentifierFromQr(qrString);
+                                        _payeeIdentifierController.text = extracted;
+                                        await _lookupPayee(extracted);
+                                      }
+                                    },
+                                  ),
+                                ],
                               ),
                             ),
                             onChanged: (val) {
@@ -1391,13 +1527,29 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                           ),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: Text(
-                              'Người thụ hưởng: $_fetchedPayeeName',
-                              style: TextStyle(
-                                color: colors.textPrimary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Người thụ hưởng: $_fetchedPayeeName',
+                                  style: TextStyle(
+                                    color: colors.textPrimary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                if (_recipientWalletName != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Ví nhận: $_recipientWalletName',
+                                    style: TextStyle(
+                                      color: colors.primary,
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ],

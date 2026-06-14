@@ -66,68 +66,20 @@ class DashboardScreen extends ConsumerWidget {
       error: (_, __) => '0 $currencySymbol',
     );
 
-    final monthlyIncomeStr = transactionState.when(
-      data: (transactions) {
-        final now = DateTime.now();
-        final startOfMonth = DateTime(now.year, now.month, 1);
-        final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+    final dashboardSummary = ref.watch(dashboardSummaryProvider);
 
-        double income = 0;
-        for (final tx in transactions) {
-          if (tx.sourceType == 'transfer') {
-            final hasCounterpart = tx.sourceId != null &&
-                transactions.any((other) =>
-                    other.id != tx.id &&
-                    other.sourceId == tx.sourceId &&
-                    other.walletId != tx.walletId);
-            if (hasCounterpart) continue;
-          }
-          final txDate = tx.transactionDate.toLocal();
-          if ((txDate.isAfter(startOfMonth) && txDate.isBefore(endOfMonth)) ||
-              txDate.isAtSameMomentAs(startOfMonth) ||
-              txDate.isAtSameMomentAs(endOfMonth)) {
-            if (tx.type == 'income') {
-              income += convertCurrency(tx.amount, tx.currencyCode ?? userCurrency);
-            }
-          }
-        }
-        return showBalance
-            ? '+${AppConstant.formatMoney(income, userCurrency)} $currencySymbol'
-            : '•••••• $currencySymbol';
-      },
+    final monthlyIncomeStr = dashboardSummary.when(
+      data: (summary) => showBalance
+          ? '+${AppConstant.formatMoney(summary.income, userCurrency)} $currencySymbol'
+          : '•••••• $currencySymbol',
       loading: () => '...',
       error: (_, __) => '0 $currencySymbol',
     );
 
-    final monthlyExpenseStr = transactionState.when(
-      data: (transactions) {
-        final now = DateTime.now();
-        final startOfMonth = DateTime(now.year, now.month, 1);
-        final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
-
-        double expense = 0;
-        for (final tx in transactions) {
-          if (tx.sourceType == 'transfer') {
-            final hasCounterpart = tx.sourceId != null &&
-                transactions.any((other) =>
-                    other.id != tx.id &&
-                    other.sourceId == tx.sourceId &&
-                    other.walletId != tx.walletId);
-            if (hasCounterpart) continue;
-          }
-          final txDate = tx.transactionDate.toLocal();
-          if ((txDate.isAfter(startOfMonth) && txDate.isBefore(endOfMonth)) ||
-              txDate.isAtSameMomentAs(startOfMonth) ||
-              txDate.isAtSameMomentAs(endOfMonth)) {
-            if (tx.type == 'expense') {
-              expense += convertCurrency(tx.amount, tx.currencyCode ?? userCurrency);
-            }
-          }
-        }
-        return showBalance
-            ? '-${AppConstant.formatMoney(expense, userCurrency)} $currencySymbol'
-            : '•••••• $currencySymbol';
-      },
+    final monthlyExpenseStr = dashboardSummary.when(
+      data: (summary) => showBalance
+          ? '-${AppConstant.formatMoney(summary.expense, userCurrency)} $currencySymbol'
+          : '•••••• $currencySymbol',
       loading: () => '...',
       error: (_, __) => '0 $currencySymbol',
     );
@@ -141,6 +93,7 @@ class DashboardScreen extends ConsumerWidget {
         onRefresh: () async {
           await ref.read(walletNotifierProvider.notifier).refreshWallets();
           await ref.read(transactionListProvider.notifier).refreshTransactions(silent: true);
+          ref.invalidate(dashboardSummaryProvider);
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(

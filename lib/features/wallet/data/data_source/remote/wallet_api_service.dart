@@ -23,6 +23,11 @@ abstract class WalletApiService {
     @Body() CreateWalletRequest request,
   );
 
+  @POST('${ApiEndpoints.wallets}/{id}/set-default-receiving')
+  Future<BaseResponseDto<dynamic>> setDefaultReceivingWallet(
+    @Path('id') String id,
+  );
+
   @POST(ApiEndpoints.transfer)
   Future<BaseResponseDto<dynamic>> transferMoney(@Body() Map<String, dynamic> body);
 

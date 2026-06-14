@@ -105,43 +105,82 @@ class WalletCardItem extends StatelessWidget {
               ),
   
               // Dòng dưới cùng: Sạch sẽ, không còn mã số/hết hạn thừa thãi
-              if (wallet.isHidden)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.24),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.12),
-                        width: 1,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  if (wallet.isHidden)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.24),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.12),
+                          width: 1,
+                        ),
                       ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(
-                          Icons.visibility_off_rounded,
-                          color: Colors.white70,
-                          size: 13,
-                        ),
-                        SizedBox(width: 6),
-                        Text(
-                          'ĐANG ẨN',
-                          style: TextStyle(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(
+                            Icons.visibility_off_rounded,
                             color: Colors.white70,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0,
+                            size: 13,
                           ),
+                          SizedBox(width: 6),
+                          Text(
+                            'ĐANG ẨN',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    const SizedBox.shrink(),
+                  if (wallet.isDefaultReceiving &&
+                      (wallet.type == 'bank' ||
+                       wallet.type == 'ewallet' ||
+                       wallet.type == 'e-wallet'))
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.35),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Colors.greenAccent.withOpacity(0.4),
+                          width: 1,
                         ),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                const SizedBox.shrink(),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(
+                            Icons.check_circle_outline_rounded,
+                            color: Colors.white,
+                            size: 13,
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            'NHẬN MẶC ĐỊNH',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    const SizedBox.shrink(),
+                ],
+              ),
             ],
           ),
         ),

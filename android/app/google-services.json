@@ -50,7 +50,7 @@
               "client_id": "930877244924-ncc5f40a9kbudbqfag72d72udgdammnk.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.example.expenseManagement"
+                "bundle_id": "com.danhngo.expenseManagement"
               }
             }
           ]
