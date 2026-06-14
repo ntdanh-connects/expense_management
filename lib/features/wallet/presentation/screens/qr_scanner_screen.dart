@@ -36,6 +36,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
   // Scanning state
   bool _isLoadingDecode = false;
   bool _isCameraActive = true;
+  bool _isProcessingQr = false;
 
   // My QR Tab State
   WalletEntity? _selectedWallet;
@@ -98,7 +99,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
 
   // --- TAB 1: SCAN QR CODE LOGIC ---
   Future<void> _onQrDetect(BarcodeCapture capture) async {
-    if (_isLoadingDecode) return;
+    if (_isProcessingQr || _isLoadingDecode) return;
     final List<Barcode> barcodes = capture.barcodes;
     if (barcodes.isEmpty) return;
     
@@ -109,9 +110,15 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
   }
 
   Future<void> _decodeQrString(String qrString) async {
-    if (_isLoadingDecode) return;
-    setState(() {
-      _isLoadingDecode = true;
+    if (_isProcessingQr || _isLoadingDecode) return;
+    _isProcessingQr = true;
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _isLoadingDecode = true;
+        });
+      }
     });
     
     // Tạm dừng camera quét đè nhiều lần
@@ -131,32 +138,42 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
       
       // Khi quay lại từ màn hình xác nhận, khởi động lại camera và reset trạng thái loading
       if (mounted) {
-        setState(() {
-          _isLoadingDecode = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (mounted) {
+            setState(() {
+              _isLoadingDecode = false;
+            });
+            _isProcessingQr = false;
+            try {
+              await _scannerController.start();
+            } catch (e) {
+              AppLogger.error("Không thể khởi động lại camera: $e");
+            }
+          }
         });
-        try {
-          await _scannerController.start();
-        } catch (e) {
-          AppLogger.error("Không thể khởi động lại camera: $e");
-        }
       }
     } else {
       if (mounted) {
-        setState(() {
-          _isLoadingDecode = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (mounted) {
+            setState(() {
+              _isLoadingDecode = false;
+            });
+            _isProcessingQr = false;
+            AppLogger.error("🚨 [QR-Scan] Lỗi giải mã QR hoặc mã QR không hợp lệ!");
+            ElegantNotification.error(
+              title: Text('error'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
+              description: const Text('Mã QR không đúng định dạng hoặc có lỗi xảy ra!'),
+            ).show(context);
+            
+            // Khởi động lại camera để cho phép quét tiếp
+            try {
+              await _scannerController.start();
+            } catch (e) {
+              AppLogger.error("Không thể khởi động lại camera: $e");
+            }
+          }
         });
-        AppLogger.error("🚨 [QR-Scan] Lỗi giải mã QR hoặc mã QR không hợp lệ!");
-        ElegantNotification.error(
-          title: Text('error'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
-          description: const Text('Mã QR không đúng định dạng hoặc có lỗi xảy ra!'),
-        ).show(context);
-        
-        // Khởi động lại camera để cho phép quét tiếp
-        try {
-          await _scannerController.start();
-        } catch (e) {
-          AppLogger.error("Không thể khởi động lại camera: $e");
-        }
       }
     }
   }
@@ -176,21 +193,30 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
         }
       } else {
         if (mounted) {
-          ElegantNotification.error(
-            title: Text('error'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
-            description: const Text('Không tìm thấy mã QR trong ảnh được chọn!'),
-          ).show(context);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              ElegantNotification.error(
+                title: Text('error'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
+                description: const Text('Không tìm thấy mã QR trong ảnh được chọn!'),
+              ).show(context);
+            }
+          });
         }
       }
     } catch (e) {
       if (mounted) {
-        ElegantNotification.error(
-          title: Text('error'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
-          description: Text('Có lỗi xảy ra: $e'),
-        ).show(context);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ElegantNotification.error(
+              title: Text('error'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
+              description: Text('Có lỗi xảy ra: $e'),
+            ).show(context);
+          }
+        });
       }
     }
   }
+
 
   // --- TAB 2: MY QR LOGIC ---
   void _onQrFieldsChanged() {

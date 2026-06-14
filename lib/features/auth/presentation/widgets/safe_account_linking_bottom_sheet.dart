@@ -57,41 +57,49 @@ class _SafeAccountLinkingBottomSheetState
   }
 
   void _showErrorNotification(String message, AppColorsExtension colors) {
-    ElegantNotification.error(
-      title: Text(
-        'Có lỗi xảy ra!',
-        style: TextStyle(fontWeight: FontWeight.bold, color: colors.expenseRed),
-      ),
-      description: Text(
-        message,
-        style: TextStyle(color: colors.textPrimary),
-      ),
-      position: Alignment.topCenter,
-      animation: AnimationType.fromTop,
-      background: colors.authCardBg.withOpacity(0.9),
-      toastDuration: const Duration(seconds: 3),
-      showProgressIndicator: false,
-      borderRadius: BorderRadius.circular(20),
-    ).show(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ElegantNotification.error(
+          title: Text(
+            'Có lỗi xảy ra!',
+            style: TextStyle(fontWeight: FontWeight.bold, color: colors.expenseRed),
+          ),
+          description: Text(
+            message,
+            style: TextStyle(color: colors.textPrimary),
+          ),
+          position: Alignment.topCenter,
+          animation: AnimationType.fromTop,
+          background: colors.authCardBg.withOpacity(0.9),
+          toastDuration: const Duration(seconds: 3),
+          showProgressIndicator: false,
+          borderRadius: BorderRadius.circular(20),
+        ).show(context);
+      }
+    });
   }
 
   void _showSuccessNotification(String message, AppColorsExtension colors) {
-    ElegantNotification.success(
-      title: Text(
-        'Thành công!',
-        style: TextStyle(fontWeight: FontWeight.bold, color: colors.incomeGreen),
-      ),
-      description: Text(
-        message,
-        style: TextStyle(color: colors.textPrimary),
-      ),
-      position: Alignment.topCenter,
-      animation: AnimationType.fromTop,
-      background: colors.authCardBg.withOpacity(0.9),
-      toastDuration: const Duration(seconds: 3),
-      showProgressIndicator: false,
-      borderRadius: BorderRadius.circular(20),
-    ).show(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ElegantNotification.success(
+          title: Text(
+            'Thành công!',
+            style: TextStyle(fontWeight: FontWeight.bold, color: colors.incomeGreen),
+          ),
+          description: Text(
+            message,
+            style: TextStyle(color: colors.textPrimary),
+          ),
+          position: Alignment.topCenter,
+          animation: AnimationType.fromTop,
+          background: colors.authCardBg.withOpacity(0.9),
+          toastDuration: const Duration(seconds: 3),
+          showProgressIndicator: false,
+          borderRadius: BorderRadius.circular(20),
+        ).show(context);
+      }
+    });
   }
 
   @override
