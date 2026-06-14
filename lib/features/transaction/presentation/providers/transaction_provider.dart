@@ -793,7 +793,10 @@ List<TransactionEntity> _filterLocalList(
     try {
       final location = tz.getLocation(tzName);
       if (filter.startDate != null) {
-        final startPart = DateTime.parse(filter.startDate!);
+        final parsed = DateTime.parse(filter.startDate!);
+        final startPart = parsed.isUtc
+            ? tz.TZDateTime.from(parsed, location)
+            : tz.TZDateTime(location, parsed.year, parsed.month, parsed.day);
         final start = tz.TZDateTime(
           location,
           startPart.year,
@@ -806,7 +809,10 @@ List<TransactionEntity> _filterLocalList(
         }).toList();
       }
       if (filter.endDate != null) {
-        final endPart = DateTime.parse(filter.endDate!);
+        final parsed = DateTime.parse(filter.endDate!);
+        final endPart = parsed.isUtc
+            ? tz.TZDateTime.from(parsed, location)
+            : tz.TZDateTime(location, parsed.year, parsed.month, parsed.day);
         final end = tz.TZDateTime(
           location,
           endPart.year,

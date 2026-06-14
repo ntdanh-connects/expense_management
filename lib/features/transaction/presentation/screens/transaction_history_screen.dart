@@ -297,11 +297,30 @@ class _TransactionHistoryScreenState
     );
   }
 
-  // ── Hàng bộ lọc nâng cao
   Widget _buildAdvancedFilterRow(AppColorsExtension colors) {
     final filter = ref.watch(transactionFilterProvider);
-    final categoryLabel = _selectedCategoryName != null ? _selectedCategoryName!.tr(ref) : 'category'.tr(ref);
-    final walletLabel = _selectedWalletName ?? 'all_wallets'.tr(ref);
+    
+    // Resolve dynamic category label
+    final categoriesAsync = ref.watch(categoriesNotifierProvider);
+    String categoryLabel = 'category'.tr(ref);
+    if (filter.categoryId != null) {
+      final allCats = categoriesAsync.value ?? [];
+      final match = allCats.where((c) => c.id == filter.categoryId).firstOrNull;
+      if (match != null) {
+        categoryLabel = match.name.tr(ref);
+      }
+    }
+
+    // Resolve dynamic wallet label
+    final walletsAsync = ref.watch(walletNotifierProvider);
+    String walletLabel = 'all_wallets'.tr(ref);
+    if (filter.walletId != null) {
+      final allWallets = walletsAsync.value ?? [];
+      final match = allWallets.where((w) => w.id == filter.walletId).firstOrNull;
+      if (match != null) {
+        walletLabel = match.name;
+      }
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4),
@@ -375,8 +394,26 @@ class _TransactionHistoryScreenState
   }
 
   String _buildDateLabel(TransactionFilter filter) {
-    final startDate = filter.startDate != null ? DateTime.parse(filter.startDate!) : null;
-    final endDate = filter.endDate != null ? DateTime.parse(filter.endDate!) : null;
+    final user = ref.read(currentUserProvider);
+    final tzName = user?.timezone ?? 'Asia/Ho_Chi_Minh';
+    final location = tz.getLocation(tzName);
+
+    DateTime? startDate;
+    if (filter.startDate != null) {
+      final parsed = DateTime.parse(filter.startDate!);
+      startDate = parsed.isUtc 
+          ? tz.TZDateTime.from(parsed, location) 
+          : tz.TZDateTime(location, parsed.year, parsed.month, parsed.day);
+    }
+
+    DateTime? endDate;
+    if (filter.endDate != null) {
+      final parsed = DateTime.parse(filter.endDate!);
+      endDate = parsed.isUtc 
+          ? tz.TZDateTime.from(parsed, location) 
+          : tz.TZDateTime(location, parsed.year, parsed.month, parsed.day);
+    }
+
     if (startDate != null && endDate != null) {
       return '${DateFormat('dd/MM').format(startDate)} – ${DateFormat('dd/MM').format(endDate)}';
     } else if (startDate != null) {
@@ -1153,9 +1190,26 @@ class _TransactionHistoryScreenState
   // ── DATE RANGE PICKER
   Future<void> _showDateRangePicker(AppColorsExtension colors) async {
     final filter = ref.read(transactionFilterProvider);
-    final now = DateTime.now();
-    final filterStart = filter.startDate != null ? DateTime.parse(filter.startDate!) : null;
-    final filterEnd = filter.endDate != null ? DateTime.parse(filter.endDate!) : null;
+    final user = ref.read(currentUserProvider);
+    final tzName = user?.timezone ?? 'Asia/Ho_Chi_Minh';
+    final location = tz.getLocation(tzName);
+    final now = tz.TZDateTime.now(location);
+
+    DateTime? filterStart;
+    if (filter.startDate != null) {
+      final parsed = DateTime.parse(filter.startDate!);
+      filterStart = parsed.isUtc 
+          ? tz.TZDateTime.from(parsed, location) 
+          : tz.TZDateTime(location, parsed.year, parsed.month, parsed.day);
+    }
+
+    DateTime? filterEnd;
+    if (filter.endDate != null) {
+      final parsed = DateTime.parse(filter.endDate!);
+      filterEnd = parsed.isUtc 
+          ? tz.TZDateTime.from(parsed, location) 
+          : tz.TZDateTime(location, parsed.year, parsed.month, parsed.day);
+    }
 
     final picked = await showDateRangePicker(
       context: context,
@@ -1164,7 +1218,7 @@ class _TransactionHistoryScreenState
       initialDateRange: (filterStart != null && filterEnd != null)
           ? DateTimeRange(start: filterStart, end: filterEnd)
           : DateTimeRange(
-              start: DateTime(now.year, now.month, 1),
+              start: tz.TZDateTime(location, now.year, now.month, 1),
               end: now,
             ),
       builder: (context, child) => Theme(

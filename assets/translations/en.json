@@ -366,6 +366,7 @@
   "recurring_executed": "Executed",
   "recurring_record": "Record",
   "recurring_recorded": "Recorded",
+  "recurring_recording": "Recording",
   "recurring_record_success": "Transaction \"{title}\" recorded successfully!",
   "recurring_record_failed": "Recording failed: {error}",
   "recurring_upcoming": "Upcoming",

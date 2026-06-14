@@ -1,4 +1,6 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:expense_management/core/router/app_route.dart';
@@ -9,8 +11,11 @@ import 'package:expense_management/features/profile/presentation/widgets/categor
 import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
 import 'package:expense_management/features/analytic/data/models/report_summary_dto.dart';
 import 'package:expense_management/features/analytic/data/models/report_trend_dto.dart';
+import 'package:expense_management/features/analytic/data/models/report_category_dto.dart';
 import 'package:expense_management/features/budget/presentation/screens/budget_screen.dart';
 import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
+import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
+import 'package:expense_management/core/language/app_provider.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:shimmer/shimmer.dart';
 
@@ -22,6 +27,10 @@ class AnalyticScreen extends ConsumerStatefulWidget {
 }
 
 class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
+  int? _selectedDonutIndex;
+  String _categoryViewMode = 'parent'; // 'parent' or 'child'
+  bool _lastSelectedFromList = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -76,6 +85,35 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final selectedSubTab = ref.watch(selectedAnalyticTabProvider);
+
+    // Reset selected segment and view mode when date range or tab changes
+    ref.listen(selectedDateRangeProvider, (previous, next) {
+      if (previous != next) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _selectedDonutIndex = null;
+              _categoryViewMode = 'parent';
+              _lastSelectedFromList = false;
+            });
+          }
+        });
+      }
+    });
+
+    ref.listen(selectedAnalyticTabProvider, (previous, next) {
+      if (previous != next) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _selectedDonutIndex = null;
+              _categoryViewMode = 'parent';
+              _lastSelectedFromList = false;
+            });
+          }
+        });
+      }
+    });
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -662,9 +700,110 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
     );
   }
 
+  List<GroupedCategory> _groupCategories(List<ReportCategoryEntryDto> entries, double totalAmount) {
+    final Map<String, List<ReportCategoryEntryDto>> groups = {};
+    
+    for (final entry in entries) {
+      final key = entry.parentId ?? entry.categoryId;
+      groups.putIfAbsent(key, () => []).add(entry);
+    }
+
+    final List<GroupedCategory> groupedList = [];
+
+    groups.forEach((parentId, childEntries) {
+      ReportCategoryEntryDto? parentEntry;
+      try {
+        parentEntry = childEntries.firstWhere((e) => e.categoryId == parentId);
+      } catch (_) {
+        try {
+          parentEntry = entries.firstWhere((e) => e.categoryId == parentId);
+        } catch (_) {
+          parentEntry = childEntries.first;
+        }
+      }
+
+      final parentName = parentEntry.parentName ?? parentEntry.categoryName;
+      final color = parentEntry.categoryColor ?? 'F57C00';
+      final icon = parentEntry.categoryIcon;
+
+      double totalGroupAmount = 0.0;
+      for (final e in childEntries) {
+        totalGroupAmount += e.amount;
+      }
+
+      childEntries.sort((a, b) => b.amount.compareTo(a.amount));
+
+      groupedList.add(GroupedCategory(
+        id: parentId,
+        name: parentName,
+        color: color,
+        icon: icon,
+        amount: totalGroupAmount,
+        percentage: totalAmount > 0 ? (totalGroupAmount / totalAmount) * 100 : 0.0,
+        subCategories: childEntries,
+      ));
+    });
+
+    groupedList.sort((a, b) => b.amount.compareTo(a.amount));
+    return groupedList;
+  }
+
+  void _navigateToHistory(WidgetRef ref) {
+    final categoriesAsync = ref.read(reportCategoriesProvider);
+    final reportData = categoriesAsync.asData?.value;
+    final entries = reportData?.categories ?? [];
+    
+    final range = ref.read(selectedDateRangeProvider);
+    final isChildMode = _categoryViewMode == 'child';
+    
+    if (!isChildMode) {
+      final groupedList = _groupCategories(entries, reportData?.totalAmount ?? 0.0);
+      final selectedIndex = (_selectedDonutIndex != null && _selectedDonutIndex! < groupedList.length)
+          ? _selectedDonutIndex
+          : null;
+
+      if (selectedIndex != null) {
+        ref.read(transactionFilterProvider.notifier).state = TransactionFilter(
+          categoryId: groupedList[selectedIndex].id,
+          startDate: range.start.toUtc().toIso8601String(),
+          endDate: range.end.toUtc().toIso8601String(),
+          type: 'expense',
+        );
+      } else {
+        ref.read(transactionFilterProvider.notifier).state = TransactionFilter(
+          startDate: range.start.toUtc().toIso8601String(),
+          endDate: range.end.toUtc().toIso8601String(),
+          type: 'expense',
+        );
+      }
+    } else {
+      final childList = List<ReportCategoryEntryDto>.from(entries)..sort((a, b) => b.amount.compareTo(a.amount));
+      final selectedIndex = (_selectedDonutIndex != null && _selectedDonutIndex! < childList.length)
+          ? _selectedDonutIndex
+          : null;
+
+      if (selectedIndex != null) {
+        ref.read(transactionFilterProvider.notifier).state = TransactionFilter(
+          categoryId: childList[selectedIndex].categoryId,
+          startDate: range.start.toUtc().toIso8601String(),
+          endDate: range.end.toUtc().toIso8601String(),
+          type: 'expense',
+        );
+      } else {
+        ref.read(transactionFilterProvider.notifier).state = TransactionFilter(
+          startDate: range.start.toUtc().toIso8601String(),
+          endDate: range.end.toUtc().toIso8601String(),
+          type: 'expense',
+        );
+      }
+    }
+    context.go(RoutePaths.history);
+  }
+
   Widget _buildDonutChartSection(WidgetRef ref) {
     final categoriesAsync = ref.watch(reportCategoriesProvider);
     final colors = context.colors;
+    final isEnglish = ref.watch(localeProvider) == 'en';
 
     return Container(
       width: double.infinity,
@@ -677,13 +816,56 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'category_distribution'.tr(ref),
-            style: TextStyle(
-              color: colors.textPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'category_distribution'.tr(ref),
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              CupertinoSlidingSegmentedControl<String>(
+                groupValue: _categoryViewMode,
+                backgroundColor: colors.textSecondary.withOpacity(0.05),
+                thumbColor: colors.surface,
+                children: {
+                  'parent': Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    child: Text(
+                      isEnglish ? 'Parent' : 'Cha',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: _categoryViewMode == 'parent' ? colors.primary : colors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  'child': Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    child: Text(
+                      isEnglish ? 'Child' : 'Con',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: _categoryViewMode == 'child' ? colors.primary : colors.textSecondary,
+                      ),
+                    ),
+                  ),
+                },
+                onValueChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _categoryViewMode = value;
+                      _selectedDonutIndex = null;
+                      _lastSelectedFromList = false;
+                    });
+                  }
+                },
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           () {
@@ -715,48 +897,208 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
               );
             }
 
-            // Create segments for Donut chart
-            final segments = entries.map((e) {
-              final categoryColor = CategoryUIConstants.getColorFromHex(e.categoryColor);
-              return ChartSegment(
-                color: categoryColor,
-                percentage: e.percentage / 100.0,
-              );
-            }).toList();
+            final groupedList = _groupCategories(entries, reportData.totalAmount);
+            final childList = List<ReportCategoryEntryDto>.from(entries)..sort((a, b) => b.amount.compareTo(a.amount));
+            final isChildMode = _categoryViewMode == 'child';
+
+            final selectedIndex = (_selectedDonutIndex != null &&
+                    _selectedDonutIndex! < (isChildMode ? childList.length : groupedList.length))
+                ? _selectedDonutIndex
+                : null;
+
+            final group = (!isChildMode && selectedIndex != null) ? groupedList[selectedIndex] : null;
+            final childEntry = (isChildMode && selectedIndex != null) ? childList[selectedIndex] : null;
+
+            final List<ChartSegment> segments;
+            const double minVisualPercentage = 0.02; // Enforce a 2% minimum visual slice size
+
+            if (isChildMode) {
+              final rawPercentages = childList.map((e) => reportData.totalAmount > 0 ? (e.amount / reportData.totalAmount) : 0.0).toList();
+              double totalAdjusted = 0.0;
+              final adjusted = <double>[];
+              for (final p in rawPercentages) {
+                final adj = p > 0 ? (p < minVisualPercentage ? minVisualPercentage : p) : 0.0;
+                adjusted.add(adj);
+                totalAdjusted += adj;
+              }
+              segments = List.generate(childList.length, (i) {
+                final e = childList[i];
+                final categoryColor = CategoryUIConstants.getColorFromHex(e.categoryColor);
+                final normPercentage = totalAdjusted > 0 ? (adjusted[i] / totalAdjusted) : 0.0;
+                return ChartSegment(
+                  color: categoryColor,
+                  percentage: normPercentage,
+                );
+              });
+            } else {
+              final rawPercentages = groupedList.map((g) => g.percentage / 100.0).toList();
+              double totalAdjusted = 0.0;
+              final adjusted = <double>[];
+              for (final p in rawPercentages) {
+                final adj = p > 0 ? (p < minVisualPercentage ? minVisualPercentage : p) : 0.0;
+                adjusted.add(adj);
+                totalAdjusted += adj;
+              }
+              segments = List.generate(groupedList.length, (i) {
+                final g = groupedList[i];
+                final categoryColor = CategoryUIConstants.getColorFromHex(g.color);
+                final normPercentage = totalAdjusted > 0 ? (adjusted[i] / totalAdjusted) : 0.0;
+                return ChartSegment(
+                  color: categoryColor,
+                  percentage: normPercentage,
+                );
+              });
+            }
 
             return Center(
               child: SizedBox(
                 width: 160,
                 height: 160,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    CustomPaint(
-                      size: const Size(150, 150),
-                      painter: DonutChartPainter(
-                        segments: segments,
-                        strokeWidth: 20,
-                      ),
-                    ),
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'total_expense'.tr(ref),
-                          style: TextStyle(color: colors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _formatCompactCurrency(reportData.totalAmount),
-                          style: TextStyle(
-                            color: colors.textPrimary,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapUp: (details) {
+                    final x = details.localPosition.dx;
+                    final y = details.localPosition.dy;
+                    
+                    const centerX = 80.0;
+                    const centerY = 80.0;
+                    
+                    final dx = x - centerX;
+                    final dy = y - centerY;
+                    final distance = sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 40) {
+                      setState(() {
+                        _selectedDonutIndex = null;
+                        _lastSelectedFromList = false;
+                      });
+                    } else if (distance >= 40 && distance <= 85) {
+                      double angle = atan2(dy, dx);
+                      double normalizedAngle = angle + pi / 2;
+                      if (normalizedAngle < 0) {
+                        normalizedAngle += 2 * pi;
+                      }
+                      
+                      double currentAngle = 0.0;
+                      for (int i = 0; i < segments.length; i++) {
+                        final sweepAngle = segments[i].percentage * 2 * pi;
+                        if (normalizedAngle >= currentAngle && normalizedAngle <= currentAngle + sweepAngle) {
+                          setState(() {
+                            _selectedDonutIndex = (_selectedDonutIndex == i) ? null : i;
+                            _lastSelectedFromList = false;
+                          });
+                          break;
+                        }
+                        currentAngle += sweepAngle;
+                      }
+                    }
+                  },
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      IgnorePointer(
+                        child: CustomPaint(
+                          size: const Size(150, 150),
+                          painter: DonutChartPainter(
+                            segments: segments,
+                            strokeWidth: 20,
+                            selectedIndex: selectedIndex,
                           ),
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                      IgnorePointer(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (selectedIndex == null) ...[
+                                Text(
+                                  'total_expense'.tr(ref),
+                                  style: TextStyle(color: colors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _formatCompactCurrency(reportData.totalAmount),
+                                  style: TextStyle(
+                                    color: colors.textPrimary,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ] else ...[
+                                if (!isChildMode) ...[
+                                  Text(
+                                    group!.name.tr(ref),
+                                    style: TextStyle(
+                                      color: CategoryUIConstants.getColorFromHex(group.color),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 1),
+                                  Text(
+                                    _formatCompactCurrency(group.amount),
+                                    style: TextStyle(
+                                      color: colors.textPrimary,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  Text(
+                                    '${group.percentage.toStringAsFixed(1)}%',
+                                    style: TextStyle(
+                                      color: colors.textSecondary,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ] else ...[
+                                  Text(
+                                    childEntry!.categoryName.tr(ref),
+                                    style: TextStyle(
+                                      color: CategoryUIConstants.getColorFromHex(childEntry.categoryColor),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 1),
+                                  Text(
+                                    _formatCompactCurrency(childEntry.amount),
+                                    style: TextStyle(
+                                      color: colors.textPrimary,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  Text(
+                                    '${(reportData.totalAmount > 0 ? (childEntry.amount / reportData.totalAmount) * 100 : 0.0).toStringAsFixed(1)}%',
+                                    style: TextStyle(
+                                      color: colors.textSecondary,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -788,7 +1130,7 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'top_5_expenses'.tr(ref),
+            'spending_categories'.tr(ref),
             style: TextStyle(
               color: colors.textPrimary,
               fontSize: 18,
@@ -822,63 +1164,178 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
               );
             }
 
-            // Take top 5
-            final top5 = entries.take(5).toList();
+            final isChildMode = _categoryViewMode == 'child';
 
-            return Column(
-              children: top5.map((e) {
-                final progressColor = CategoryUIConstants.getColorFromHex(e.categoryColor);
-                return _buildTopExpenseRow(
-                  e.categoryName.tr(ref),
-                  _formatCurrency(e.amount),
-                  e.percentage / 100.0,
-                  progressColor,
-                  colors,
-                );
-              }).toList(),
-            );
+            if (isChildMode) {
+              final childList = List<ReportCategoryEntryDto>.from(entries)..sort((a, b) => b.amount.compareTo(a.amount));
+              final selectedIndex = (_selectedDonutIndex != null && _selectedDonutIndex! < childList.length)
+                  ? _selectedDonutIndex
+                  : null;
+
+              return Column(
+                children: List.generate(childList.length, (index) {
+                  final e = childList[index];
+                  final progressColor = CategoryUIConstants.getColorFromHex(e.categoryColor);
+                  final isSelected = selectedIndex == index;
+
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      if (isSelected) {
+                        if (_lastSelectedFromList) {
+                          final range = ref.read(selectedDateRangeProvider);
+                          ref.read(transactionFilterProvider.notifier).state = TransactionFilter(
+                            categoryId: e.categoryId,
+                            startDate: range.start.toUtc().toIso8601String(),
+                            endDate: range.end.toUtc().toIso8601String(),
+                            type: 'expense',
+                          );
+                          context.go(RoutePaths.history);
+                        } else {
+                          setState(() {
+                            _lastSelectedFromList = true;
+                          });
+                        }
+                      } else {
+                        setState(() {
+                          _selectedDonutIndex = index;
+                          _lastSelectedFromList = true;
+                        });
+                      }
+                    },
+                    child: _buildTopExpenseRow(
+                      e.categoryName.tr(ref),
+                      _formatCurrency(e.amount),
+                      reportData.totalAmount > 0 ? (e.amount / reportData.totalAmount) : 0.0,
+                      progressColor,
+                      colors,
+                      isSelected: isSelected,
+                    ),
+                  );
+                }),
+              );
+            } else {
+              final groupedList = _groupCategories(entries, reportData.totalAmount);
+              final selectedIndex = (_selectedDonutIndex != null && _selectedDonutIndex! < groupedList.length)
+                  ? _selectedDonutIndex
+                  : null;
+
+              return Column(
+                children: List.generate(groupedList.length, (index) {
+                  final g = groupedList[index];
+                  final progressColor = CategoryUIConstants.getColorFromHex(g.color);
+                  final isSelected = selectedIndex == index;
+
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      if (isSelected) {
+                        if (_lastSelectedFromList) {
+                          final range = ref.read(selectedDateRangeProvider);
+                          ref.read(transactionFilterProvider.notifier).state = TransactionFilter(
+                            categoryId: g.id,
+                            startDate: range.start.toUtc().toIso8601String(),
+                            endDate: range.end.toUtc().toIso8601String(),
+                            type: 'expense',
+                          );
+                          context.go(RoutePaths.history);
+                        } else {
+                          setState(() {
+                            _lastSelectedFromList = true;
+                          });
+                        }
+                      } else {
+                        setState(() {
+                          _selectedDonutIndex = index;
+                          _lastSelectedFromList = true;
+                        });
+                      }
+                    },
+                    child: _buildTopExpenseRow(
+                      g.name.tr(ref),
+                      _formatCurrency(g.amount),
+                      g.percentage / 100.0,
+                      progressColor,
+                      colors,
+                      isSelected: isSelected,
+                    ),
+                  );
+                }),
+              );
+            }
           }(),
         ],
       ),
     );
   }
 
-  Widget _buildTopExpenseRow(String title, String amount, double pct, Color progressColor, AppColorsExtension colors) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildTopExpenseRow(
+    String title,
+    String amount,
+    double pct,
+    Color progressColor,
+    AppColorsExtension colors, {
+    bool isSelected = false,
+  }) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.only(bottom: 10.0),
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+      decoration: BoxDecoration(
+        color: isSelected ? progressColor.withOpacity(0.08) : Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isSelected ? progressColor.withOpacity(0.3) : Colors.transparent,
+          width: 1.5,
+        ),
+      ),
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  color: colors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      amount,
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              Text(
-                amount,
-                style: TextStyle(
-                  color: colors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: pct,
+                    minHeight: 5,
+                    backgroundColor: isSelected
+                        ? progressColor.withOpacity(0.2)
+                        : colors.textSecondary.withOpacity(0.08),
+                    valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: pct,
-              minHeight: 5,
-              backgroundColor: colors.textSecondary.withOpacity(0.08),
-              valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+              ],
             ),
+          ),
+          const SizedBox(width: 8),
+          Icon(
+            Icons.chevron_right_rounded,
+            color: isSelected ? progressColor : colors.textSecondary.withOpacity(0.4),
+            size: 20,
           ),
         ],
       ),
@@ -1123,8 +1580,13 @@ class ChartSegment {
 class DonutChartPainter extends CustomPainter {
   final List<ChartSegment> segments;
   final double strokeWidth;
+  final int? selectedIndex;
 
-  DonutChartPainter({required this.segments, required this.strokeWidth});
+  DonutChartPainter({
+    required this.segments,
+    required this.strokeWidth,
+    this.selectedIndex,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1133,21 +1595,70 @@ class DonutChartPainter extends CustomPainter {
       radius: (size.width - strokeWidth) / 2,
     );
 
-    double startAngle = -3.14159 / 2; // Bắt đầu ở góc 12h
+    double startAngle = -pi / 2; // Bắt đầu ở góc 12h
 
-    for (var segment in segments) {
-      final sweepAngle = segment.percentage * 2 * 3.14159;
-      final paint = Paint()
-        ..color = segment.color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.butt;
+    for (int i = 0; i < segments.length; i++) {
+      final segment = segments[i];
+      final sweepAngle = segment.percentage * 2 * pi;
 
-      canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
+      if (i == selectedIndex) {
+        final double bisectorAngle = startAngle + sweepAngle / 2;
+        final double shiftDistance = 6.0;
+        final Offset shiftOffset = Offset(
+          cos(bisectorAngle) * shiftDistance,
+          sin(bisectorAngle) * shiftDistance,
+        );
+        final Rect shiftedRect = rect.shift(shiftOffset);
+
+        // 1. Vẽ hiệu ứng tỏa sáng hào quang (Glow shadow) phía dưới
+        final glowPaint = Paint()
+          ..color = segment.color.withOpacity(0.3)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth + 8.0 // phình to hào quang
+          ..strokeCap = StrokeCap.butt
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5.0); // mờ nhòe ánh sáng
+        canvas.drawArc(shiftedRect, startAngle, sweepAngle, false, glowPaint);
+
+        // 2. Vẽ nét vẽ chính phình to (Swell stroke)
+        final paint = Paint()
+          ..color = segment.color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth + 4.0 // phình to nét chính
+          ..strokeCap = StrokeCap.butt;
+        canvas.drawArc(shiftedRect, startAngle, sweepAngle, false, paint);
+      } else {
+        final paint = Paint()
+          ..color = segment.color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth
+          ..strokeCap = StrokeCap.butt;
+        canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
+      }
+      
       startAngle += sweepAngle;
     }
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class GroupedCategory {
+  final String id;
+  final String name;
+  final String color;
+  final String? icon;
+  final double amount;
+  final double percentage;
+  final List<ReportCategoryEntryDto> subCategories;
+
+  GroupedCategory({
+    required this.id,
+    required this.name,
+    required this.color,
+    this.icon,
+    required this.amount,
+    required this.percentage,
+    required this.subCategories,
+  });
 }

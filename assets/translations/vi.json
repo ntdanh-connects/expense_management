@@ -372,6 +372,7 @@
   "recurring_executed": "Đã thực hiện",
   "recurring_record": "Ghi nhận",
   "recurring_recorded": "Đã ghi nhận",
+  "recurring_recording": "Đang ghi nhận",
   "recurring_record_success": "Đã ghi nhận giao dịch \"{title}\" thành công!",
   "recurring_record_failed": "Ghi nhận thất bại: {error}",
   "recurring_upcoming": "Sắp đến hạn",

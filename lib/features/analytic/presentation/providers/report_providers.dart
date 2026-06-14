@@ -12,7 +12,7 @@ import 'package:expense_management/features/analytic/data/repository_impl/report
 import 'package:expense_management/features/analytic/domain/repository/report_repository.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:flutter_riverpod/legacy.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 enum TimeFilter { thisWeek, thisMonth, thisQuarter, thisYear, custom }
 
@@ -37,62 +37,102 @@ final selectedAnalyticTabProvider = StateProvider<String>((ref) => 'statistics')
 final selectedDateRangeProvider = Provider<DateTimeRange>((ref) {
   final filter = ref.watch(selectedTimeFilterProvider);
   final customRange = ref.watch(customDateRangeProvider);
-  final now = DateTime.now();
+  
+  final user = ref.watch(currentUserProvider);
+  final tzName = user?.timezone ?? 'Asia/Ho_Chi_Minh';
+  final location = tz.getLocation(tzName);
+  final now = tz.TZDateTime.now(location);
 
   switch (filter) {
     case TimeFilter.thisWeek:
       final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
       final endOfWeek = startOfWeek.add(const Duration(days: 6));
       return DateTimeRange(
-        start: DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day),
-        end: DateTime(endOfWeek.year, endOfWeek.month, endOfWeek.day, 23, 59, 59),
+        start: tz.TZDateTime(location, startOfWeek.year, startOfWeek.month, startOfWeek.day),
+        end: tz.TZDateTime(location, endOfWeek.year, endOfWeek.month, endOfWeek.day, 23, 59, 59),
       );
     case TimeFilter.thisMonth:
-      final startOfMonth = DateTime(now.year, now.month, 1);
-      final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+      final startOfMonth = tz.TZDateTime(location, now.year, now.month, 1);
+      final endOfMonth = tz.TZDateTime(location, now.year, now.month + 1, 0, 23, 59, 59);
       return DateTimeRange(start: startOfMonth, end: endOfMonth);
     case TimeFilter.thisQuarter:
       final quarter = ((now.month - 1) / 3).floor();
-      final startOfQuarter = DateTime(now.year, quarter * 3 + 1, 1);
-      final endOfQuarter = DateTime(now.year, (quarter + 1) * 3 + 1, 0, 23, 59, 59);
+      final startOfQuarter = tz.TZDateTime(location, now.year, quarter * 3 + 1, 1);
+      final endOfQuarter = tz.TZDateTime(location, now.year, (quarter + 1) * 3 + 1, 0, 23, 59, 59);
       return DateTimeRange(start: startOfQuarter, end: endOfQuarter);
     case TimeFilter.thisYear:
-      final startOfYear = DateTime(now.year, 1, 1);
-      final endOfYear = DateTime(now.year, 12, 31, 23, 59, 59);
+      final startOfYear = tz.TZDateTime(location, now.year, 1, 1);
+      final endOfYear = tz.TZDateTime(location, now.year, 12, 31, 23, 59, 59);
       return DateTimeRange(start: startOfYear, end: endOfYear);
     case TimeFilter.custom:
       return customRange ??
           DateTimeRange(
-            start: DateTime(now.year, now.month, 1),
-            end: DateTime(now.year, now.month + 1, 0, 23, 59, 59),
+            start: tz.TZDateTime(location, now.year, now.month, 1),
+            end: tz.TZDateTime(location, now.year, now.month + 1, 0, 23, 59, 59),
           );
   }
 });
 
 // Helper for Previous Period calculation
 DateTimeRange getPreviousPeriodRange(TimeFilter filter, DateTimeRange currentRange) {
+  final start = currentRange.start;
+  final end = currentRange.end;
+
+  if (start is tz.TZDateTime) {
+    final location = start.location;
+    switch (filter) {
+      case TimeFilter.thisWeek:
+        return DateTimeRange(
+          start: tz.TZDateTime.from(start.subtract(const Duration(days: 7)), location),
+          end: tz.TZDateTime.from(end.subtract(const Duration(days: 7)), location),
+        );
+      case TimeFilter.thisMonth:
+        final prevMonthStart = tz.TZDateTime(location, start.year, start.month - 1, 1);
+        final prevMonthEnd = tz.TZDateTime(location, start.year, start.month, 0, 23, 59, 59);
+        return DateTimeRange(start: prevMonthStart, end: prevMonthEnd);
+      case TimeFilter.thisQuarter:
+        final prevQuarterStart = tz.TZDateTime(location, start.year, start.month - 3, 1);
+        final prevQuarterEnd = tz.TZDateTime(location, start.year, start.month, 0, 23, 59, 59);
+        return DateTimeRange(start: prevQuarterStart, end: prevQuarterEnd);
+      case TimeFilter.thisYear:
+        return DateTimeRange(
+          start: tz.TZDateTime(location, start.year - 1, 1, 1),
+          end: tz.TZDateTime(location, start.year - 1, 12, 31, 23, 59, 59),
+        );
+      case TimeFilter.custom:
+        final duration = end.difference(start);
+        final prevEnd = start.subtract(const Duration(days: 1));
+        final prevStart = prevEnd.subtract(duration);
+        return DateTimeRange(
+          start: tz.TZDateTime.from(prevStart, location),
+          end: tz.TZDateTime(location, prevEnd.year, prevEnd.month, prevEnd.day, 23, 59, 59),
+        );
+    }
+  }
+
+  // Fallback for non-TZDateTime (e.g. standard local DateTime)
   switch (filter) {
     case TimeFilter.thisWeek:
       return DateTimeRange(
-        start: currentRange.start.subtract(const Duration(days: 7)),
-        end: currentRange.end.subtract(const Duration(days: 7)),
+        start: start.subtract(const Duration(days: 7)),
+        end: end.subtract(const Duration(days: 7)),
       );
     case TimeFilter.thisMonth:
-      final prevMonthStart = DateTime(currentRange.start.year, currentRange.start.month - 1, 1);
-      final prevMonthEnd = DateTime(currentRange.start.year, currentRange.start.month, 0, 23, 59, 59);
+      final prevMonthStart = DateTime(start.year, start.month - 1, 1);
+      final prevMonthEnd = DateTime(start.year, start.month, 0, 23, 59, 59);
       return DateTimeRange(start: prevMonthStart, end: prevMonthEnd);
     case TimeFilter.thisQuarter:
-      final prevQuarterStart = DateTime(currentRange.start.year, currentRange.start.month - 3, 1);
-      final prevQuarterEnd = DateTime(currentRange.start.year, currentRange.start.month, 0, 23, 59, 59);
+      final prevQuarterStart = DateTime(start.year, start.month - 3, 1);
+      final prevQuarterEnd = DateTime(start.year, start.month, 0, 23, 59, 59);
       return DateTimeRange(start: prevQuarterStart, end: prevQuarterEnd);
     case TimeFilter.thisYear:
       return DateTimeRange(
-        start: DateTime(currentRange.start.year - 1, 1, 1),
-        end: DateTime(currentRange.start.year - 1, 12, 31, 23, 59, 59),
+        start: DateTime(start.year - 1, 1, 1),
+        end: DateTime(start.year - 1, 12, 31, 23, 59, 59),
       );
     case TimeFilter.custom:
-      final duration = currentRange.end.difference(currentRange.start);
-      final prevEnd = currentRange.start.subtract(const Duration(days: 1));
+      final duration = end.difference(start);
+      final prevEnd = start.subtract(const Duration(days: 1));
       final prevStart = prevEnd.subtract(duration);
       return DateTimeRange(start: prevStart, end: DateTime(prevEnd.year, prevEnd.month, prevEnd.day, 23, 59, 59));
   }
@@ -118,9 +158,12 @@ final dashboardSummaryProvider = FutureProvider<ReportSummaryDto>((ref) async {
   final database = ref.read(appDatabaseProvider);
   final userId = ref.read(currentUserProvider)?.id ?? '';
 
-  final now = DateTime.now();
-  final startOfMonth = DateTime(now.year, now.month, 1);
-  final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+  final user = ref.read(currentUserProvider);
+  final tzName = user?.timezone ?? 'Asia/Ho_Chi_Minh';
+  final location = tz.getLocation(tzName);
+  final now = tz.TZDateTime.now(location);
+  final startOfMonth = tz.TZDateTime(location, now.year, now.month, 1);
+  final endOfMonth = tz.TZDateTime(location, now.year, now.month + 1, 0, 23, 59, 59);
 
   ReportSummaryDto summary;
   try {

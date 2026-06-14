@@ -13,6 +13,7 @@ import 'package:shimmer/shimmer.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_params.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 class RecurringListScreen extends ConsumerStatefulWidget {
   const RecurringListScreen({super.key});
@@ -24,6 +25,7 @@ class RecurringListScreen extends ConsumerStatefulWidget {
 
 class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
   String _selectedPeriod = 'month'; // 'day', 'week', 'month', 'year'
+  final Set<String> _executingRuleIds = {};
 
   @override
   Widget build(BuildContext context) {
@@ -624,8 +626,9 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
                     if (rule.isActive) ...[
                       (() {
                         final isRecorded = _isRuleRecordedToday(rule);
+                        final isExecuting = _executingRuleIds.contains(rule.id);
                         return GestureDetector(
-                          onTap: isRecorded
+                          onTap: (isRecorded || isExecuting)
                               ? null
                               : () =>
                                     _executeRuleImmediately(context, ref, rule),
@@ -635,34 +638,47 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: isRecorded
+                              color: (isRecorded || isExecuting)
                                   ? colors.textSecondary.withOpacity(0.06)
                                   : colors.primary.withOpacity(0.08),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: isRecorded
+                                color: (isRecorded || isExecuting)
                                     ? Colors.transparent
                                     : colors.primary.withOpacity(0.2),
                               ),
                             ),
                             child: Row(
                               children: [
-                                Icon(
-                                  isRecorded
-                                      ? Icons.check_circle_rounded
-                                      : Icons.add_task_rounded,
-                                  color: isRecorded
-                                      ? colors.textSecondary
-                                      : colors.primary,
-                                  size: 14,
-                                ),
+                                if (isExecuting) ...[
+                                  SizedBox(
+                                    width: 12,
+                                    height: 12,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+                                    ),
+                                  ),
+                                ] else ...[
+                                  Icon(
+                                    isRecorded
+                                        ? Icons.check_circle_rounded
+                                        : Icons.add_task_rounded,
+                                    color: isRecorded
+                                        ? colors.textSecondary
+                                        : colors.primary,
+                                    size: 14,
+                                  ),
+                                ],
                                 const SizedBox(width: 4),
                                 Text(
-                                  isRecorded
-                                      ? 'recurring_recorded'.tr(ref)
-                                      : 'recurring_record'.tr(ref),
+                                  isExecuting
+                                      ? 'recurring_recording'.tr(ref)
+                                      : isRecorded
+                                          ? 'recurring_recorded'.tr(ref)
+                                          : 'recurring_record'.tr(ref),
                                   style: TextStyle(
-                                    color: isRecorded
+                                    color: (isRecorded || isExecuting)
                                         ? colors.textSecondary
                                         : colors.primary,
                                     fontSize: 12,
@@ -900,6 +916,10 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
     WidgetRef ref,
     RecurringRuleEntity rule,
   ) async {
+    setState(() {
+      _executingRuleIds.add(rule.id);
+    });
+
     final walletName = rule.walletName ?? '';
     final categoryName = rule.categoryName ?? '';
     final categoryId = rule.categoryId ?? '';
@@ -972,6 +992,12 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
           ),
         );
       }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _executingRuleIds.remove(rule.id);
+        });
+      }
     }
   }
 
@@ -979,12 +1005,16 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
     final transactionsAsync = ref.read(transactionListProvider);
     return transactionsAsync.maybeWhen(
       data: (transactions) {
-        final now = DateTime.now();
-        final startOfToday = DateTime(now.year, now.month, now.day);
-        final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
+        final user = ref.read(currentUserProvider);
+        final tzName = user?.timezone ?? 'Asia/Ho_Chi_Minh';
+        final location = tz.getLocation(tzName);
+        
+        final nowUser = tz.TZDateTime.now(location);
+        final startOfToday = tz.TZDateTime(location, nowUser.year, nowUser.month, nowUser.day);
+        final endOfToday = tz.TZDateTime(location, nowUser.year, nowUser.month, nowUser.day, 23, 59, 59);
 
         return transactions.any((tx) {
-          final txDate = tx.transactionDate.toLocal();
+          final txDate = tz.TZDateTime.from(tx.transactionDate.toUtc(), location);
           final isSameDay =
               (txDate.isAfter(startOfToday) && txDate.isBefore(endOfToday)) ||
               txDate.isAtSameMomentAs(startOfToday) ||
