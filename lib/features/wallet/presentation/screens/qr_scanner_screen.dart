@@ -289,13 +289,17 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
                  w.currencyCode == 'VND';
         }).toList();
         if (wallets.isNotEmpty) {
-          setState(() {
-            _selectedWallet = wallets.firstWhere(
-              (w) => w.type == 'bank',
-              orElse: () => wallets.first,
-            );
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _selectedWallet = wallets.firstWhere(
+                  (w) => w.type == 'bank',
+                  orElse: () => wallets.first,
+                );
+              });
+              _generateMyQrCode();
+            }
           });
-          _generateMyQrCode();
         }
       }
     });

@@ -31,12 +31,21 @@ class FcmService {
 
       // 4. Lắng nghe thông báo khi ứng dụng đang mở (Foreground)
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        if (message.notification != null) {
+        String? title = message.notification?.title;
+        String? body = message.notification?.body;
+
+        // Nếu thông báo là dạng data-only (không có payload notification nhưng có title/body trong data)
+        if (title == null && body == null) {
+          title = message.data['title'];
+          body = message.data['body'];
+        }
+
+        if (title != null && body != null) {
           // Hiển thị notification dạng banner sử dụng LocalNotificationService hiện tại của bạn
           LocalNotificationService.showNotification(
             id: message.hashCode,
-            title: message.notification!.title ?? '',
-            body: message.notification!.body ?? '',
+            title: title,
+            body: body,
             payload: message.data.toString(),
           );
         }

@@ -49,26 +49,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     ref.listen(authNotifierProvider, (previous, next) {
       next.maybeWhen(
         error: (message) {
-          ElegantNotification.error(
-            title: Text(
-              'login_failed'.tr(ref),
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: colors.expenseRed,
-              ),
-            ),
-            description: Text(
-              message,
-              style: TextStyle(color: colors.textPrimary),
-            ),
-            position: Alignment.topCenter,
-            animation: AnimationType.fromTop,
-            background: colors.authCardBg.withOpacity(0.9),
-            toastDuration: const Duration(seconds: 3),
-            showProgressIndicator: false,
-            borderRadius: BorderRadius.circular(20),
-            width: MediaQuery.of(context).size.width,
-          ).show(context);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              ElegantNotification.error(
+                title: Text(
+                  'login_failed'.tr(ref),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: colors.expenseRed,
+                  ),
+                ),
+                description: Text(
+                  message,
+                  style: TextStyle(color: colors.textPrimary),
+                ),
+                position: Alignment.topCenter,
+                animation: AnimationType.fromTop,
+                background: colors.authCardBg.withOpacity(0.9),
+                toastDuration: const Duration(seconds: 3),
+                showProgressIndicator: false,
+                borderRadius: BorderRadius.circular(20),
+                width: MediaQuery.of(context).size.width,
+              ).show(context);
+            }
+          });
         },
         authenticated: (user) {},
         orElse: () {},

@@ -46,28 +46,38 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       next.maybeWhen(
         registered: (successMessage) {
           if (successMessage != null) {
-            ElegantNotification(
-            title: Text('success'.tr(ref),style: TextStyle(color: colors.incomeGreen,fontWeight: FontWeight.bold),),
-            description: Text(successMessage,style: TextStyle(color: colors.textPrimary),),
-            animationCurve: Curves.ease,
-            toastDuration: const Duration(seconds: 3),
-            background: colors.background.withOpacity(0.9),
-            width: MediaQuery.of(context).size.width,
-            position: Alignment.topCenter,
-            animation: AnimationType.fromTop,
-            ).show(context);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                ElegantNotification(
+                  title: Text('success'.tr(ref),style: TextStyle(color: colors.incomeGreen,fontWeight: FontWeight.bold),),
+                  description: Text(successMessage,style: TextStyle(color: colors.textPrimary),),
+                  animationCurve: Curves.ease,
+                  toastDuration: const Duration(seconds: 3),
+                  background: colors.background.withOpacity(0.9),
+                  width: MediaQuery.of(context).size.width,
+                  position: Alignment.topCenter,
+                  animation: AnimationType.fromTop,
+                ).show(context);
+              }
+            });
           }
         },
-        error: (message) => ElegantNotification(
-            title: Text('error'.tr(ref),style: TextStyle(color: colors.expenseRed,fontWeight: FontWeight.bold),),
-            description: Text(message,style: TextStyle(color: colors.textPrimary),),
-            animationCurve: Curves.ease,
-            toastDuration: const Duration(seconds: 3),
-            background: colors.background.withOpacity(0.9),
-            width: MediaQuery.of(context).size.width,
-            position: Alignment.topCenter,
-            animation: AnimationType.fromTop,
-            ).show(context),
+        error: (message) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              ElegantNotification(
+                title: Text('error'.tr(ref),style: TextStyle(color: colors.expenseRed,fontWeight: FontWeight.bold),),
+                description: Text(message,style: TextStyle(color: colors.textPrimary),),
+                animationCurve: Curves.ease,
+                toastDuration: const Duration(seconds: 3),
+                background: colors.background.withOpacity(0.9),
+                width: MediaQuery.of(context).size.width,
+                position: Alignment.topCenter,
+                animation: AnimationType.fromTop,
+              ).show(context);
+            }
+          });
+        },
         orElse: () {},
       );
     });
