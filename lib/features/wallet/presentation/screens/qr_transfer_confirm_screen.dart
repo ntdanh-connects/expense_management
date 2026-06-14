@@ -4,18 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
-import 'package:expense_management/core/utils/app_logger.dart';
-import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
-import 'package:expense_management/features/wallet/presentation/provider/qr_transfer_provider.dart';
-import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
-import 'package:expense_management/features/wallet/presentation/widget/swipe_to_confirm_button.dart';
+import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:elegant_notification/elegant_notification.dart';
-import 'package:expense_management/core/constants/app_constant.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
-import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
-import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
-import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
 
 class QrTransferConfirmScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> payeeData;
@@ -30,7 +21,6 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
   WalletEntity? _selectedWallet;
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
-  bool _isLoading = false;
 
   @override
   void initState() {
@@ -112,100 +102,37 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
-
     final rawPayeeName = widget.payeeData['payee_name']?.toString().trim() ?? '';
     final payeeName = (rawPayeeName.isEmpty || rawPayeeName.toUpperCase() == 'UNKNOWN RECIPIENT')
         ? 'Không xác định'
         : rawPayeeName;
 
-    AppLogger.info("💸 [QR-Transfer] Gửi yêu cầu chuyển tiền từ ví ${_selectedWallet!.name} đến $payeeName số tiền $amount");
+    final identifier = widget.payeeData['identifier'] ?? widget.payeeData['account_number'] ?? '';
+    final bankName = widget.payeeData['bank_name'] ?? '';
 
-    final result = await ref.read(qrTransferProvider.notifier).executeTransfer(
-      fromWalletId: _selectedWallet!.id,
-      payeeType: widget.payeeData['type'] ?? 'internal',
-      amount: amount,
-      notes: _descController.text.isNotEmpty ? _descController.text : 'QR transfer',
-      payeeUserId: widget.payeeData['payee_user_id'],
-      bankCode: widget.payeeData['bank_code'],
-      accountNumber: widget.payeeData['account_number'] ?? widget.payeeData['identifier'],
-      payeeName: payeeName,
-    );
-
-    setState(() {
-      _isLoading = false;
-    });
-
-    final isSuccess = result != null && result['status'] == 'success';
-
-    if (isSuccess && mounted) {
-      AppLogger.info("✅ [QR-Transfer] Chuyển tiền thành công! Đồng bộ ví...");
-      
-      // Sync local SQLite DB with updated remote balances
-      await ref.read(walletNotifierProvider.notifier).refreshWallets();
-      // Refresh transactions history to include the new transfer with payee info
-      await ref.read(transactionListProvider.notifier).refreshTransactions(silent: true);
-      
-      final identifier = widget.payeeData['identifier'] ?? widget.payeeData['account_number'] ?? '';
-      final bankName = widget.payeeData['bank_name'] ?? '';
-
-      // Trigger system and local in-app notifications
-      try {
-        final currencySymbol = AppConstant.getCurrencySymbol(_selectedWallet?.currencyCode ?? 'VND');
-        final formattedAmount = AppConstant.formatMoney(amount, _selectedWallet?.currencyCode ?? 'VND');
-        final walletPart = _selectedWallet != null ? ' ví "${_selectedWallet!.name}"' : '';
-        final destination = isInternal ? payeeName : '$bankName - $identifier ($payeeName)';
-        final title = 'Chuyển tiền';
-        final body = 'Đã chuyển $formattedAmount $currencySymbol từ$walletPart đến "$destination".';
-
-        await LocalNotificationService.showNotification(
-          id: DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF,
-          title: title,
-          body: body,
-        );
-
-        final userId = ref.read(currentUserProvider)?.id ?? '';
-        if (userId.isNotEmpty) {
-          final localNotif = await LocalNotificationStorage.createAndSave(
-            userId: userId,
-            type: 'transaction',
-            title: title,
-            body: body,
-          );
-          if (localNotif != null) {
-            ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
-          }
-        }
-      } catch (_) {}
-
-      if (mounted) {
-        context.push('/qr-transfer-result', extra: {
-          'result': result,
-          'sender_wallet': _selectedWallet?.name ?? '',
-          'notes': _descController.text.isNotEmpty ? _descController.text : 'QR transfer',
-          'bank_name': bankName,
-          'identifier': identifier,
-          'type': widget.payeeData['type'] ?? 'internal',
-        });
-      }
-    } else if (mounted) {
-      AppLogger.error("🚨 [QR-Transfer] Chuyển tiền thất bại!");
-      final errMsg = (result != null && result['message'] != null)
-          ? result['message'].toString()
-          : 'transfer_failed_msg'.tr(ref);
-      ElegantNotification.error(
-        title: Text('error'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
-        description: Text(errMsg),
-      ).show(context);
+    if (mounted) {
+      context.push('/qr-transfer-result', extra: {
+        'is_pending_execution': true,
+        'from_wallet_id': _selectedWallet!.id,
+        'payee_type': widget.payeeData['type'] ?? 'internal',
+        'amount': amount,
+        'notes': _descController.text.isNotEmpty ? _descController.text : 'QR transfer',
+        'payee_user_id': widget.payeeData['payee_user_id'],
+        'bank_code': widget.payeeData['bank_code'],
+        'account_number': widget.payeeData['account_number'] ?? widget.payeeData['identifier'],
+        'payee_name': payeeName,
+        'sender_wallet': _selectedWallet?.name ?? '',
+        'bank_name': bankName,
+        'identifier': identifier,
+        'type': widget.payeeData['type'] ?? 'internal',
+        'to_wallet_id': widget.payeeData['to_wallet_id'],
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final color = context.colors;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final wallets = ref.watch(walletNotifierProvider).value ?? [];
     final isInternal = widget.payeeData['type'] == 'internal';
     
@@ -237,10 +164,8 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18),
         ),
       ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -447,24 +372,32 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
                 ),
                 const SizedBox(height: 32),
 
-                // 5. SLIDE TO CONFIRM BUTTON
-                SwipeToConfirmButton(
-                  onConfirmed: _executeTransfer,
-                  text: 'slide_to_confirm_transfer'.tr(ref),
-                  activeColor: color.primary,
+                // 5. CONFIRM BUTTON
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: ElevatedButton(
+                    onPressed: _executeTransfer,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: color.primary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Text(
+                      'confirm_transfer'.tr(ref),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-          if (_isLoading)
-            Container(
-              color: Colors.black45,
-              child: const Center(
-                child: CircularProgressIndicator(),
-              ),
-            ),
-        ],
-      ),
     );
   }
 }

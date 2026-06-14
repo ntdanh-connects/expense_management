@@ -145,4 +145,22 @@ class WalletRepositoryImpl  implements WalletRepository{
       rethrow;
     }
   }
+
+  @override
+  Future<void> setDefaultReceivingWallet(String id) async {
+    AppLogger.debug("🌐 [Wallet-Sync] Bắt đầu gửi yêu cầu đặt ví mặc định nhận tiền ID: $id lên Remote Server...", tag: "Wallet-Sync");
+    try {
+      await _apiService.setDefaultReceivingWallet(id);
+      AppLogger.info("☁️ [Wallet-Sync] Đặt ví mặc định nhận tiền ID: $id trên Remote Server thành công! Đồng bộ lại ví...", tag: "Wallet-Sync");
+      await syncWalletsImplicit();
+    } catch (e, stackTrace) {
+      if (e is DioException) {
+        final serverError = e.response?.data;
+        AppLogger.error("🚨 [Wallet-Sync] Lỗi đặt ví mặc định nhận tiền trên Remote Server: ${e.message}. Chi tiết từ Server: $serverError", tag: "Wallet-Sync", stackTrace: stackTrace);
+      } else {
+        AppLogger.error("🚨 [Wallet-Sync] Lỗi đặt ví mặc định nhận tiền cục bộ: $e", tag: "Wallet-Sync", stackTrace: stackTrace);
+      }
+      rethrow;
+    }
+  }
 }

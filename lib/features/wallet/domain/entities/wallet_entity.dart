@@ -7,6 +7,7 @@ class WalletEntity {
   final String color;
   final bool isHidden;
   final String currencyCode;
+  final bool isDefaultReceiving;
 
   WalletEntity({
     required this.id,
@@ -17,5 +18,6 @@ class WalletEntity {
     required this.color,
     required this.isHidden,
     required this.currencyCode,
+    required this.isDefaultReceiving,
   });
 }

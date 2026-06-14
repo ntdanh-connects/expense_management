@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:drift/drift.dart';
+import 'package:expense_management/core/database/app_database.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/features/analytic/data/datasource/remote/report_api_service.dart';
 import 'package:expense_management/features/analytic/data/models/report_category_dto.dart';
@@ -9,6 +12,7 @@ import 'package:expense_management/features/analytic/data/repository_impl/report
 import 'package:expense_management/features/analytic/domain/repository/report_repository.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
 
 enum TimeFilter { thisWeek, thisMonth, thisQuarter, thisYear, custom }
 
@@ -104,6 +108,75 @@ final reportSummaryProvider = FutureProvider<ReportSummaryDto>((ref) async {
     startDate: range.start,
     endDate: range.end,
   );
+});
+
+final dashboardSummaryProvider = FutureProvider<ReportSummaryDto>((ref) async {
+  // Watch transactionListProvider to refresh when transactions are updated/synced
+  ref.watch(transactionListProvider);
+
+  final repository = ref.watch(reportRepositoryProvider);
+  final database = ref.read(appDatabaseProvider);
+  final userId = ref.read(currentUserProvider)?.id ?? '';
+
+  final now = DateTime.now();
+  final startOfMonth = DateTime(now.year, now.month, 1);
+  final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+
+  ReportSummaryDto summary;
+  try {
+    summary = await repository.getSummary(
+      startDate: startOfMonth,
+      endDate: endOfMonth,
+    );
+    
+    // Add pending (unsynced) transactions to the API summary
+    if (userId.isNotEmpty) {
+      final pendingTxs = await (database.select(database.localTransactions)
+            ..where((t) => t.userId.equals(userId) & t.isSynced.equals(false) & t.transactionDate.isBiggerOrEqualValue(startOfMonth) & t.transactionDate.isSmallerOrEqualValue(endOfMonth)))
+          .get();
+      
+      double pendingIncome = 0;
+      double pendingExpense = 0;
+      for (final tx in pendingTxs) {
+        if (tx.sourceType == 'transfer') continue;
+        if (tx.type == 'income') {
+          pendingIncome += tx.amountInUserCurrency;
+        } else if (tx.type == 'expense') {
+          pendingExpense += tx.amountInUserCurrency;
+        }
+      }
+      summary = ReportSummaryDto(
+        income: summary.income + pendingIncome,
+        expense: summary.expense + pendingExpense,
+        net: (summary.income + pendingIncome) - (summary.expense + pendingExpense),
+      );
+    }
+  } catch (e) {
+    // Fallback: local calculation from drift database (includes both cached and pending transactions)
+    if (userId.isEmpty) {
+      return ReportSummaryDto(income: 0, expense: 0, net: 0);
+    }
+    final localTxs = await (database.select(database.localTransactions)
+          ..where((t) => t.userId.equals(userId) & t.deletedAt.isNull() & t.transactionDate.isBiggerOrEqualValue(startOfMonth) & t.transactionDate.isSmallerOrEqualValue(endOfMonth)))
+        .get();
+
+    double income = 0;
+    double expense = 0;
+    for (final tx in localTxs) {
+      if (tx.sourceType == 'transfer') continue;
+      if (tx.type == 'income') {
+        income += tx.amountInUserCurrency;
+      } else if (tx.type == 'expense') {
+        expense += tx.amountInUserCurrency;
+      }
+    }
+    summary = ReportSummaryDto(
+      income: income,
+      expense: expense,
+      net: income - expense,
+    );
+  }
+  return summary;
 });
 
 final previousPeriodSummaryProvider = FutureProvider<ReportSummaryDto>((ref) async {

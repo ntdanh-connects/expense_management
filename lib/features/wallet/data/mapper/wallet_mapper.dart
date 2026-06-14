@@ -13,6 +13,7 @@ class WalletMapper {
       color: dto.color,
       isHidden: dto.isHidden ?? false,
       currencyCode: dto.currencyCode ?? 'VND',
+      isDefaultReceiving: dto.isDefaultReceiving ?? false,
     );
   }
 
@@ -26,6 +27,7 @@ class WalletMapper {
       color: row.color,
       isHidden: row.isHidden,
       currencyCode: row.currencyCode,
+      isDefaultReceiving: row.isDefaultReceiving,
     );
   }
 }

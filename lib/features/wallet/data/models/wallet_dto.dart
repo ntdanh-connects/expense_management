@@ -15,6 +15,8 @@ class WalletDto {
   final double availableBalance;
   @JsonKey(name: 'currency_code')
   final String? currencyCode;
+  @JsonKey(name: 'is_default_receiving')
+  final bool? isDefaultReceiving;
 
   WalletDto({
     required this.id,
@@ -25,6 +27,7 @@ class WalletDto {
     this.isHidden,
     required this.availableBalance,
     this.currencyCode,
+    this.isDefaultReceiving,
   });
 
   static double _balanceFromJson(dynamic value) {

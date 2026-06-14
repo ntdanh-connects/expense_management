@@ -30,6 +30,7 @@ class Wallets extends Table {
   TextColumn get icon => text()();
   TextColumn get color => text()();
   BoolColumn get isHidden => boolean().withDefault(const Constant(false))();
+  BoolColumn get isDefaultReceiving => boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -104,7 +105,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(): super(_openConnection());
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -172,6 +173,13 @@ class AppDatabase extends _$AppDatabase {
       if (from < 10) {
         try {
           await m.addColumn(localTransactions, localTransactions.sourceId);
+        } catch (e) {
+          // Bỏ qua nếu cột đã tồn tại
+        }
+      }
+      if (from < 11) {
+        try {
+          await m.addColumn(wallets, wallets.isDefaultReceiving);
         } catch (e) {
           // Bỏ qua nếu cột đã tồn tại
         }
