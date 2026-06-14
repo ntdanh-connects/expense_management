@@ -10,18 +10,15 @@ import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/core/database/app_database.dart';
-import 'package:drift/drift.dart';
 import 'package:expense_management/features/transaction/data/datasource/remote/transaction_remote_datasource.dart';
 import 'package:expense_management/features/transaction/data/repository_impl/transaction_repository_impl.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_params.dart';
-import 'package:expense_management/features/transaction/domain/entities/paginated_transactions.dart';
 import 'package:expense_management/features/transaction/domain/repositories/transaction_repository.dart';
 import 'package:expense_management/features/transaction/domain/use_case/add_transaction_usecase.dart';
 import 'package:expense_management/features/transaction/domain/use_case/get_transactions_usecase.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
-import 'package:expense_management/core/storage/storage_provider.dart';
 import 'package:elegant_notification/elegant_notification.dart';
 import 'package:elegant_notification/resources/arrays.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -299,6 +296,9 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
   Future<void> refreshTransactions({bool silent = false}) async {
     final userId = ref.read(currentUserProvider)?.id ?? '';
     if (userId.isEmpty) return;
+
+    // Chặn request trùng lặp nếu đang trong quá trình tải dữ liệu
+    if (state.isLoading) return;
 
     if (!silent) {
       await ref.read(cacheStoreProvider).clean();

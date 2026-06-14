@@ -348,7 +348,7 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
         title: Text(
           isReadOnly 
               ? 'budget_history'.tr(ref) 
-              : 'budget_title'.tr(ref) + ' ' + categoryName,
+              : '${'budget_title'.tr(ref)} $categoryName',
           style: TextStyle(
             color: colors.textPrimary,
             fontWeight: FontWeight.bold,
@@ -571,7 +571,7 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      'alert_80_desc_format'.tr(ref).replaceAll('{amount}', AppConstant.formatMoney(threshold80Amount, userCurrency) + ' ' + currencySymbol),
+                                      'alert_80_desc_format'.tr(ref).replaceAll('{amount}', '${AppConstant.formatMoney(threshold80Amount, userCurrency)} $currencySymbol'),
                                       style: TextStyle(
                                         color: colors.textSecondary,
                                         fontSize: 11.5,
@@ -582,7 +582,7 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
                               ),
                               Switch(
                                 value: _alert80,
-                                activeColor: colors.primary,
+                                activeThumbColor: colors.primary,
                                 onChanged: isReadOnly ? null : (val) {
                                   setState(() => _alert80 = val);
                                 },
@@ -619,7 +619,7 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
                               ),
                               Switch(
                                 value: _alert100,
-                                activeColor: colors.primary,
+                                activeThumbColor: colors.primary,
                                 onChanged: isReadOnly ? null : (val) {
                                   setState(() => _alert100 = val);
                                 },

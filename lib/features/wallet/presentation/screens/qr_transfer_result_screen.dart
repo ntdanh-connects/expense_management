@@ -170,7 +170,7 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
   }
 
   String _formatAmount(double amount) {
-    return NumberFormat('#,###').format(amount) + ' đ';
+    return '${NumberFormat('#,###').format(amount)} đ';
   }
 
   Widget _buildShimmerBlock({required double width, required double height, double borderRadius = 6}) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
@@ -300,7 +301,21 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
                           child: bankLogo != null
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(24),
-                                  child: Image.network(bankLogo, fit: BoxFit.cover),
+                                  child: CachedNetworkImage(
+                                    imageUrl: bankLogo,
+                                    fit: BoxFit.cover,
+                                    placeholder: (context, url) => const Center(
+                                      child: SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      ),
+                                    ),
+                                    errorWidget: (context, url, error) => const Icon(
+                                      Icons.account_balance_rounded,
+                                      color: Colors.blue,
+                                    ),
+                                  ),
                                 )
                               : const Icon(Icons.account_balance_rounded, color: Colors.blue),
                         ),

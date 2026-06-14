@@ -1,4 +1,3 @@
-import 'package:expense_management/core/utils/app_logger.dart';
 import 'package:expense_management/features/profile/domain/repositories/user_repository.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

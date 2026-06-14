@@ -61,9 +61,9 @@ class CollapsibleBudgetCard extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'spent_amount_info'.tr(ref)
+                      '${'spent_amount_info'.tr(ref)
                           .replaceAll('{spent}', AppConstant.formatMoney(spentAmount, userCurrency))
-                          .replaceAll('{total}', AppConstant.formatMoney(totalAmount, userCurrency)) + ' $currencySymbol',
+                          .replaceAll('{total}', AppConstant.formatMoney(totalAmount, userCurrency))} $currencySymbol',
                       style: TextStyle(color: colors.textSecondary, fontSize: 13),
                     ),
                   ),

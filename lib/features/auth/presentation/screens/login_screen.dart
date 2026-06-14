@@ -12,7 +12,6 @@ import 'package:expense_management/shared/widgets/modern_em_logo.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:expense_management/core/utils/app_logger.dart';
 import 'package:flutter/foundation.dart';
 

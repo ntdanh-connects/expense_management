@@ -12,9 +12,6 @@ import 'package:expense_management/features/auth/auth_provider.dart';
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
-import 'package:dio_cache_interceptor_file_store/dio_cache_interceptor_file_store.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
 
 
 final cacheStoreProvider = Provider<CacheStore>((ref) {

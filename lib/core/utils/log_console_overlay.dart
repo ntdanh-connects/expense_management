@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'app_logger.dart';
 import 'log_console_screen.dart';

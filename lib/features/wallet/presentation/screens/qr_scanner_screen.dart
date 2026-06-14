@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/core/utils/app_logger.dart';
@@ -497,13 +498,21 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
                         opacity: _isLoadingMyQr ? 0.4 : 1.0,
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(16),
-                          child: Image.network(
-                            _generatedQrData!['qr_image'] ?? '',
+                          child: CachedNetworkImage(
+                            imageUrl: _generatedQrData!['qr_image'] ?? '',
                             height: 250,
                             width: 250,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => const SizedBox(
+                            placeholder: (context, url) => const SizedBox(
                               height: 250,
+                              width: 250,
+                              child: Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            ),
+                            errorWidget: (context, url, error) => const SizedBox(
+                              height: 250,
+                              width: 250,
                               child: Icon(Icons.qr_code_2_rounded, size: 120),
                             ),
                           ),
@@ -604,7 +613,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
             keyboardType: TextInputType.number,
             style: TextStyle(color: color.textPrimary),
             decoration: InputDecoration(
-              labelText: 'amount'.tr(ref) + ' (${'optional'.tr(ref)})',
+              labelText: '${'amount'.tr(ref)} (${'optional'.tr(ref)})',
               labelStyle: TextStyle(color: color.textSecondary),
               hintText: '0đ',
               hintStyle: TextStyle(color: color.textSecondary.withOpacity(0.5)),
@@ -622,7 +631,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
             controller: _descController,
             style: TextStyle(color: color.textPrimary),
             decoration: InputDecoration(
-              labelText: 'description'.tr(ref) + ' (${'optional'.tr(ref)})',
+              labelText: '${'description'.tr(ref)} (${'optional'.tr(ref)})',
               labelStyle: TextStyle(color: color.textSecondary),
               hintText: 'Nhập mô tả nhận tiền...',
               hintStyle: TextStyle(color: color.textSecondary.withOpacity(0.5)),

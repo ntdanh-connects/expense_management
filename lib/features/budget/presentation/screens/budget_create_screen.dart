@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/core/language/app_provider.dart';
@@ -84,7 +83,7 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
   bool _autoCalculateTotal = false;
 
   List<BudgetDto> _originalBudgets = [];
-  List<TempCategoryBudget> _categoryBudgetsList = [];
+  final List<TempCategoryBudget> _categoryBudgetsList = [];
 
   @override
   void initState() {
@@ -380,13 +379,13 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
     final ratesData = ref.read(exchangeRatesProvider).value;
 
     // Convert display amounts back to VND (server currency) before saving
-    double _toVnd(double displayAmount) =>
+    double toVnd(double displayAmount) =>
         _convertToDisplayCurrency(displayAmount, userCurrency, 'VND', ratesData);
 
     final overallDisplayAmount = _autoCalculateTotal ? _getSumOfCategoryBudgets() : _getOverallAmount();
-    final overallAmount = _toVnd(overallDisplayAmount);
+    final overallAmount = toVnd(overallDisplayAmount);
     final sumOfCategoriesDisplay = _getSumOfCategoryBudgets();
-    final sumOfCategories = _toVnd(sumOfCategoriesDisplay);
+    final sumOfCategories = toVnd(sumOfCategoriesDisplay);
 
     if (overallAmount <= 0 && _categoryBudgetsList.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -424,7 +423,7 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
       // 2. Save detailed category budgets
       for (var item in _categoryBudgetsList) {
         final displayAmount = item.formatter.getDouble();
-        final amount = _toVnd(displayAmount);
+        final amount = toVnd(displayAmount);
         if (amount > 0) {
           await repository.createOrUpdateBudget(
             categoryId: item.categoryId,
@@ -623,7 +622,7 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
                               const SizedBox(width: 8),
                               Switch(
                                 value: _copyFromPrevious,
-                                activeColor: colors.primary,
+                                activeThumbColor: colors.primary,
                                 onChanged: (val) {
                                   _toggleCopyFromPrevious(val);
                                 },
@@ -683,7 +682,7 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
                                       fit: BoxFit.fill,
                                       child: Switch(
                                         value: _autoCalculateTotal,
-                                        activeColor: colors.primary,
+                                        activeThumbColor: colors.primary,
                                         onChanged: (val) {
                                           setState(() {
                                             _autoCalculateTotal = val;

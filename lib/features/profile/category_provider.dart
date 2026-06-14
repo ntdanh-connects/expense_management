@@ -3,7 +3,6 @@ import 'package:expense_management/features/profile/data/datasource/remote/categ
 import 'package:expense_management/features/profile/data/repository_impl/category_repository_impl.dart';
 import 'package:expense_management/features/profile/domain/repositories/category_repository.dart';
 import 'package:expense_management/features/profile/data/models/category_dto.dart';
-import 'package:expense_management/core/language/app_provider.dart';
 import 'package:expense_management/core/database/app_database.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

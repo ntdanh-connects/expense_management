@@ -8,7 +8,6 @@ import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/features/profile/category_provider.dart';
 import 'package:expense_management/features/profile/data/models/category_dto.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:expense_management/features/dashboard/domain/entities/recurring_rule_entity.dart';
@@ -48,7 +47,7 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
   bool _isDeleting = false;
   Map<String, dynamic>? _selectedPayee;
   String? _recipientWalletName;
-  bool _isLoadingPayees = false;
+  final bool _isLoadingPayees = false;
 
   @override
   void initState() {
@@ -1180,8 +1179,9 @@ class _CategoryPickerSheetState extends ConsumerState<_CategoryPickerSheet> {
                   return InkWell(
                     borderRadius: BorderRadius.circular(12),
                     onTap: () {
-                      if (hasChildren) setState(() => _selectedParent = parent);
-                      else { widget.onSelected(parent, null); Navigator.pop(context); }
+                      if (hasChildren) {
+                        setState(() => _selectedParent = parent);
+                      } else { widget.onSelected(parent, null); Navigator.pop(context); }
                     },
                     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                       CircleAvatar(

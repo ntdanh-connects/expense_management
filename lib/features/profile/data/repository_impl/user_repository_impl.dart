@@ -88,7 +88,7 @@ class UserRepositoryImpl implements UserRepository {
     } on CheckedFromJsonException catch (e, stackTrace) {
       AppLogger.error(
         "🚨 [JSON-Parse] Lỗi phân tích cú pháp JSON khi cập nhật Profile! "
-        "Class: '${e.className}', Key lỗi: '${e.key}' (Giá trị thực tế: ${e.map?[e.key]}, Lỗi: ${e.message})",
+        "Class: '${e.className}', Key lỗi: '${e.key}' (Giá trị thực tế: ${e.map[e.key]}, Lỗi: ${e.message})",
         tag: "JSON-Parse",
         stackTrace: stackTrace,
       );

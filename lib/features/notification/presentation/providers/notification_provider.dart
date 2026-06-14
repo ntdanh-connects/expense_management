@@ -9,8 +9,7 @@ import 'package:expense_management/features/notification/data/datasource/local/l
 import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/features/notification/data/datasource/remote/fcm_service.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
-import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
-import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
+import 'package:expense_management/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:flutter/foundation.dart';
 
 // ---------------------------------------------------------------------------
@@ -27,14 +26,16 @@ final fcmServiceProvider = Provider<FcmService>((ref) {
   final fcmService = FcmService(apiService);
   fcmService.onDataChanged = () {
     try {
-      ref.read(transactionListProvider.notifier).refreshTransactions(silent: true);
-      ref.read(filteredTransactionListProvider.notifier).refreshTransactions(silent: true);
-      ref.read(walletNotifierProvider.notifier).refreshWallets();
-      ref.invalidate(budgetListProvider);
-      ref.invalidate(currentMonthBudgetsProvider);
-      ref.read(notificationNotifierProvider.notifier).refresh();
+      ref.invalidate(fetchDashboardSummaryProvider);
+      ref.read(fetchDashboardSummaryProvider.future).then((_) {
+        ref.invalidate(transactionListProvider);
+        ref.invalidate(filteredTransactionListProvider);
+        ref.read(notificationNotifierProvider.notifier).refresh();
+      }).catchError((e) {
+        debugPrint("🚨 [FCM-Service] Error refreshing aggregate dashboard summary: $e");
+      });
     } catch (e) {
-      debugPrint("🚨 [FCM-Service] Error refreshing data on notification: $e");
+      debugPrint("🚨 [FCM-Service] Error in onDataChanged callback: $e");
     }
   };
   return fcmService;

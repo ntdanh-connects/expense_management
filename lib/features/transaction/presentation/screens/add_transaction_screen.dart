@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:currency_text_input_formatter/currency_text_input_formatter.dart';
 
@@ -22,8 +21,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:timezone/timezone.dart' as tz;
-import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:expense_management/features/wallet/presentation/provider/qr_transfer_provider.dart';
 
 class AddTransactionScreen extends ConsumerStatefulWidget {
   const AddTransactionScreen({super.key});
@@ -43,7 +40,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   DateTime _selectedDate = DateTime.now();
   WalletEntity? _selectedWallet;
   File? _imageFile;
-  bool _isLoading = false;
+  final bool _isLoading = false;
 
   late CurrencyTextInputFormatter _formatter;
 
@@ -853,7 +850,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                     ),
                   )
                 else
-                  Container(
+                  SizedBox(
                     height: 100,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,

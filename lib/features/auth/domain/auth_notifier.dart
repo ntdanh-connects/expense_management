@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'dart:convert';
 
-import 'package:dio/dio.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/core/database/app_database.dart' as db;
 import 'package:expense_management/core/error/app_exception.dart';
@@ -10,9 +8,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:expense_management/core/utils/app_logger.dart';
 import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
 import 'package:expense_management/features/auth/auth_provider.dart';
-import 'package:expense_management/features/auth/data/mappers/auth_mapper.dart';
-import 'package:expense_management/features/auth/data/models/auth_response_dto.dart';
-import 'package:expense_management/features/auth/data/repository_impl/auth_repository_impl.dart';
 import 'package:expense_management/features/auth/domain/auth_state.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/shared/domain/user_entity.dart';
@@ -22,7 +17,6 @@ import 'package:expense_management/features/auth/domain/use_case/register_use_ca
 import 'package:expense_management/features/auth/domain/use_case/social_login_use_case.dart';
 import 'package:expense_management/features/auth/domain/use_case/confirm_link_social_use_case.dart';
 import 'package:expense_management/features/auth/data/models/social_auth_models.dart';
-import 'package:expense_management/features/auth/domain/repositories/auth_repository.dart';
 import 'package:expense_management/core/language/app_provider.dart';
 import 'package:expense_management/core/theme/theme_provider.dart';
 import 'package:expense_management/core/network/dio_client.dart';

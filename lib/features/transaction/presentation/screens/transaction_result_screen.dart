@@ -101,7 +101,7 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
         final currencyCode = widget.params.currencyCode ?? 'VND';
         final currencySymbol = AppConstant.getCurrencySymbol(currencyCode);
         final formattedAmount = AppConstant.formatMoney(widget.params.amount, currencyCode);
-        final walletPart = widget.params.walletName != null ? ' ví "${widget.params.walletName}"' : '';
+        final walletPart = ' ví "${widget.params.walletName}"';
 
         String notifTitle = 'Biến động số dư';
         String notifBody = '';

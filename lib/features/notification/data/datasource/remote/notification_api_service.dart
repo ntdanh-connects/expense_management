@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:expense_management/features/notification/data/models/notification_dto.dart';
 import 'package:retrofit/retrofit.dart';
 
 part 'notification_api_service.g.dart';

@@ -1,12 +1,10 @@
 import 'package:dio/dio.dart';
-import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/core/storage/secure_storage_service.dart';
 import 'package:expense_management/features/wallet/data/data_source/local/wallet_local_service.dart';
 import 'package:expense_management/features/wallet/data/data_source/remote/wallet_api_service.dart';
 import 'package:expense_management/features/wallet/data/mapper/wallet_mapper.dart';
 import 'package:expense_management/features/wallet/data/models/create_wallet_request.dart';
 import 'package:expense_management/features/wallet/domain/repository/wallet_repository.dart';
-import 'package:expense_management/core/database/app_database.dart';
 import 'package:expense_management/core/utils/app_logger.dart';
 import '../../domain/entities/wallet_entity.dart';
 import '../../domain/entities/internal_transfer_record.dart';

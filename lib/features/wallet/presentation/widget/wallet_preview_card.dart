@@ -137,7 +137,7 @@ class WalletPreviewCard extends StatelessWidget {
     
     if (isZeroDecimal) {
       RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-      String Function(Match) mathFunc = (Match match) => '${match[1]}.';
+      String mathFunc(Match match) => '${match[1]}.';
       return value.toStringAsFixed(0).replaceAllMapped(reg, mathFunc);
     } else {
       final parts = value.toStringAsFixed(2).split('.');
@@ -145,7 +145,7 @@ class WalletPreviewCard extends StatelessWidget {
       final String decimalPart = parts[1];
       
       RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-      String Function(Match) mathFunc = (Match match) => '${match[1]},';
+      String mathFunc(Match match) => '${match[1]},';
       final String formattedWhole = wholePart.replaceAllMapped(reg, mathFunc);
       return '$formattedWhole.$decimalPart';
     }

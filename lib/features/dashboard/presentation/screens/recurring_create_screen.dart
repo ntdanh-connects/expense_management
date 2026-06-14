@@ -44,12 +44,12 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
 
   // Options
   bool _isAutoRecord = true;
-  bool _isRemind = false;
+  final bool _isRemind = false;
 
   bool _isLoading = false;
   Map<String, dynamic>? _selectedPayee;
   String? _recipientWalletName;
-  bool _isLoadingPayees = false;
+  final bool _isLoadingPayees = false;
 
   @override
   void initState() {

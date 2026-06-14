@@ -10,13 +10,11 @@ import 'package:expense_management/core/storage/secure_storage_service.dart';
 import 'package:expense_management/features/auth/data/datasource/local/auth_local_data_source.dart';
 import 'package:expense_management/features/auth/data/datasource/remote/auth_api_service.dart';
 import 'package:expense_management/features/auth/data/mappers/auth_mapper.dart';
-import 'package:expense_management/features/auth/data/models/auth_response_dto.dart';
 import 'package:expense_management/features/auth/data/models/login_request_dto.dart';
 import 'package:expense_management/features/auth/data/models/register_request_dto.dart';
 import 'package:expense_management/core/utils/app_logger.dart';
 import 'package:expense_management/shared/domain/user_entity.dart';
 import 'package:expense_management/features/auth/domain/repositories/auth_repository.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:json_annotation/json_annotation.dart';
 import '../../../../core/database/app_database.dart' as db;
 
@@ -60,7 +58,7 @@ class AuthRepositoryImpl implements AuthRepository{
     } on CheckedFromJsonException catch (e, stackTrace) {
       AppLogger.error(
         "🚨 [JSON-Parse] Lỗi phân tích cú pháp JSON khi Đăng nhập! "
-        "Class: '${e.className}', Key lỗi: '${e.key}' (Giá trị thực tế: ${e.map?[e.key]}, Lỗi: ${e.message})",
+        "Class: '${e.className}', Key lỗi: '${e.key}' (Giá trị thực tế: ${e.map[e.key]}, Lỗi: ${e.message})",
         tag: "JSON-Parse",
         stackTrace: stackTrace,
       );
@@ -105,7 +103,7 @@ class AuthRepositoryImpl implements AuthRepository{
     } on CheckedFromJsonException catch (e, stackTrace) {
       AppLogger.error(
         "🚨 [JSON-Parse] Lỗi phân tích cú pháp JSON khi đồng bộ Profile! "
-        "Class: '${e.className}', Key lỗi: '${e.key}' (Giá trị thực tế: ${e.map?[e.key]}, Lỗi: ${e.message})",
+        "Class: '${e.className}', Key lỗi: '${e.key}' (Giá trị thực tế: ${e.map[e.key]}, Lỗi: ${e.message})",
         tag: "JSON-Parse",
         stackTrace: stackTrace,
       );

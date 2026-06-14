@@ -44,7 +44,7 @@ class AppConstant {
     
     if (decimals == 0) {
       RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-      String Function(Match) mathFunc = (Match match) => '${match[1]}.';
+      String mathFunc(Match match) => '${match[1]}.';
       final String formatted = absValue.toStringAsFixed(0).replaceAllMapped(reg, mathFunc);
       return '$sign$formatted';
     } else {
@@ -53,7 +53,7 @@ class AppConstant {
       final String decimalPart = parts[1];
       
       RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-      String Function(Match) mathFunc = (Match match) => '${match[1]},';
+      String mathFunc(Match match) => '${match[1]},';
       final String formattedWhole = wholePart.replaceAllMapped(reg, mathFunc);
       return '$sign$formattedWhole.$decimalPart';
     }

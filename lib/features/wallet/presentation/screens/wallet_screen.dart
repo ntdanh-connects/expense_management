@@ -77,7 +77,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final walletState = ref.watch(walletNotifierProvider);
     final transferState = ref.watch(internalTransferHistoryProvider);
-    final currencySymbol = AppConstant.getCurrencySymbol(ref.watch(currentUserProvider)?.currency);
+    final userCurrency = ref.watch(currentUserProvider.select((u) => u?.currency));
+    final currencySymbol = AppConstant.getCurrencySymbol(userCurrency);
 
     // Màn nền tím/xanh đen bóng đêm mượt mà, hoặc xám nhạt nhẹ nhàng
     final panelBg = isDark ? colors.surface.withOpacity(0.5) : const Color(0xFFF2F4FC);
@@ -1207,7 +1208,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     
     if (decimals == 0) {
       RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-      String Function(Match) mathFunc = (Match match) => '${match[1]}.';
+      String mathFunc(Match match) => '${match[1]}.';
       return value.toStringAsFixed(0).replaceAllMapped(reg, mathFunc);
     } else {
       final parts = value.toStringAsFixed(2).split('.');
@@ -1215,7 +1216,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       final String decimalPart = parts[1];
       
       RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-      String Function(Match) mathFunc = (Match match) => '${match[1]},';
+      String mathFunc(Match match) => '${match[1]},';
       final String formattedWhole = wholePart.replaceAllMapped(reg, mathFunc);
       return '$formattedWhole.$decimalPart';
     }

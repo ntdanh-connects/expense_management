@@ -75,7 +75,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
     final colors = context.colors;
     final month = ref.watch(selectedBudgetMonthProvider);
     final year = ref.watch(selectedBudgetYearProvider);
-    final userCurrency = ref.watch(currentUserProvider)?.currency ?? 'VND';
+    final userCurrency = ref.watch(currentUserProvider.select((u) => u?.currency)) ?? 'VND';
     final currencySymbol = AppConstant.getCurrencySymbol(userCurrency);
     final ratesData = ref.watch(exchangeRatesProvider).value;
     final now = DateTime.now();

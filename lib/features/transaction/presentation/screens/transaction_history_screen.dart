@@ -91,7 +91,7 @@ class _TransactionHistoryScreenState
   Widget build(BuildContext context) {
     final colors = context.colors;
     final transactionState = ref.watch(filteredTransactionListProvider);
-    final userCurrency = ref.watch(currentUserProvider)?.currency ?? 'VND';
+    final userCurrency = ref.watch(currentUserProvider.select((u) => u?.currency)) ?? 'VND';
     final currencySymbol = AppConstant.getCurrencySymbol(userCurrency);
     final ratesData = ref.watch(exchangeRatesProvider).value;
     
@@ -742,7 +742,7 @@ class _TransactionHistoryScreenState
 
   // ── PICKER DANH MỤC (Cha → Con)
   void _showCategoryPicker(AppColorsExtension colors) {
-    String? _pickerSelectedParentId;
+    String? pickerSelectedParentId;
 
     showModalBottomSheet(
       context: context,
@@ -769,8 +769,8 @@ class _TransactionHistoryScreenState
                       }
                     }
 
-                    final children = _pickerSelectedParentId != null
-                        ? (childMap[_pickerSelectedParentId] ?? [])
+                    final children = pickerSelectedParentId != null
+                        ? (childMap[pickerSelectedParentId] ?? [])
                         : <CategoryDto>[];
 
                     return SafeArea(
@@ -797,26 +797,26 @@ class _TransactionHistoryScreenState
                               padding: const EdgeInsets.symmetric(horizontal: 20),
                               child: Row(
                                 children: [
-                                  if (_pickerSelectedParentId != null)
+                                  if (pickerSelectedParentId != null)
                                     IconButton(
                                       onPressed: () => setSheetState(
-                                          () => _pickerSelectedParentId = null),
+                                          () => pickerSelectedParentId = null),
                                       icon: Icon(Icons.arrow_back_ios_rounded,
                                           size: 18,
                                           color: colors.textPrimary),
                                       padding: EdgeInsets.zero,
                                       constraints: const BoxConstraints(),
                                     ),
-                                  if (_pickerSelectedParentId != null)
+                                  if (pickerSelectedParentId != null)
                                     const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      _pickerSelectedParentId == null
+                                      pickerSelectedParentId == null
                                           ? 'select_category'.tr(ref)
                                           : (parents
                                                   .firstWhere((p) =>
                                                       p.id ==
-                                                      _pickerSelectedParentId)
+                                                      pickerSelectedParentId)
                                                   .name.tr(ref)),
                                       style: TextStyle(
                                         color: colors.textPrimary,
@@ -851,7 +851,7 @@ class _TransactionHistoryScreenState
                                 controller: scrollCtrl,
                                 children: [
                                   // "Tất cả" option khi đang ở bước cha
-                                  if (_pickerSelectedParentId == null)
+                                  if (pickerSelectedParentId == null)
                                     ListTile(
                                       leading: Icon(Icons.apps_rounded,
                                           color: filter.categoryId == null
@@ -884,7 +884,7 @@ class _TransactionHistoryScreenState
                                     ),
 
                                   // Danh sách cha
-                                  if (_pickerSelectedParentId == null)
+                                  if (pickerSelectedParentId == null)
                                     ...parents.map((parent) {
                                       final hasChildren =
                                           childMap.containsKey(parent.id) &&
@@ -918,7 +918,7 @@ class _TransactionHistoryScreenState
                                         onTap: () {
                                           if (hasChildren) {
                                             setSheetState(() =>
-                                                _pickerSelectedParentId =
+                                                pickerSelectedParentId =
                                                     parent.id);
                                           } else {
                                             setState(() {
@@ -934,7 +934,7 @@ class _TransactionHistoryScreenState
                                     }),
 
                                   // Danh sách con
-                                  if (_pickerSelectedParentId != null)
+                                  if (pickerSelectedParentId != null)
                                     ...children.map((child) {
                                       final isSelected =
                                           filter.categoryId == child.id;

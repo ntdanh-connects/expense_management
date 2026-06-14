@@ -1,7 +1,6 @@
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/shared/widgets/custom_text_field.dart';
 import 'package:expense_management/shared/widgets/github_logo.dart';
-import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 
 class DevBypassDialog extends StatefulWidget {

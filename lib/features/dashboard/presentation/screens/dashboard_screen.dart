@@ -16,6 +16,7 @@ import 'package:expense_management/features/profile/category_provider.dart';
 import 'package:expense_management/shared/widgets/transaction_list_shimmer.dart';
 import 'package:intl/intl.dart';
 import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
+import 'package:expense_management/features/dashboard/presentation/providers/dashboard_provider.dart';
 
 final showBalanceProvider = StateProvider<bool>((ref) => true);
 
@@ -29,7 +30,7 @@ class DashboardScreen extends ConsumerWidget {
     final showBalance = ref.watch(showBalanceProvider);
     final transactionState = ref.watch(transactionListProvider);
 
-    final userCurrency = ref.watch(currentUserProvider)?.currency ?? 'VND';
+    final userCurrency = ref.watch(currentUserProvider.select((u) => u?.currency)) ?? 'VND';
     final currencySymbol = AppConstant.getCurrencySymbol(userCurrency);
     final ratesData = ref.watch(exchangeRatesProvider).value;
 
@@ -91,9 +92,11 @@ class DashboardScreen extends ConsumerWidget {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          await ref.read(walletNotifierProvider.notifier).refreshWallets();
-          await ref.read(transactionListProvider.notifier).refreshTransactions(silent: true);
-          ref.invalidate(dashboardSummaryProvider);
+          ref.invalidate(fetchDashboardSummaryProvider);
+          try {
+            await ref.read(fetchDashboardSummaryProvider.future);
+          } catch (_) {}
+          ref.invalidate(transactionListProvider);
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(
@@ -532,7 +535,6 @@ class DashboardScreen extends ConsumerWidget {
                       final categoryColor = CategoryUIConstants.getColorFromHex(categoryColorStr);
   
                       final txCurrency = (localWallet != null && 
-                          localWallet.currencyCode != null && 
                           localWallet.currencyCode.toString().isNotEmpty)
                       ? localWallet.currencyCode.toString()
                       : (tx.currencyCode ?? 'VND');

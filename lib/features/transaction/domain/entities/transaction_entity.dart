@@ -1,4 +1,3 @@
-import 'package:expense_management/core/constants/app_constant.dart';
 
 class TransactionEntity {
   final String id;

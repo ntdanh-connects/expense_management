@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
@@ -922,21 +923,26 @@ class _TransactionDetailScreenState
                                   ),
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(14),
-                                    child: Image.network(
-                                      url,
+                                    child: CachedNetworkImage(
+                                      imageUrl: url,
                                       fit: BoxFit.cover,
-                                      errorBuilder:
-                                          (context, error, stackTrace) {
-                                            return Container(
-                                              color: colors.surface,
-                                              child: Icon(
-                                                Icons.broken_image_rounded,
-                                                color: colors.textSecondary
-                                                    .withOpacity(0.5),
-                                                size: 32,
-                                              ),
-                                            );
-                                          },
+                                      placeholder: (context, url) => const Center(
+                                        child: SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        ),
+                                      ),
+                                      errorWidget: (context, url, error) {
+                                        return Container(
+                                          color: colors.surface,
+                                          child: Icon(
+                                            Icons.broken_image_rounded,
+                                            color: colors.textSecondary.withOpacity(0.5),
+                                            size: 32,
+                                          ),
+                                        );
+                                      },
                                     ),
                                   ),
                                 ),

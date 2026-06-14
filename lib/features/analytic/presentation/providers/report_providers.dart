@@ -11,6 +11,7 @@ import 'package:expense_management/features/analytic/data/models/report_trend_dt
 import 'package:expense_management/features/analytic/data/repository_impl/report_repository_impl.dart';
 import 'package:expense_management/features/analytic/domain/repository/report_repository.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
+import 'package:expense_management/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:timezone/timezone.dart' as tz;
 
@@ -154,7 +155,6 @@ final dashboardSummaryProvider = FutureProvider<ReportSummaryDto>((ref) async {
   // Watch transactionListProvider to refresh when transactions are updated/synced
   ref.watch(transactionListProvider);
 
-  final repository = ref.watch(reportRepositoryProvider);
   final database = ref.read(appDatabaseProvider);
   final userId = ref.read(currentUserProvider)?.id ?? '';
 
@@ -167,10 +167,9 @@ final dashboardSummaryProvider = FutureProvider<ReportSummaryDto>((ref) async {
 
   ReportSummaryDto summary;
   try {
-    summary = await repository.getSummary(
-      startDate: startOfMonth,
-      endDate: endOfMonth,
-    );
+    // Gọi API aggregate của dashboard thông qua fetchDashboardSummaryProvider
+    final dashboardSummaryDto = await ref.watch(fetchDashboardSummaryProvider.future);
+    summary = dashboardSummaryDto.summary;
     
     // Add pending (unsynced) transactions to the API summary
     if (userId.isNotEmpty) {

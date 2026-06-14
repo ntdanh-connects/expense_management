@@ -1,7 +1,5 @@
 import 'dart:io';
 
-import 'package:dio/dio.dart';
-import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/core/language/app_language.dart';

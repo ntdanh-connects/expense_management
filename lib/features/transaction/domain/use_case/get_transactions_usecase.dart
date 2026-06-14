@@ -1,4 +1,3 @@
-import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
 import 'package:expense_management/features/transaction/domain/entities/paginated_transactions.dart';
 import 'package:expense_management/features/transaction/domain/repositories/transaction_repository.dart';
 
