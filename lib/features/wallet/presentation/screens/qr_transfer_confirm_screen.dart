@@ -312,6 +312,17 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
                               isInternal ? "ID: $identifier" : "$bankName - $identifier",
                               style: TextStyle(color: color.textSecondary, fontSize: 13),
                             ),
+                            if (isInternal && widget.payeeData['recipient_wallet_name'] != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                "Ví nhận: ${widget.payeeData['recipient_wallet_name']}",
+                                style: TextStyle(
+                                  color: color.primary,
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

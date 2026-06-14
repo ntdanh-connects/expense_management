@@ -41,6 +41,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
   String? _fetchedPayeeId;
   String? _fetchedPayeeName;
+  String? _recipientWalletName;
   bool _isSearchingPayee = false;
 
   CategoryDto? _selectedParentCategory;
@@ -177,6 +178,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       _isSearchingPayee = true;
       _fetchedPayeeName = null;
       _fetchedPayeeId = null;
+      _recipientWalletName = null;
     });
 
     try {
@@ -185,6 +187,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
         setState(() {
           _fetchedPayeeName = result['payee_name'];
           _fetchedPayeeId = result['payee_id']?.toString();
+          _recipientWalletName = result['recipient_wallet_name']?.toString();
         });
       } else {
         if (mounted) {
@@ -309,12 +312,8 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                           ),
                         ),
                         onTap: () {
-                          setState(() {
-                            _payeeIdentifierController.text = identifier;
-                            _fetchedPayeeName = displayName;
-                            _fetchedPayeeId = payee['payee_user_id']?.toString() ?? payee['id']?.toString();
-                          });
                           Navigator.pop(context);
+                          _lookupPayee(identifier);
                         },
                       );
                     },
@@ -1528,13 +1527,29 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                           ),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: Text(
-                              'Người thụ hưởng: $_fetchedPayeeName',
-                              style: TextStyle(
-                                color: colors.textPrimary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Người thụ hưởng: $_fetchedPayeeName',
+                                  style: TextStyle(
+                                    color: colors.textPrimary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                if (_recipientWalletName != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Ví nhận: $_recipientWalletName',
+                                    style: TextStyle(
+                                      color: colors.primary,
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ],
