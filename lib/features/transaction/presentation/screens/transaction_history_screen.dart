@@ -39,7 +39,6 @@ class _TransactionHistoryScreenState
 
   late final ScrollController _scrollController;
   Timer? _debounceTimer;
-  Timer? _autoRefreshTimer;
 
   @override
   void initState() {
@@ -48,13 +47,6 @@ class _TransactionHistoryScreenState
       _showRecentOnly = true;
     }
     _scrollController = ScrollController()..addListener(_onScroll);
-
-    // Tự động làm mới danh sách ngầm mỗi 10 giây
-    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      if (mounted) {
-        ref.read(filteredTransactionListProvider.notifier).refreshTransactions(silent: true);
-      }
-    });
   }
 
   void _onScroll() {
@@ -78,7 +70,6 @@ class _TransactionHistoryScreenState
   void dispose() {
     _scrollController.dispose();
     _debounceTimer?.cancel();
-    _autoRefreshTimer?.cancel();
     super.dispose();
   }
 
