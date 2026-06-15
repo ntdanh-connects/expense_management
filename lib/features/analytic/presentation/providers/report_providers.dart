@@ -11,9 +11,11 @@ import 'package:expense_management/features/analytic/data/models/report_trend_dt
 import 'package:expense_management/features/analytic/data/repository_impl/report_repository_impl.dart';
 import 'package:expense_management/features/analytic/domain/repository/report_repository.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
+import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
 import 'package:expense_management/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:timezone/timezone.dart' as tz;
+import 'package:intl/intl.dart';
 
 enum TimeFilter { thisWeek, thisMonth, thisQuarter, thisYear, custom }
 
@@ -282,3 +284,173 @@ final trends6MonthsProvider = FutureProvider<List<ReportTrendEntryDto>>((ref) as
     groupBy: 'month',
   );
 });
+
+// Dynamic trend provider for 6 weeks, 12 months, or 2 years
+final trendsFlexibleProvider = FutureProvider.family<List<ReportTrendEntryDto>, String>((ref, timeMode) async {
+  ref.keepAlive();
+  ref.watch(transactionListProvider);
+  final repository = ref.watch(reportRepositoryProvider);
+  final now = DateTime.now();
+
+  if (timeMode == 'week') {
+    // 6 weeks: from 5 weeks ago Monday to end of this week Sunday.
+    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    final startDate = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day).subtract(const Duration(days: 35));
+    final endDate = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day).add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
+
+    final dailyTrends = await repository.getTrends(
+      startDate: startDate,
+      endDate: endDate,
+      groupBy: 'day',
+    );
+
+    final List<ReportTrendEntryDto> weeklyTrends = [];
+    for (int i = 0; i < 6; i++) {
+      final weekStart = startDate.add(Duration(days: i * 7));
+      final weekEnd = weekStart.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
+
+      double income = 0;
+      double expense = 0;
+
+      for (final entry in dailyTrends) {
+        if (entry.date != null) {
+          final entryDate = DateTime.tryParse(entry.date!);
+          if (entryDate != null &&
+              entryDate.isAfter(weekStart.subtract(const Duration(seconds: 1))) &&
+              entryDate.isBefore(weekEnd.add(const Duration(seconds: 1)))) {
+            income += entry.income;
+            expense += entry.expense;
+          }
+        }
+      }
+
+      final label = '${weekStart.day}/${weekStart.month}-${weekEnd.day}/${weekEnd.month}';
+      weeklyTrends.add(ReportTrendEntryDto(
+        label: label,
+        date: DateFormat('yyyy-MM-dd').format(weekStart),
+        month: weekStart.month,
+        year: weekStart.year,
+        income: income,
+        expense: expense,
+      ));
+    }
+    return weeklyTrends;
+  } else if (timeMode == 'month') {
+    final startDate = DateTime(now.year, now.month - 11, 1);
+    final endDate = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+
+    final trends = await repository.getTrends(
+      startDate: startDate,
+      endDate: endDate,
+      groupBy: 'month',
+    );
+
+    final List<ReportTrendEntryDto> result = [];
+    for (int i = 11; i >= 0; i--) {
+      final targetMonth = DateTime(now.year, now.month - i, 1);
+      final label = 'T${targetMonth.month}';
+      final match = trends.firstWhere(
+        (t) => t.month == targetMonth.month && t.year == targetMonth.year,
+        orElse: () {
+          return trends.firstWhere(
+            (t) =>
+                t.label.contains('${targetMonth.month}/${targetMonth.year}') ||
+                t.label.contains('${targetMonth.year}-${targetMonth.month.toString().padLeft(2, '0')}'),
+            orElse: () => ReportTrendEntryDto(
+              label: label,
+              date: DateFormat('yyyy-MM-dd').format(targetMonth),
+              month: targetMonth.month,
+              year: targetMonth.year,
+              income: 0.0,
+              expense: 0.0,
+            ),
+          );
+        },
+      );
+
+      result.add(ReportTrendEntryDto(
+        label: label,
+        date: match.date ?? DateFormat('yyyy-MM-dd').format(targetMonth),
+        month: targetMonth.month,
+        year: targetMonth.year,
+        income: match.income,
+        expense: match.expense,
+      ));
+    }
+    return result;
+  } else {
+    // timeMode == 'year' -> 2 years (last year and this year)
+    final startDate = DateTime(now.year - 1, 1, 1);
+    final endDate = DateTime(now.year, 12, 31, 23, 59, 59);
+
+    final monthlyTrends = await repository.getTrends(
+      startDate: startDate,
+      endDate: endDate,
+      groupBy: 'month',
+    );
+
+    double thisYearIncome = 0;
+    double thisYearExpense = 0;
+    double lastYearIncome = 0;
+    double lastYearExpense = 0;
+
+    for (final entry in monthlyTrends) {
+      if (entry.year == now.year || entry.label.contains('${now.year}')) {
+        thisYearIncome += entry.income;
+        thisYearExpense += entry.expense;
+      } else if (entry.year == now.year - 1 || entry.label.contains('${now.year - 1}')) {
+        lastYearIncome += entry.income;
+        lastYearExpense += entry.expense;
+      }
+    }
+
+    return [
+      ReportTrendEntryDto(
+        label: '${now.year - 1}',
+        date: '${now.year - 1}-01-01',
+        month: 1,
+        year: now.year - 1,
+        income: lastYearIncome,
+        expense: lastYearExpense,
+      ),
+      ReportTrendEntryDto(
+        label: '${now.year}',
+        date: '${now.year}-01-01',
+        month: 1,
+        year: now.year,
+        income: thisYearIncome,
+        expense: thisYearExpense,
+      ),
+    ];
+  }
+});
+
+// Category breakdown provider for custom periods
+typedef CategoryPeriodArg = ({DateTime startDate, DateTime endDate, String type});
+final categoriesByPeriodProvider = FutureProvider.family<ReportCategoryDto, CategoryPeriodArg>((ref, arg) async {
+  ref.watch(transactionListProvider);
+  final repository = ref.watch(reportRepositoryProvider);
+  return repository.getCategories(
+    startDate: arg.startDate,
+    endDate: arg.endDate,
+    type: arg.type,
+  );
+});
+
+// Transaction list provider for the Category Detail Screen
+typedef CategoryDetailTransArg = ({String categoryId, DateTime startDate, DateTime endDate});
+final categoryDetailTransactionsProvider = FutureProvider.family<List<TransactionEntity>, CategoryDetailTransArg>((ref, arg) async {
+  ref.watch(transactionListProvider);
+  final useCase = ref.read(getTransactionsUseCaseProvider);
+
+  final result = await useCase.execute(
+    categoryId: arg.categoryId,
+    startDate: DateFormat('yyyy-MM-dd').format(arg.startDate),
+    endDate: DateFormat('yyyy-MM-dd').format(arg.endDate),
+    sortBy: 'date',
+    sortOrder: 'desc',
+    perPage: 100,
+  );
+  return result.items;
+});
+
