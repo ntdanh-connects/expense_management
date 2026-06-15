@@ -51,8 +51,8 @@
   "transfer": "Chuyển tiền",
   "source_wallet": "Ví gửi",
   "destination_wallet": "Ví nhận",
-
   "history": "Lịch sử",
+  "balance_fluctuations": "Biến động số dư",
   "statistics": "Thống kê",
   "budget": "Ngân sách",
   "profile": "Cá nhân",

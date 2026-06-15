@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:expense_management/features/analytic/presentation/screens/analytic_screen.dart';
+import 'package:expense_management/features/analytic/presentation/screens/category_detail_screen.dart';
 import 'package:expense_management/features/auth/auth_provider.dart';
 import 'package:expense_management/features/auth/domain/auth_state.dart';
 import 'package:expense_management/features/auth/presentation/screens/forgot_password_screen.dart';
@@ -64,6 +65,7 @@ class RoutePaths {
   static const recurringList = '/dashboard/recurring';
   static const budgetCreate = '/analytics/budget/create';
   static const budgetEdit = '/analytics/budget/edit';
+  static const categoryDetail = '/analytics/category-detail';
   static const export = '/profile/export';
   static const exportHistory = '/profile/export-history';
   static const qrScanner = '/qr-scanner';
@@ -267,6 +269,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) {
                   final budget = state.extra as BudgetDto;
                   return BudgetEditScreen(budget: budget);
+                },
+              ),
+              GoRoute(
+                path: 'category-detail',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) {
+                  final extra = state.extra as Map<String, dynamic>;
+                  return CategoryDetailScreen(
+                    categoryId: extra['categoryId'] as String,
+                    categoryName: extra['categoryName'] as String,
+                    categoryColor: extra['categoryColor'] as String?,
+                    categoryIcon: extra['categoryIcon'] as String?,
+                    type: extra['type'] as String,
+                    startDate: extra['startDate'] as DateTime,
+                    endDate: extra['endDate'] as DateTime,
+                    timeMode: extra['timeMode'] as String,
+                  );
                 },
               ),
             ],
