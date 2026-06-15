@@ -38,11 +38,14 @@ class _TransactionHistoryScreenState
   bool _showRecentOnly = false; // 5 giao dịch gần nhất
 
   late final ScrollController _scrollController;
+  late final TextEditingController _searchController;
   Timer? _debounceTimer;
 
   @override
   void initState() {
     super.initState();
+    final currentSearch = ref.read(transactionFilterProvider).search ?? '';
+    _searchController = TextEditingController(text: currentSearch);
     if (widget.initialFilter == 'recent') {
       _showRecentOnly = true;
     }
@@ -69,6 +72,7 @@ class _TransactionHistoryScreenState
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.dispose();
     _debounceTimer?.cancel();
     super.dispose();
   }
@@ -84,6 +88,7 @@ class _TransactionHistoryScreenState
       _selectedWalletName = null;
       _showRecentOnly = false;
     });
+    _searchController.clear();
     ref.read(transactionFilterProvider.notifier).state = TransactionFilter();
   }
 
@@ -100,6 +105,7 @@ class _TransactionHistoryScreenState
       appBar: SharedTopAppBar(
         hintText: 'search_transactions_hint'.tr(ref),
         onSearchChanged: _onSearchChanged,
+        searchController: _searchController,
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

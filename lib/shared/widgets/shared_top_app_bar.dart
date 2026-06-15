@@ -7,11 +7,13 @@ import 'package:expense_management/features/notification/presentation/widgets/no
 
 class SharedTopAppBar extends ConsumerWidget implements PreferredSizeWidget {
   final ValueChanged<String>? onSearchChanged;
+  final TextEditingController? searchController;
   final String hintText;
   
   const SharedTopAppBar({
     super.key,
     this.onSearchChanged,
+    this.searchController,
     this.hintText = 'Tìm kiếm giao dịch, ví, hũ...',
   });
 
@@ -60,6 +62,7 @@ class SharedTopAppBar extends ConsumerWidget implements PreferredSizeWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: TextField(
+                    controller: searchController,
                     onChanged: onSearchChanged,
                     style: const TextStyle(color: Colors.white, fontSize: 13),
                     cursorColor: Colors.white,
@@ -73,15 +76,6 @@ class SharedTopAppBar extends ConsumerWidget implements PreferredSizeWidget {
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-
-              // 🤖 3. NÚT AI / SPARKLES
-              IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 20),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
               ),
               const SizedBox(width: 12),
 
