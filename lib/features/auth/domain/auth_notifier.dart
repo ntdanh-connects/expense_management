@@ -23,6 +23,7 @@ import 'package:expense_management/core/network/dio_client.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:expense_management/features/security/presentation/providers/security_provider.dart';
 
 class AuthNotifier extends StateNotifier<AuthState> {
   final LoginUseCase _loginUseCase;
@@ -257,6 +258,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await storage.delete(key: AppConstant.accessToken);
       await storage.delete(key: AppConstant.refreshToken);
       await storage.delete(key: AppConstant.userId);
+    } catch (_) {}
+
+    // Xóa sạch dữ liệu bảo mật cục bộ (mã PIN & cấu hình vân tay/Face ID)
+    try {
+      await ref.read(securityNotifierProvider.notifier).clearSecurityData();
     } catch (_) {}
 
     try {

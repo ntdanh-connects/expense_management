@@ -44,6 +44,8 @@
 	<string>Ứng dụng cần quyền truy cập microphone nếu quay video / The app needs microphone access to record videos for attachments.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Ứng dụng cần quyền truy cập thư viện ảnh để đính kèm hóa đơn / The app needs photo library access to attach receipts from gallery.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Ứng dụng cần quyền truy cập Face ID để mở khóa bảo mật / The app needs Face ID access for secure unlocking.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

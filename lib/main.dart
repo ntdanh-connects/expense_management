@@ -22,6 +22,7 @@ import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:expense_management/features/security/presentation/widgets/app_lifecycle_manager.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -145,7 +146,9 @@ class MyApp extends ConsumerWidget {
       ),
 
       builder: (context, child) {
-        return LogConsoleOverlay(child: child!);
+        return AppLifecycleManager(
+          child: LogConsoleOverlay(child: child!),
+        );
       },
     );
   }
