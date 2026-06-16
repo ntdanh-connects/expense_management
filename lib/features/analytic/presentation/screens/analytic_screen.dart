@@ -74,14 +74,18 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 📊 1. BỘ PHÂN LOẠI NGANG PHỤ (THỐNG KÊ / BIẾN ĐỘNG SỐ DƯ / NGÂN SÁCH)
-            Row(
-              children: [
-                _buildSubTabButton('statistics', selectedSubTab),
-                const SizedBox(width: 8),
-                _buildSubTabButton('balance_fluctuations', selectedSubTab),
-                const SizedBox(width: 8),
-                _buildSubTabButton('budget', selectedSubTab),
-              ],
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: [
+                  _buildSubTabButton('statistics', selectedSubTab),
+                  const SizedBox(width: 8),
+                  _buildSubTabButton('balance_fluctuations', selectedSubTab),
+                  const SizedBox(width: 8),
+                  _buildSubTabButton('budget', selectedSubTab),
+                ],
+              ),
             ),
             const SizedBox(height: 18),
 

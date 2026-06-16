@@ -284,7 +284,7 @@ class DashboardScreen extends ConsumerWidget {
   
                // DANH SÁCH VÍ HÀNG NGANG (SCROLL HORIZONTAL)
               SizedBox(
-                height: 110,
+                height: 125,
                 child: walletState.when(
                   data: (walletList) {
                     final visibleWallets = walletList.where((w) => !w.isHidden).toList();
@@ -755,6 +755,8 @@ class DashboardScreen extends ConsumerWidget {
                   const SizedBox(height: 4),
                   Text(
                     sub,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: colors.textSecondary,
                       fontSize: 12,

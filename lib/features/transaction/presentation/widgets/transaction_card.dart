@@ -129,10 +129,14 @@ class TransactionCard extends ConsumerWidget {
                                 color: colors.textSecondary, fontSize: 12),
                           ),
                         ),
-                        Text(
-                          '  •  ${_formatTime(tx.transactionDate, ref)}',
-                          style: TextStyle(
-                              color: colors.textSecondary, fontSize: 12),
+                        Flexible(
+                          child: Text(
+                            '  •  ${_formatTime(tx.transactionDate, ref)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                color: colors.textSecondary, fontSize: 12),
+                          ),
                         ),
                       ],
                     ),
