@@ -23,6 +23,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:expense_management/features/wallet/presentation/provider/qr_transfer_provider.dart';
 import 'package:intl/intl.dart';
 
+
 final showHiddenWalletsProvider = StateProvider<bool>((ref) => false);
 
 class WalletScreen extends ConsumerStatefulWidget {
@@ -56,6 +57,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   @override
   void initState() {
     super.initState();
+    _amountController.addListener(() {
+      if (mounted) setState(() {});
+    });
     // 🔄 Tự động đồng bộ hóa ngầm danh sách ví từ Backend ngay khi người dùng vào màn hình này
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(walletNotifierProvider.notifier).refreshWallets();
@@ -234,10 +238,12 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                             children: [
                               // Trích Từ
                               Expanded(
-                                child: _buildWalletDropdown(
+                               child: _buildWalletDropdown(
                                   label: 'transfer_from'.tr(ref),
                                   value: _fromWallet,
-                                  items: displayedWallets,
+                                  items: _toWallet != null
+                                      ? displayedWallets.where((w) => w.currencyCode == _toWallet!.currencyCode).toList()
+                                      : displayedWallets,
                                   onChanged: (val) {
                                     setState(() {
                                       _fromWallet = val;
@@ -276,7 +282,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                                 child: _buildWalletDropdown(
                                   label: 'transfer_to'.tr(ref),
                                   value: _toWallet,
-                                  items: displayedWallets,
+                                  items: _fromWallet != null
+                                      ? displayedWallets.where((w) => w.currencyCode == _fromWallet!.currencyCode).toList()
+                                      : displayedWallets,
                                   onChanged: (val) {
                                     setState(() {
                                       _toWallet = val;

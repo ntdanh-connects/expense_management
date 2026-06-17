@@ -135,10 +135,11 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
         : LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [colors.background, colors.background.withOpacity(0.95)],
+            colors: [colors.background, colors.background],
           );
 
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0B0D17) : colors.background,
       body: Container(
         decoration: BoxDecoration(gradient: backgroundGradient),
         child: SafeArea(

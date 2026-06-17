@@ -2,7 +2,6 @@ import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/theme/theme_provider.dart';
 import 'package:expense_management/features/security/presentation/providers/security_provider.dart';
-import 'package:expense_management/features/security/presentation/screens/pin_setup_screen.dart';
 import 'package:flutter/services.dart';
 import 'package:expense_management/core/utils/app_logger.dart';
 import 'package:expense_management/core/utils/log_console_screen.dart';
@@ -338,11 +337,7 @@ class ProfileScreen extends ConsumerWidget {
                                         activeColor: colors.primary,
                                         onChanged: (value) async {
                                           if (value) {
-                                            // Chuyển sang màn hình tạo mã PIN
-                                            await Navigator.push(
-                                              context,
-                                              MaterialPageRoute(builder: (context) => const PinSetupScreen()),
-                                            );
+                                            await context.push(RoutePaths.pinSetup);
                                           } else {
                                             // Tắt tính năng -> yêu cầu xác thực PIN hiện tại
                                             _showDisablePinConfirmDialog(context, ref);
@@ -360,10 +355,7 @@ class ProfileScreen extends ConsumerWidget {
                                     iconColor: colors.profileSecurity,
                                     title: 'change_pin'.tr(ref),
                                     onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(builder: (context) => const PinSetupScreen()),
-                                      );
+                                      context.push(RoutePaths.pinSetup);
                                     },
                                   ),
                                   Divider(color: colors.textSecondary.withOpacity(0.08), height: 1, indent: 50),

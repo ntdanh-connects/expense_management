@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/security/presentation/providers/security_provider.dart';
-import 'package:expense_management/features/auth/domain/auth_notifier.dart';
 import 'package:expense_management/core/language/app_language.dart';
 
 class PinLockScreen extends ConsumerStatefulWidget {
@@ -136,10 +135,11 @@ class _PinLockScreenState extends ConsumerState<PinLockScreen> {
         : LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [colors.background, colors.background.withOpacity(0.95)],
+            colors: [colors.background, colors.background],
           );
 
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0B0D17) : colors.background,
       body: Container(
         decoration: BoxDecoration(gradient: backgroundGradient),
         child: SafeArea(

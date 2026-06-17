@@ -12,6 +12,8 @@ import 'package:expense_management/features/wallet/presentation/widget/wallet_pr
 import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/core/language/app_language.dart';
+import 'package:expense_management/features/wallet/presentation/widget/vcb_rate_reference_widget.dart';
+
 
 class AddWalletScreen extends ConsumerStatefulWidget {
   final WalletEntity? walletToEdit;
@@ -282,6 +284,11 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
                 },
               ),
             ),
+            if (_selectedCurrency != 'VND')
+              VcbRateReferenceWidget(
+                currencyCode: _selectedCurrency,
+                initialAmount: _initialBalance,
+              ),
             const SizedBox(height: 20),
 
             // 📁 4. CHỌN LOẠI VÍ
