@@ -6,17 +6,22 @@ import 'package:expense_management/features/reporting_export/domain/repositories
 import 'package:expense_management/features/analytic/domain/repository/report_repository.dart';
 import 'package:expense_management/features/transaction/domain/repositories/transaction_repository.dart';
 import 'package:expense_management/features/reporting_export/presentation/utils/pdf_report_generator.dart';
+import 'package:expense_management/features/budget/domain/repositories/budget_repository.dart';
+import 'package:expense_management/features/budget/data/models/budget_dto.dart';
+import 'package:expense_management/features/analytic/data/models/report_summary_dto.dart';
 import 'package:intl/intl.dart';
 
 class ReportingExportRepositoryImpl implements ReportingExportRepository {
   final ReportingExportApiService apiService;
   final ReportRepository reportRepository;
   final TransactionRepository transactionRepository;
+  final BudgetRepository budgetRepository;
 
   ReportingExportRepositoryImpl({
     required this.apiService,
     required this.reportRepository,
     required this.transactionRepository,
+    required this.budgetRepository,
   });
 
   @override
@@ -54,19 +59,32 @@ class ReportingExportRepositoryImpl implements ReportingExportRepository {
     required dynamic ratesData,
     Map<String, String>? translations,
   }) async {
-    // 1. Fetch Statistics Summary
-    final summary = await reportRepository.getSummary(
-      startDate: dateRange.start,
-      endDate: dateRange.end,
-      walletId: walletId,
-    );
+    // 1. Calculate Previous Period Date Range and fetch summary
+    final duration = dateRange.end.difference(dateRange.start);
+    final prevStart = dateRange.start.subtract(duration);
+    final prevEnd = dateRange.start.subtract(const Duration(microseconds: 1));
 
-    // 2. Fetch Category statistics
-    final expenseCategories = await reportRepository.getCategories(
-      startDate: dateRange.start,
-      endDate: dateRange.end,
-      type: 'expense',
-    );
+    ReportSummaryDto? previousSummary;
+    try {
+      previousSummary = await reportRepository.getSummary(
+        startDate: prevStart,
+        endDate: prevEnd,
+        walletId: walletId,
+      );
+    } catch (_) {
+      // Fallback: allow generation even if previous stats are unavailable
+    }
+
+    // 2. Fetch budgets for the current period
+    List<BudgetDto>? budgets;
+    try {
+      budgets = await budgetRepository.getBudgets(
+        dateRange.start.month,
+        dateRange.start.year,
+      );
+    } catch (_) {
+      // Fallback: allow generation even if budget query fails
+    }
 
     // 3. Fetch Transactions list
     final transactionsResult = await transactionRepository.getTransactions(
@@ -83,11 +101,11 @@ class ReportingExportRepositoryImpl implements ReportingExportRepository {
       title: title,
       startDate: dateRange.start,
       endDate: dateRange.end,
-      summary: summary,
-      expenseCategories: expenseCategories,
       transactions: transactionsResult.items,
       userCurrency: userCurrency,
       ratesData: ratesData,
+      previousSummary: previousSummary,
+      budgets: budgets,
       translations: translations,
     );
 

@@ -15,6 +15,7 @@ import 'package:expense_management/features/profile/category_provider.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/features/reporting_export/presentation/providers/reporting_export_providers.dart';
 import 'package:elegant_notification/elegant_notification.dart';
+import 'package:expense_management/core/utils/app_logger.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
 import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
@@ -151,7 +152,13 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
           ref.invalidate(exportHistoryListProvider);
         }
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error(
+        'Lỗi khi gửi yêu cầu xuất file',
+        tag: 'Export',
+        details: e.toString(),
+        stackTrace: stack,
+      );
       if (mounted) {
         ElegantNotification.error(
           title: Text('error'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),

@@ -14,6 +14,8 @@ import 'package:expense_management/features/notification/data/datasource/local/l
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
 import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
+import 'package:expense_management/core/utils/app_logger.dart';
 
 // 1. Api Service Provider
 final reportingExportApiServiceProvider = Provider<ReportingExportApiService>((ref) {
@@ -26,10 +28,12 @@ final reportingExportRepositoryProvider = Provider<ReportingExportRepository>((r
   final apiService = ref.watch(reportingExportApiServiceProvider);
   final reportRepo = ref.watch(reportRepositoryProvider);
   final transactionRepo = ref.watch(transactionRepositoryProvider);
+  final budgetRepo = ref.watch(budgetRepositoryProvider);
   return ReportingExportRepositoryImpl(
     apiService: apiService,
     reportRepository: reportRepo,
     transactionRepository: transactionRepo,
+    budgetRepository: budgetRepo,
   );
 });
 
@@ -74,8 +78,14 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
     if (userId.isNotEmpty) {
       try {
         remoteList = await repo.fetchRemoteExports();
-      } catch (e) {
+      } catch (e, stack) {
         // Allow local file viewing even if offline/server error
+        AppLogger.error(
+          'Không thể lấy lịch sử xuất file từ server',
+          tag: 'Export',
+          details: e.toString(),
+          stackTrace: stack,
+        );
       }
     }
 
@@ -120,7 +130,8 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
           dateLabel = 'gd_${start}_to_$end';
         }
       }
-      final name = '$dateLabel.csv';
+      final extension = (dto.fileUrl != null && dto.fileUrl!.contains('.xlsx')) ? 'xlsx' : 'csv';
+      final name = '$dateLabel.$extension';
       final date = DateTime.tryParse(dto.createdAt) ?? DateTime.now();
 
       items.add(ExportHistoryItem(
@@ -248,7 +259,8 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
         if (dto.status == 'completed') {
           final alreadyNotified = prefs.getBool(completedKey) ?? false;
           if (!alreadyNotified) {
-            String dateLabel = 'Báo cáo CSV';
+            final isExcel = dto.fileUrl != null && dto.fileUrl!.contains('.xlsx');
+            String dateLabel = isExcel ? 'Báo cáo Excel' : 'Báo cáo CSV';
             if (dto.filters != null) {
               final start = dto.filters!['start_date']?.toString().split('T').first;
               final end = dto.filters!['end_date']?.toString().split('T').first;
@@ -282,7 +294,8 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
         } else if (dto.status == 'failed') {
           final alreadyNotified = prefs.getBool(failedKey) ?? false;
           if (!alreadyNotified) {
-            String dateLabel = 'Báo cáo CSV';
+            final isExcel = dto.fileUrl != null && dto.fileUrl!.contains('.xlsx');
+            String dateLabel = isExcel ? 'Báo cáo Excel' : 'Báo cáo CSV';
             if (dto.filters != null) {
               final start = dto.filters!['start_date']?.toString().split('T').first;
               final end = dto.filters!['end_date']?.toString().split('T').first;
@@ -299,6 +312,33 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
               body: body,
             );
             await prefs.setBool(failedKey, true);
+
+            // Log chi tiết lỗi ra AppLogger
+            String errorDetail = 'Lỗi không xác định';
+            try {
+              final notifs = ref.read(notificationNotifierProvider).value?.notifications ?? [];
+              final matchingNotif = notifs.firstWhere(
+                (n) => n.metadata?['export_id'] == dto.id,
+              );
+              errorDetail = matchingNotif.body;
+            } catch (_) {
+              try {
+                final notificationRepo = ref.read(notificationRepositoryProvider);
+                final fetchedNotifs = await notificationRepo.getNotifications(page: 1);
+                final matchingNotif = fetchedNotifs.firstWhere(
+                  (n) => n.metadata?['export_id'] == dto.id,
+                );
+                errorDetail = matchingNotif.body;
+              } catch (e) {
+                errorDetail = 'Không tìm thấy chi tiết thông báo lỗi ($e)';
+              }
+            }
+
+            AppLogger.error(
+              'Xuất dữ liệu $dateLabel thất bại',
+              tag: 'Export',
+              details: 'Export ID: ${dto.id}\nChi tiết lỗi: $errorDetail',
+            );
 
             final userId = ref.read(currentUserProvider)?.id ?? '';
             if (userId.isNotEmpty) {
