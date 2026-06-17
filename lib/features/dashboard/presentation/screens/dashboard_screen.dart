@@ -17,6 +17,7 @@ import 'package:expense_management/shared/widgets/transaction_list_shimmer.dart'
 import 'package:intl/intl.dart';
 import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
 import 'package:expense_management/features/dashboard/presentation/providers/dashboard_provider.dart';
+import 'package:expense_management/features/wallet/presentation/widget/vnd_to_foreign_converter_bottom_sheet.dart';
 
 final showBalanceProvider = StateProvider<bool>((ref) => true);
 
@@ -430,10 +431,15 @@ class DashboardScreen extends ConsumerWidget {
                         Expanded(
                           child: _buildQuickActionItem(
                             context: context,
-                            icon: Icons.bar_chart_rounded,
-                            label: 'statistics'.tr(ref),
+                            icon: Icons.currency_exchange_rounded,
+                            label: 'currency_exchange'.tr(ref),
                             iconColor: const Color(0xFF8B5CF6),
-                            onTap: () => context.go(RoutePaths.analytics),
+                            onTap: () => showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (context) => const VndToForeignConverterBottomSheet(),
+                            ),
                           ),
                         ),
                         Expanded(

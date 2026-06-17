@@ -4,6 +4,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
 import 'package:expense_management/features/analytic/data/models/report_summary_dto.dart';
 import 'package:expense_management/features/analytic/data/models/report_category_dto.dart';
+import 'package:expense_management/features/budget/data/models/budget_dto.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
@@ -44,11 +45,11 @@ class PdfReportGenerator {
     required String title,
     required DateTime startDate,
     required DateTime endDate,
-    required ReportSummaryDto summary,
-    required ReportCategoryDto expenseCategories,
     required List<TransactionEntity> transactions,
     required String userCurrency,
     required dynamic ratesData,
+    ReportSummaryDto? previousSummary,
+    List<BudgetDto>? budgets,
     Map<String, String>? translations,
   }) async {
     final tr = translations ?? {};
@@ -88,6 +89,9 @@ class PdfReportGenerator {
           // Group expenses by category
           final Map<String, _LocalCategoryStats> localCatMap = {};
           
+          // Group expenses by day for trend
+          final Map<String, double> dailySpending = {};
+          
           for (final tx in transactions) {
             if (tx.status != 'completed') continue; // only count completed transactions
             if (tx.sourceType == 'transfer') {
@@ -107,9 +111,9 @@ class PdfReportGenerator {
             } else if (tx.type == 'expense') {
               localExpense += amt;
               
-              final catId = tx.categoryId ?? 'unassigned';
-              final catName = tx.categoryName ?? (tr['pdf_uncategorized'] ?? 'Không phân mục');
-              final catColor = tx.categoryColor ?? '#4F46E5';
+              final catId = tx.categoryId ?? 'uncategorized';
+              final catName = tx.categoryName ?? (tr['uncategorized'] ?? 'Chưa phân loại');
+              final catColor = tx.categoryColor ?? '#9CA3AF';
               
               final currentStat = localCatMap[catId] ?? _LocalCategoryStats(
                 id: catId,
@@ -123,15 +127,70 @@ class PdfReportGenerator {
                 color: catColor,
                 amount: currentStat.amount + amt,
               );
+
+              // Record daily spending
+              final dayKey = DateFormat('yyyy-MM-dd').format(tx.transactionDate);
+              dailySpending[dayKey] = (dailySpending[dayKey] ?? 0.0) + amt;
             }
           }
           
           final localNet = localIncome - localExpense;
+          final savingsRate = localIncome > 0 ? (localNet / localIncome) * 100 : 0.0;
+
+          // Comparison stats
+          double? expenseComparePct;
+          double? incomeComparePct;
+          if (previousSummary != null) {
+            if (previousSummary.expense > 0) {
+              expenseComparePct = ((localExpense - previousSummary.expense) / previousSummary.expense) * 100;
+            }
+            if (previousSummary.income > 0) {
+              incomeComparePct = ((localIncome - previousSummary.income) / previousSummary.income) * 100;
+            }
+          }
           
           // Map categories to list and compute percentages
           final List<_LocalCategoryStats> localCategories = localCatMap.values.toList();
           // Sort by amount descending
           localCategories.sort((a, b) => b.amount.compareTo(a.amount));
+
+          // Group spending by week for visual trend
+          final Map<String, double> weeklySpending = {
+            'Tuần 1': 0.0,
+            'Tuần 2': 0.0,
+            'Tuần 3': 0.0,
+            'Tuần 4': 0.0,
+            'Tuần 5+': 0.0,
+          };
+          for (final tx in transactions) {
+            if (tx.type != 'expense' || tx.status != 'completed') continue;
+            final diffDays = tx.transactionDate.difference(startDate).inDays;
+            final txCurrency = tx.currencyCode ?? 'VND';
+            final amt = _convertToUserCurrency(tx.amount, txCurrency, userCurrency, ratesData);
+            
+            if (diffDays < 7) {
+              weeklySpending['Tuần 1'] = weeklySpending['Tuần 1']! + amt;
+            } else if (diffDays < 14) {
+              weeklySpending['Tuần 2'] = weeklySpending['Tuần 2']! + amt;
+            } else if (diffDays < 21) {
+              weeklySpending['Tuần 3'] = weeklySpending['Tuần 3']! + amt;
+            } else if (diffDays < 28) {
+              weeklySpending['Tuần 4'] = weeklySpending['Tuần 4']! + amt;
+            } else {
+              weeklySpending['Tuần 5+'] = weeklySpending['Tuần 5+']! + amt;
+            }
+          }
+
+          double maxWeeklySpend = 0.0;
+          for (final val in weeklySpending.values) {
+            if (val > maxWeeklySpend) maxWeeklySpend = val;
+          }
+          if (maxWeeklySpend == 0) maxWeeklySpend = 1.0;
+
+          // Get Top 5 Spending Days
+          final List<MapEntry<String, double>> sortedDailySpending = dailySpending.entries.toList()
+            ..sort((a, b) => b.value.compareTo(a.value));
+          final List<MapEntry<String, double>> topSpendingDays = sortedDailySpending.take(5).toList();
 
           final incomeText = '${AppConstant.formatMoney(localIncome, userCurrency)} $userSymbol';
           final expenseText = '${AppConstant.formatMoney(localExpense, userCurrency)} $userSymbol';
@@ -198,6 +257,40 @@ class PdfReportGenerator {
                 pw.SizedBox(width: 12),
                 _buildSummaryBox(tr['pdf_net_balance'] ?? 'THU NHẬP RÒNG', netText, localNet >= 0 ? emerald700 : rose700),
               ],
+            ),
+            pw.SizedBox(height: 10),
+
+            // 💵 2b. SAVINGS & COMPARATIVE STATS
+            pw.Container(
+              padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: const pw.BoxDecoration(
+                color: PdfColors.grey100,
+                borderRadius: pw.BorderRadius.all(pw.Radius.circular(8)),
+              ),
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    '${tr['pdf_savings_rate'] ?? 'Tỷ lệ tiết kiệm'}: ${savingsRate.toStringAsFixed(1)}%',
+                    style: pw.TextStyle(
+                      fontSize: 9,
+                      fontWeight: pw.FontWeight.bold,
+                      color: savingsRate >= 0 ? emerald700 : rose700,
+                    ),
+                  ),
+                  if (previousSummary != null) ...[
+                    pw.Text(
+                      '${tr['pdf_vs_prev'] ?? 'So với kỳ trước'}: '
+                      'Thu ${incomeComparePct != null ? (incomeComparePct >= 0 ? '+' : '') + incomeComparePct.toStringAsFixed(1) + '%' : 'N/A'} | '
+                      'Chi ${expenseComparePct != null ? (expenseComparePct >= 0 ? '+' : '') + expenseComparePct.toStringAsFixed(1) + '%' : 'N/A'}',
+                      style: const pw.TextStyle(
+                        fontSize: 9,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
             pw.SizedBox(height: 24),
 
@@ -421,9 +514,6 @@ class PdfReportGenerator {
     dynamic ratesData,
   ) {
     final tr = translations ?? {};
-    final userSymbol = AppConstant.getCurrencySymbol(userCurrency);
-    // Column header: show the user's currency code so it's clear which currency the converted amount is in
-    final convertedHeader = '${tr['pdf_col_converted'] ?? 'Quy đổi'} ($userCurrency)';
     final headers = [
       tr['pdf_col_date'] ?? 'Ngày',
       tr['pdf_col_title'] ?? 'Tiêu đề',
@@ -431,25 +521,19 @@ class PdfReportGenerator {
       tr['pdf_col_wallet'] ?? 'Ví',
       tr['pdf_col_type'] ?? 'Loại',
       tr['pdf_col_amount'] ?? 'Số tiền',
-      convertedHeader,
     ];
     final rows = transactions.map((tx) {
       final txCurrency = tx.currencyCode ?? 'VND';
       final txSymbol = AppConstant.getCurrencySymbol(txCurrency);
       final txAmountStr = '${AppConstant.formatMoney(tx.amount, txCurrency)} $txSymbol';
 
-      // Converted amount in user's currency
-      final convertedAmt = _convertToUserCurrency(tx.amount, txCurrency, userCurrency, ratesData);
-      final convertedStr = '${AppConstant.formatMoney(convertedAmt, userCurrency)} $userSymbol';
-
       return [
         dateFormat.format(tx.transactionDate),
         tx.title,
-        tx.categoryName ?? (tr['pdf_uncategorized'] ?? 'Không phân mục'),
+        tx.categoryName ?? (tr['uncategorized'] ?? 'Chưa phân loại'),
         tx.walletName ?? (tr['pdf_deleted_wallet'] ?? 'Ví đã xóa'),
         tx.type == 'income' ? (tr['pdf_type_income'] ?? 'Thu') : (tr['pdf_type_expense'] ?? 'Chi'),
         txAmountStr,
-        convertedStr,
       ];
     }).toList();
 
@@ -469,7 +553,6 @@ class PdfReportGenerator {
         0: pw.Alignment.center,
         4: pw.Alignment.center,
         5: pw.Alignment.centerRight,
-        6: pw.Alignment.centerRight,
       },
     );
   }
@@ -521,6 +604,166 @@ class PdfReportGenerator {
     
     canvas.setFillColor(color);
     canvas.fillPath();
+  }
+
+  static pw.Widget _buildBudgetTable(
+    List<BudgetDto> budgets,
+    String userCurrency,
+    dynamic ratesData,
+    String userSymbol,
+    Map<String, String>? translations,
+  ) {
+    final tr = translations ?? {};
+    final headers = [
+      tr['pdf_budget_category'] ?? 'Hạng mục / Danh mục',
+      tr['pdf_budget_limit'] ?? 'Hạn mức',
+      tr['pdf_budget_spent'] ?? 'Thực chi',
+      tr['pdf_budget_percent'] ?? 'Tỷ lệ',
+      tr['pdf_budget_status_lbl'] ?? 'Trạng thái',
+    ];
+
+    final rows = budgets.map((b) {
+      final categoryName = b.categoryId == null 
+          ? (tr['pdf_overall_budget'] ?? 'Ngân sách tổng')
+          : (b.category?.name ?? (tr['pdf_uncategorized'] ?? 'Không phân mục'));
+
+      final limit = _convertToUserCurrency(b.limitAmount, 'VND', userCurrency, ratesData);
+      final spent = _convertToUserCurrency(b.usedAmount, 'VND', userCurrency, ratesData);
+      
+      final percent = limit > 0 ? (spent / limit) : 0.0;
+      final percentText = '${(percent * 100).toStringAsFixed(0)}%';
+      
+      String statusText = tr['pdf_budget_safe'] ?? 'An toàn';
+
+      if (percent >= 1.0) {
+        statusText = tr['pdf_budget_exceeded'] ?? 'Vượt hạn mức';
+      } else if (percent >= 0.8) {
+        statusText = tr['pdf_budget_warning'] ?? 'Sắp chạm mốc';
+      }
+
+      final limitStr = '${AppConstant.formatMoney(limit, userCurrency)} $userSymbol';
+      final spentStr = '${AppConstant.formatMoney(spent, userCurrency)} $userSymbol';
+
+      return [
+        categoryName,
+        limitStr,
+        spentStr,
+        percentText,
+        statusText,
+      ];
+    }).toList();
+
+    return pw.TableHelper.fromTextArray(
+      headers: headers,
+      data: rows,
+      border: const pw.TableBorder(
+        horizontalInside: pw.BorderSide(width: 0.5, color: PdfColors.grey200),
+        bottom: pw.BorderSide(width: 1, color: PdfColors.grey300),
+        top: pw.BorderSide(width: 1, color: PdfColors.grey300),
+      ),
+      headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8, color: PdfColors.indigo900),
+      headerDecoration: const pw.BoxDecoration(color: PdfColors.indigo50),
+      cellStyle: const pw.TextStyle(fontSize: 8),
+      cellAlignment: pw.Alignment.centerLeft,
+      cellAlignments: {
+        1: pw.Alignment.centerRight,
+        2: pw.Alignment.centerRight,
+        3: pw.Alignment.center,
+        4: pw.Alignment.center,
+      },
+    );
+  }
+
+  static pw.Widget _buildTopSpendingDaysTable(
+    List<MapEntry<String, double>> topDays,
+    String userCurrency,
+    String userSymbol,
+    Map<String, String>? translations,
+  ) {
+    final tr = translations ?? {};
+    final headers = [
+      tr['pdf_col_date'] ?? 'Ngày',
+      tr['pdf_col_amount'] ?? 'Số tiền',
+      tr['pdf_col_intensity'] ?? 'Mức độ',
+    ];
+
+    final maxSpend = topDays.isNotEmpty ? topDays.first.value : 1.0;
+
+    final rows = topDays.map((entry) {
+      final date = DateTime.tryParse(entry.key);
+      final formattedDate = date != null ? DateFormat('dd/MM/yyyy').format(date) : entry.key;
+      final amountStr = '${AppConstant.formatMoney(entry.value, userCurrency)} $userSymbol';
+      
+      final ratio = maxSpend > 0 ? (entry.value / maxSpend) : 0.0;
+
+      final progressBar = pw.Container(
+        width: 80,
+        height: 6,
+        decoration: const pw.BoxDecoration(
+          color: PdfColors.grey200,
+          borderRadius: pw.BorderRadius.all(pw.Radius.circular(3)),
+        ),
+        alignment: pw.Alignment.centerLeft,
+        child: pw.Container(
+          width: 80 * ratio,
+          height: 6,
+          decoration: const pw.BoxDecoration(
+            color: PdfColors.indigo600,
+            borderRadius: pw.BorderRadius.all(pw.Radius.circular(3)),
+          ),
+        ),
+      );
+
+      return [
+        pw.Text(formattedDate, style: const pw.TextStyle(fontSize: 8)),
+        pw.Text(amountStr, style: const pw.TextStyle(fontSize: 8)),
+        progressBar,
+      ];
+    }).toList();
+
+    return pw.Table(
+      border: const pw.TableBorder(
+        horizontalInside: pw.BorderSide(width: 0.5, color: PdfColors.grey200),
+        bottom: pw.BorderSide(width: 1, color: PdfColors.grey300),
+        top: pw.BorderSide(width: 1, color: PdfColors.grey300),
+      ),
+      columnWidths: const {
+        0: pw.FlexColumnWidth(1),
+        1: pw.FlexColumnWidth(1.2),
+        2: pw.IntrinsicColumnWidth(),
+      },
+      defaultVerticalAlignment: pw.TableCellVerticalAlignment.middle,
+      children: [
+        pw.TableRow(
+          decoration: const pw.BoxDecoration(color: PdfColors.indigo50),
+          children: headers.map((h) => pw.Padding(
+            padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+            child: pw.Text(
+              h,
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8, color: PdfColors.indigo900),
+            ),
+          )).toList(),
+        ),
+        ...rows.map((row) {
+          return pw.TableRow(
+            children: [
+              pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 8),
+                child: row[0],
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 8),
+                child: row[1],
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 8),
+                child: row[2] as pw.Widget,
+              ),
+            ],
+          );
+        }),
+      ],
+    );
   }
 }
 

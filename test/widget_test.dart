@@ -1,30 +1,27 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:expense_management/main.dart';
+import 'package:expense_management/core/constants/app_constant.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('AppConstant Tests', () {
+    test('formatMoney formats VND correctly without decimals', () {
+      expect(AppConstant.formatMoney(1000000, 'VND'), '1.000.000');
+      expect(AppConstant.formatMoney(500, 'VND'), '500');
+      expect(AppConstant.formatMoney(0, 'VND'), '0');
+    });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    test('formatMoney formats USD correctly with decimals', () {
+      expect(AppConstant.formatMoney(1234.56, 'USD'), '1,234.56');
+      expect(AppConstant.formatMoney(0.5, 'USD'), '0.50');
+      expect(AppConstant.formatMoney(1000, 'USD'), '1,000.00');
+    });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    test('getCurrencySymbol returns correct symbols', () {
+      expect(AppConstant.getCurrencySymbol('VND'), 'đ');
+      expect(AppConstant.getCurrencySymbol('USD'), '\$');
+      expect(AppConstant.getCurrencySymbol('EUR'), '€');
+      expect(AppConstant.getCurrencySymbol('JPY'), '¥');
+      expect(AppConstant.getCurrencySymbol('GBP'), '£');
+      expect(AppConstant.getCurrencySymbol(null), 'đ');
+    });
   });
 }
