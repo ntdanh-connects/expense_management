@@ -629,5 +629,20 @@
   "agree_enable": "Agree to enable",
   "enter_pin_to_unlock": "Enter PIN to unlock",
   "logout_confirm_title": "Logout account?",
-  "forgot_pin_logout_desc": "If you forgot your PIN, you can log out and log in again with your email/password to create a new PIN. Note that the old PIN on this device will be deleted."
+  "forgot_pin_logout_desc": "If you forgot your PIN, you can log out and log in again with your email/password to create a new PIN. Note that the old PIN on this device will be deleted.",
+  "device_sessions_management": "Session Management",
+  "active_sessions_title": "Active Sessions",
+  "current_device": "This device",
+  "active_sessions_list": "Active Devices",
+  "revoke_session_confirm_title": "Log out device?",
+  "revoke_session_confirm_desc": "Are you sure you want to end the session on '{name}'?",
+  "revoke_all_sessions_confirm_title": "Revoke All Devices?",
+  "revoke_all_sessions_confirm_desc": "This action will revoke and log out all active sessions on all devices (including this one). You will be required to log in again.",
+  "revoke_all_devices": "Log out of all devices",
+  "revoking_session_progress": "Ending session...",
+  "revoking_all_progress": "Logging out of all devices...",
+  "revoke_session_success": "Logged out of device successfully!",
+  "revoke_all_success": "Successfully logged out of all devices.",
+  "last_active": "Active: {time}",
+  "ip_address_label": "IP Address: {ip}"
 }

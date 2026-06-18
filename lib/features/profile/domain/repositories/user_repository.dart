@@ -1,3 +1,4 @@
+import 'package:expense_management/features/profile/data/models/user_session_dto.dart';
 import 'package:expense_management/shared/domain/user_entity.dart';
 import 'package:expense_management/features/profile/data/models/preference_options_dto.dart';
 import 'package:expense_management/features/profile/data/models/exchange_rates_dto.dart';
@@ -22,6 +23,12 @@ abstract class UserRepository {
   
   // Đăng xuất tất cả các thiết bị
   Future<void> logoutAllDevices();
+
+  // Lấy các phiên đăng nhập đang hoạt động
+  Future<List<UserSessionDto>> getActiveSessions();
+
+  // Thu hồi một phiên đăng nhập cụ thể
+  Future<void> revokeSession(String sessionId);
 
   // Xóa tài khoản
   Future<void> deleteAccount();

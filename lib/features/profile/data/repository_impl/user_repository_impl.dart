@@ -10,6 +10,7 @@ import 'package:expense_management/core/storage/secure_storage_service.dart';
 import 'package:expense_management/core/database/app_database.dart' as db;
 import 'package:expense_management/core/utils/app_logger.dart';
 import 'package:expense_management/shared/domain/user_entity.dart';
+import 'package:expense_management/features/profile/data/models/user_session_dto.dart';
 import 'package:expense_management/features/profile/data/models/preference_options_dto.dart';
 import 'package:expense_management/features/profile/data/models/exchange_rates_dto.dart';
 import 'package:json_annotation/json_annotation.dart';
@@ -194,6 +195,27 @@ class UserRepositoryImpl implements UserRepository {
         details: e.response?.data 
       );
       throw Exception(e.response?.data['message'] ?? "Không thể đăng xuất các thiết bị khác.");
+    }
+  }
+
+  @override
+  Future<List<UserSessionDto>> getActiveSessions() async {
+    try {
+      final responseDto = await _userApiService.getActiveSessions();
+      return responseDto.data;
+    } on DioException catch (e) {
+      AppLogger.error("Dio Error khi lấy active sessions: ${e.message}", tag: "ACTIVE_SESSIONS_API_ERROR");
+      throw AppException(e.toNetworkFailure());
+    }
+  }
+
+  @override
+  Future<void> revokeSession(String sessionId) async {
+    try {
+      await _userApiService.revokeSession(sessionId);
+    } on DioException catch (e) {
+      AppLogger.error("Dio Error khi thu hồi phiên: ${e.message}", tag: "REVOKE_SESSION_API_ERROR");
+      throw Exception(e.response?.data['message'] ?? "Thu hồi phiên thất bại!");
     }
   }
 

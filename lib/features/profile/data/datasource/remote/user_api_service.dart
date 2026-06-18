@@ -5,6 +5,7 @@ import 'package:expense_management/core/network/base_response_dto.dart';
 import 'package:expense_management/features/auth/data/models/auth_response_dto.dart';
 import 'package:expense_management/features/profile/data/models/preference_options_dto.dart';
 import 'package:expense_management/features/profile/data/models/exchange_rates_dto.dart';
+import 'package:expense_management/features/profile/data/models/user_session_dto.dart';
 import 'package:retrofit/retrofit.dart';
 
 part 'user_api_service.g.dart';
@@ -45,4 +46,10 @@ abstract class UserApiService {
 
   @GET(ApiEndpoints.exchangeRates)
   Future<BaseResponseDto<ExchangeRatesDto>> getExchangeRates();
+
+  @GET(ApiEndpoints.activeSessions)
+  Future<BaseResponseDto<List<UserSessionDto>>> getActiveSessions();
+
+  @DELETE(ApiEndpoints.revokeSession)
+  Future<BaseResponseDto<void>> revokeSession(@Path("id") String id);
 }
