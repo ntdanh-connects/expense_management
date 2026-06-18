@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:drift/drift.dart';
 import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
@@ -32,6 +33,7 @@ class UserRepositoryImpl implements UserRepository {
     String? currency,
     String? timezone,
     String? theme,
+    int? financialStartDay,
   }) async {
     final userId = await _secureStorageService.get(key: AppConstant.userId);
     if (userId == null) {
@@ -50,10 +52,11 @@ class UserRepositoryImpl implements UserRepository {
       currency: currency ?? currentLocalRow.currency,
       timezone: timezone ?? currentLocalRow.timezone,
       theme: theme ?? currentLocalRow.theme,
+      financialStartDay: Value(financialStartDay ?? currentLocalRow.financialStartDay),
     );
     await _db.saveUserProfile(updatedLocalRow);
 
-    AppLogger.info("💾 [SQLite] [Offline-First] Cập nhật SQLite thành công! Đã lưu tạm thời: fullName='${fullName ?? currentLocalRow.fullName}', language='${language ?? currentLocalRow.language}', currency='${currency ?? currentLocalRow.currency}', timezone='${timezone ?? currentLocalRow.timezone}', theme='${theme ?? currentLocalRow.theme}'.", tag: "SQLite");
+    AppLogger.info("💾 [SQLite] [Offline-First] Cập nhật SQLite thành công! Đã lưu tạm thời: fullName='${fullName ?? currentLocalRow.fullName}', language='${language ?? currentLocalRow.language}', currency='${currency ?? currentLocalRow.currency}', timezone='${timezone ?? currentLocalRow.timezone}', theme='${theme ?? currentLocalRow.theme}', financialStartDay='${financialStartDay ?? currentLocalRow.financialStartDay}'.", tag: "SQLite");
     AppLogger.debug("🌐 [Sync-Flow] Bắt đầu gửi đồng bộ thông tin mới lên Server...", tag: "Sync-Flow");
 
     // 2. Đồng bộ thông tin lên Server
@@ -64,6 +67,7 @@ class UserRepositoryImpl implements UserRepository {
         currency ?? currentLocalRow.currency,
         timezone ?? currentLocalRow.timezone,
         theme ?? currentLocalRow.theme,
+        financialStartDay ?? currentLocalRow.financialStartDay,
       );
       final freshData = responseDto.data;
       
@@ -77,6 +81,7 @@ class UserRepositoryImpl implements UserRepository {
         language: freshData.preference.language,
         theme: freshData.preference.theme,
         timezone: freshData.preference.timezone,
+        financialStartDay: freshData.preference.financialStartDay,
       ));
       
       AppLogger.info("☁️ [Sync-Flow] Kiểm tra Server: Đồng bộ thành công! Đã cập nhật đè dữ liệu chuẩn từ BE vào SQLite local.", tag: "Sync-Flow");
@@ -126,7 +131,8 @@ class UserRepositoryImpl implements UserRepository {
         currency: freshData.preference.currency,
         language: freshData.preference.language,
         theme: freshData.preference.theme,
-        timezone: freshData.preference.timezone
+        timezone: freshData.preference.timezone,
+        financialStartDay: freshData.preference.financialStartDay,
       ));
       
       return ProfileMapper.toUserEntity(freshData);

@@ -120,8 +120,14 @@ class _ExportHistoryScreenState extends ConsumerState<ExportHistoryScreen> {
         data: (list) {
           // Filter items based on active tab
           var filteredList = list.where((item) {
-            if (_activeTabIndex == 1 && !item.isLocal) return false;
-            if (_activeTabIndex == 2 && item.isLocal) return false;
+            final isCsvOrExcel = item.name.toLowerCase().endsWith('.csv') || 
+                                 item.name.toLowerCase().endsWith('.xlsx');
+            if (_activeTabIndex == 1) {
+              return !isCsvOrExcel;
+            }
+            if (_activeTabIndex == 2) {
+              return isCsvOrExcel;
+            }
             return true;
           }).toList();
 
@@ -132,8 +138,10 @@ class _ExportHistoryScreenState extends ConsumerState<ExportHistoryScreen> {
                 .toList();
           }
 
-          final pdfCount = list.where((item) => item.isLocal).length;
-          final csvCount = list.where((item) => !item.isLocal).length;
+          final pdfCount = list.where((item) => !item.name.toLowerCase().endsWith('.csv') && 
+                                                !item.name.toLowerCase().endsWith('.xlsx')).length;
+          final csvCount = list.where((item) => item.name.toLowerCase().endsWith('.csv') || 
+                                                item.name.toLowerCase().endsWith('.xlsx')).length;
           final totalCount = list.length;
 
           return Column(
@@ -220,8 +228,13 @@ class _ExportHistoryScreenState extends ConsumerState<ExportHistoryScreen> {
 
   Widget _buildHistoryCard(ExportHistoryItem item) {
     final colors = context.colors;
-    final fileIcon = item.isLocal ? Icons.picture_as_pdf : Icons.analytics_outlined;
-    final iconColor = item.isLocal ? colors.expenseRed : colors.profileInfo;
+    final isCsv = item.name.endsWith('.csv') || item.pathOrUrl.endsWith('.csv');
+    final fileIcon = isCsv 
+        ? Icons.table_chart_outlined 
+        : (item.isLocal ? Icons.picture_as_pdf : Icons.analytics_outlined);
+    final iconColor = isCsv 
+        ? colors.profileInfo 
+        : (item.isLocal ? colors.expenseRed : colors.profileInfo);
 
     final dateFormat = DateFormat('dd/MM/yyyy');
     final timeFormat = DateFormat('HH:mm');
@@ -372,15 +385,16 @@ class _ExportHistoryScreenState extends ConsumerState<ExportHistoryScreen> {
 
   void _showDeleteConfirmDialog(ExportHistoryItem item) {
     final colors = context.colors;
+    final isCsv = item.name.endsWith('.csv') || item.pathOrUrl.endsWith('.csv');
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colors.surface,
         title: Text('delete_history_title'.tr(ref), style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold)),
         content: Text(
-          item.isLocal
-              ? 'delete_pdf_confirm'.tr(ref)
-              : 'delete_csv_confirm'.tr(ref),
+          isCsv
+              ? 'delete_csv_confirm'.tr(ref)
+              : (item.isLocal ? 'delete_pdf_confirm'.tr(ref) : 'delete_csv_confirm'.tr(ref)),
           style: TextStyle(color: colors.textSecondary),
         ),
         actions: [

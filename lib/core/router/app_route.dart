@@ -40,6 +40,8 @@ import 'package:expense_management/features/notification/presentation/screens/no
 import 'package:expense_management/features/notification/data/models/notification_dto.dart';
 import 'package:expense_management/features/ai_assistant/presentation/screens/ai_assistant_screen.dart';
 import 'package:expense_management/features/security/presentation/screens/pin_setup_screen.dart';
+import 'package:expense_management/features/financial_month/presentation/screens/financial_month_screen.dart';
+import 'package:expense_management/features/csv_import/presentation/screens/csv_import_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -79,6 +81,8 @@ class RoutePaths {
   static const notificationDetail = '/notification-detail';
   static const aiAssistant = '/ai-assistant';
   static const pinSetup = '/profile/pin-setup';
+  static const financialMonth = '/profile/financial-month';
+  static const csvImport = '/profile/csv-import';
 }
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -350,6 +354,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: 'pin-setup',
                 parentNavigatorKey: rootNavigatorKey,
                 builder: (context, state) => const PinSetupScreen(),
+              ),
+              GoRoute(
+                path: 'financial-month',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) => const FinancialMonthScreen(),
+              ),
+              GoRoute(
+                path: 'csv-import',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) => const CsvImportScreen(),
               ),
             ],
           ),

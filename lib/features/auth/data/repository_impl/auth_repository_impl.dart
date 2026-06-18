@@ -47,6 +47,7 @@ class AuthRepositoryImpl implements AuthRepository{
         language: dto.data.preference.language,
         theme: dto.data.preference.theme,
         timezone: dto.data.preference.timezone,
+        financialStartDay: dto.data.preference.financialStartDay,
       ));
 
       AppLogger.info("💾 [SQLite] Đã lưu cache hồ sơ đăng nhập cục bộ cho User ID: ${dto.data.userId} thành công!", tag: "SQLite");
@@ -92,6 +93,7 @@ class AuthRepositoryImpl implements AuthRepository{
         language: freshData.preference.language,
         theme: freshData.preference.theme,
         timezone: freshData.preference.timezone,
+        financialStartDay: freshData.preference.financialStartDay,
       ));
 
       AppLogger.info("💾 [SQLite] Đồng bộ ghi đè hồ sơ User ID: $userId vào SQLite local thành công!", tag: "SQLite");
@@ -148,6 +150,7 @@ class AuthRepositoryImpl implements AuthRepository{
           language: response.data!.preference.language,
           theme: response.data!.preference.theme,
           timezone: response.data!.preference.timezone,
+          financialStartDay: response.data!.preference.financialStartDay,
         ));
         
         AppLogger.info("💾 [SQLite] Đã lưu cache hồ sơ đăng nhập MXH cho User ID: ${response.data!.userId} thành công!", tag: "SQLite");
@@ -189,6 +192,7 @@ class AuthRepositoryImpl implements AuthRepository{
         language: dto.data.preference.language,
         theme: dto.data.preference.theme,
         timezone: dto.data.preference.timezone,
+        financialStartDay: dto.data.preference.financialStartDay,
       ));
 
       AppLogger.info("💾 [SQLite] Đã lưu cache hồ sơ liên kết tài khoản cho User ID: ${dto.data.userId} thành công!", tag: "SQLite");

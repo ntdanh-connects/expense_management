@@ -443,14 +443,21 @@ final categoryDetailTransactionsProvider = FutureProvider.family<List<Transactio
   ref.watch(transactionListProvider);
   final useCase = ref.read(getTransactionsUseCaseProvider);
 
+  final isUncategorized = arg.categoryId == 'uncategorized';
   final result = await useCase.execute(
-    categoryId: arg.categoryId,
+    categoryId: isUncategorized ? null : arg.categoryId,
     startDate: DateFormat('yyyy-MM-dd').format(arg.startDate),
     endDate: DateFormat('yyyy-MM-dd').format(arg.endDate),
     sortBy: 'date',
     sortOrder: 'desc',
     perPage: 100,
   );
+
+  if (isUncategorized) {
+    return result.items
+        .where((tx) => tx.categoryId == null || tx.categoryName == null)
+        .toList();
+  }
   return result.items;
 });
 

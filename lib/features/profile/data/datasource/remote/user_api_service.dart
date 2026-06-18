@@ -21,6 +21,7 @@ abstract class UserApiService {
     @Field("currency") String? currency,
     @Field("timezone") String? timezone,
     @Field("theme") String? theme,
+    @Field("financial_start_day") int? financialStartDay,
   );
 
   @POST(ApiEndpoints.updateAvatar)

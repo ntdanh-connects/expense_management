@@ -131,25 +131,52 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
           await OpenFile.open(file.path);
         }
       } else {
-        // Trigger Server CSV Export
-        final startStr = DateFormat('yyyy-MM-dd').format(_selectedDateRange.start);
-        final endStr = DateFormat('yyyy-MM-dd').format(_selectedDateRange.end);
-
-        await repo.triggerRemoteExport(
-          startDate: startStr,
-          endDate: endStr,
+        final isRaw = _selectedReportType == 'raw_csv';
+        // Local CSV report generation
+        final file = await repo.generateLocalCsvReport(
+          dateRange: _selectedDateRange,
           walletId: _selectedWalletId,
           categoryId: _selectedCategoryId,
           transactionType: _selectedTransactionType,
+          isRaw: isRaw,
         );
 
         if (mounted) {
+          final title = 'Xuất dữ liệu thành công';
+          final body = isRaw
+              ? 'Tệp CSV thô "${file.path.split('/').last.split('\\').last}" đã được xuất thành công.'
+              : 'Báo cáo CSV "${file.path.split('/').last.split('\\').last}" đã được xuất thành công.';
+
+          LocalNotificationService.showNotification(
+            id: file.path.hashCode,
+            title: title,
+            body: body,
+          );
+
+          final userId = ref.read(currentUserProvider)?.id ?? '';
+          if (userId.isNotEmpty) {
+            LocalNotificationStorage.createAndSave(
+              userId: userId,
+              type: 'transaction',
+              title: title,
+              body: body,
+            ).then((localNotif) {
+              if (localNotif != null) {
+                ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
+              }
+            });
+          }
+
           ElegantNotification.success(
             title: Text('success'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
-            description: Text('csv_request_success'.tr(ref)),
+            description: Text('export_success'.tr(ref)),
           ).show(context);
           
+          // Invalidate history to reload unified list
           ref.invalidate(exportHistoryListProvider);
+          
+          // Open CSV file immediately
+          await OpenFile.open(file.path);
         }
       }
     } catch (e, stack) {
@@ -270,26 +297,44 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
               style: TextStyle(color: colors.textSecondary, fontSize: 13, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
-            Row(
+            Column(
               children: [
-                Expanded(
-                  child: _buildTypeCard(
-                    id: 'pdf',
-                    icon: Icons.picture_as_pdf_outlined,
-                    title: 'pdf_report'.tr(ref),
-                    subtitle: 'pdf_report_desc'.tr(ref),
-                    color: colors.incomeGreen,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildTypeCard(
+                        id: 'pdf',
+                        icon: Icons.picture_as_pdf_outlined,
+                        title: 'pdf_report'.tr(ref),
+                        subtitle: 'pdf_report_desc'.tr(ref),
+                        color: colors.incomeGreen,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildTypeCard(
+                        id: 'csv',
+                        icon: Icons.table_chart_outlined,
+                        title: 'csv_excel'.tr(ref),
+                        subtitle: 'csv_excel_desc'.tr(ref),
+                        color: colors.profileInfo,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildTypeCard(
-                    id: 'csv',
-                    icon: Icons.table_chart_outlined,
-                    title: 'csv_excel'.tr(ref),
-                    subtitle: 'csv_excel_desc'.tr(ref),
-                    color: colors.profileInfo,
-                  ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildTypeCard(
+                        id: 'raw_csv',
+                        icon: Icons.file_present_outlined,
+                        title: 'raw_csv_report'.tr(ref),
+                        subtitle: 'raw_csv_report_desc'.tr(ref),
+                        color: colors.profileNotification,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -662,8 +707,13 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
 
   Widget _buildHistoryItem(ExportHistoryItem item) {
     final colors = context.colors;
-    final fileIcon = item.isLocal ? Icons.picture_as_pdf : Icons.analytics_outlined;
-    final iconColor = item.isLocal ? colors.expenseRed : colors.profileInfo;
+    final isCsv = item.name.endsWith('.csv') || item.pathOrUrl.endsWith('.csv');
+    final fileIcon = isCsv 
+        ? Icons.table_chart_outlined 
+        : (item.isLocal ? Icons.picture_as_pdf : Icons.analytics_outlined);
+    final iconColor = isCsv 
+        ? colors.profileInfo 
+        : (item.isLocal ? colors.expenseRed : colors.profileInfo);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10.0),

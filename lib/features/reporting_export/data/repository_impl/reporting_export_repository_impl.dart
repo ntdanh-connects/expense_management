@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:expense_management/features/reporting_export/data/datasource/remote/reporting_export_api_service.dart';
 import 'package:expense_management/features/reporting_export/data/models/report_export_dto.dart';
@@ -113,20 +114,105 @@ class ReportingExportRepositoryImpl implements ReportingExportRepository {
   }
 
   @override
+  Future<File> generateLocalCsvReport({
+    required DateTimeRange dateRange,
+    String? walletId,
+    String? categoryId,
+    String? transactionType,
+    bool isRaw = false,
+  }) async {
+    // 1. Fetch Transactions list
+    final transactionsResult = await transactionRepository.getTransactions(
+      startDate: DateFormat('yyyy-MM-dd').format(dateRange.start),
+      endDate: DateFormat('yyyy-MM-dd').format(dateRange.end),
+      walletId: walletId,
+      categoryId: categoryId,
+      type: transactionType,
+      perPage: 2000, // Fetch up to 2000 transactions to fit all history in CSV
+    );
+
+    final transactions = transactionsResult.items;
+
+    // 2. Build CSV Content
+    final sb = StringBuffer();
+
+    String escapeField(String? f) {
+      if (f == null) return '';
+      final escaped = f.replaceAll('"', '""');
+      return '"$escaped"';
+    }
+
+    if (isRaw) {
+      // Raw format matching import format
+      sb.writeln('transaction_date,type,amount,wallet,category,title,notes,currency_code');
+      for (final tx in transactions) {
+        final dateStr = DateFormat('yyyy-MM-dd HH:mm:ss').format(tx.transactionDate);
+        final row = [
+          dateStr,
+          tx.type,
+          tx.amount.toString(),
+          escapeField(tx.walletName ?? 'Ví chính'),
+          escapeField(tx.categoryName ?? ''),
+          escapeField(tx.title),
+          escapeField(tx.notes ?? ''),
+          tx.currencyCode ?? 'VND',
+        ].join(',');
+        sb.writeln(row);
+      }
+    } else {
+      // Localized format
+      sb.writeln('Mã Giao Dịch,Ngày Giao Dịch,Loại Giao Dịch,Số Tiền,Đơn Vị,Ví,Danh Mục,Tiêu Đề,Ghi Chú,Trạng Thái');
+      for (final tx in transactions) {
+        final dateStr = tx.transactionDate.toIso8601String().replaceAll('T', ' ');
+        final typeStr = tx.type == 'income' ? 'Thu nhập' : 'Chi tiêu';
+        final row = [
+          tx.id,
+          dateStr,
+          typeStr,
+          tx.amount.toString(),
+          tx.currencyCode ?? 'VND',
+          escapeField(tx.walletName ?? 'Ví đã xóa'),
+          escapeField(tx.categoryName ?? 'Không phân mục'),
+          escapeField(tx.title),
+          escapeField(tx.notes ?? ''),
+          tx.status ?? 'completed'
+        ].join(',');
+        sb.writeln(row);
+      }
+    }
+
+    // 3. Save to Local file in exports directory
+    final dir = await PdfReportGenerator.getExportDirectory();
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+
+    final startStr = DateFormat('yyyyMMdd').format(dateRange.start);
+    final endStr = DateFormat('yyyyMMdd').format(dateRange.end);
+    final filename = isRaw ? 'gd_raw_${startStr}_to_$endStr.csv' : 'gd_${startStr}_to_$endStr.csv';
+    final file = File('${dir.path}/$filename');
+
+    // UTF-8 with BOM to support Excel Vietnamese characters encoding out-of-the-box!
+    await file.writeAsBytes([0xEF, 0xBB, 0xBF, ...utf8.encode(sb.toString())]);
+
+    return file;
+  }
+
+  @override
   Future<List<File>> getLocalPdfHistory() async {
     final dir = await PdfReportGenerator.getExportDirectory();
     if (!await dir.exists()) return [];
 
     final list = dir.listSync();
-    final pdfFiles = <File>[];
+    final localFiles = <File>[];
     for (var entity in list) {
-      if (entity is File && entity.path.endsWith('.pdf')) {
-        pdfFiles.add(entity);
+      if (entity is File && (entity.path.endsWith('.pdf') || entity.path.endsWith('.csv'))) {
+        localFiles.add(entity);
       }
     }
     // Sort by modified date descending
-    pdfFiles.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
-    return pdfFiles;
+    localFiles.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
+    return localFiles;
   }
 
   @override

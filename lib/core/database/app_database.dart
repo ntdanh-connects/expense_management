@@ -16,6 +16,7 @@ class Users extends Table {
   TextColumn get language => text()();
   TextColumn get theme => text()();
   TextColumn get timezone => text().withDefault(const Constant('Asia/Ho_Chi_Minh'))();
+  IntColumn get financialStartDay => integer().nullable().withDefault(const Constant(1))();
 
   @override
   Set<Column> get primaryKey => {id}; // Đóng chặt khóa chính
@@ -105,7 +106,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(): super(_openConnection());
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -180,6 +181,13 @@ class AppDatabase extends _$AppDatabase {
       if (from < 11) {
         try {
           await m.addColumn(wallets, wallets.isDefaultReceiving);
+        } catch (e) {
+          // Bỏ qua nếu cột đã tồn tại
+        }
+      }
+      if (from < 12) {
+        try {
+          await m.addColumn(users, users.financialStartDay);
         } catch (e) {
           // Bỏ qua nếu cột đã tồn tại
         }

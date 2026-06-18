@@ -12,6 +12,7 @@ class UpdateProfileUseCase {
     String? currency,
     String? timezone,
     String? theme,
+    int? financialStartDay,
   }) async {
     return await _userRepository.updateProfile(
       fullName: fullName,
@@ -19,6 +20,7 @@ class UpdateProfileUseCase {
       currency: currency,
       timezone: timezone,
       theme: theme,
+      financialStartDay: financialStartDay,
     );
   }
 }

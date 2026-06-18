@@ -41,9 +41,11 @@ class ApiEndpoints {
   static const String reportsCategories = 'api/reports/categories';
   static const String reportsTrends = 'api/reports/trends';
 
-  // Module 7: Exports
+  // Module 7: Exports / Imports
   static const String exportTransactions = 'api/transactions/export';
   static const String listExports = 'api/transactions/exports';
+  static const String importTransactions = 'api/transactions/import';
+  static const String listImports = 'api/transactions/imports';
 
   // QR Transfer & Payees
   static const String qrDecode = 'api/qr/decode';
