@@ -13,6 +13,7 @@ abstract class UserRepository {
     String? currency,
     String? timezone,
     String? theme,
+    int? financialStartDay,
   });
 
   // Cập nhật avatar của người dùng lên hệ thống

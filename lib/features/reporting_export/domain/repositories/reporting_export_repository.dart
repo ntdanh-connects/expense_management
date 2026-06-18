@@ -27,9 +27,18 @@ abstract class ReportingExportRepository {
     Map<String, String>? translations,
   });
 
-  /// Reads locally saved PDF reports from device directory.
+  /// Generates a CSV report locally using transaction details.
+  Future<File> generateLocalCsvReport({
+    required DateTimeRange dateRange,
+    String? walletId,
+    String? categoryId,
+    String? transactionType,
+    bool isRaw = false,
+  });
+
+  /// Reads locally saved PDF and CSV reports from device directory.
   Future<List<File>> getLocalPdfHistory();
 
-  /// Deletes a local PDF report file from disk.
+  /// Deletes a local PDF/CSV report file from disk.
   Future<void> deleteLocalPdf(String filePath);
 }

@@ -54,6 +54,17 @@ class FakeReportingExportRepository implements ReportingExportRepository {
   }
 
   @override
+  Future<File> generateLocalCsvReport({
+    required DateTimeRange dateRange,
+    String? walletId,
+    String? categoryId,
+    String? transactionType,
+    bool isRaw = false,
+  }) async {
+    return File('dummy.csv');
+  }
+
+  @override
   Future<List<File>> getLocalPdfHistory() async {
     return [];
   }

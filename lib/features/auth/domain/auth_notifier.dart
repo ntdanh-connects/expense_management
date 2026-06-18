@@ -185,6 +185,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           language: localUserRow.language,
           theme: localUserRow.theme,
           timezone: localUserRow.timezone,
+          financialStartDay: localUserRow.financialStartDay,
         );
 
         // Tự động đồng bộ ngôn ngữ hiển thị của App với thiết lập trong SQLite Profile

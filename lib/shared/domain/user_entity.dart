@@ -13,5 +13,6 @@ abstract class UserEntity with _$UserEntity {
     required String language,
     required String theme,
     required String timezone,
+    int? financialStartDay,
   }) = _UserEntity;
 }
