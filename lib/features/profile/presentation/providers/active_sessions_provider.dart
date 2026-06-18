@@ -1,15 +1,18 @@
 import 'dart:async';
 import 'package:expense_management/features/profile/data/models/user_session_dto.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/auth/auth_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final activeSessionsProvider = AsyncNotifierProvider<ActiveSessionsNotifier, List<UserSessionDto>>(() {
+final activeSessionsProvider = AsyncNotifierProvider.autoDispose<ActiveSessionsNotifier, List<UserSessionDto>>(() {
   return ActiveSessionsNotifier();
 });
 
 class ActiveSessionsNotifier extends AsyncNotifier<List<UserSessionDto>> {
   @override
   FutureOr<List<UserSessionDto>> build() {
+    // Tự động lắng nghe trạng thái Auth, nếu đổi tài khoản sẽ tự động rebuild/fetch lại fresh data
+    ref.watch(authNotifierProvider);
     return ref.read(userRepositoryProvider).getActiveSessions();
   }
 
