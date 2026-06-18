@@ -286,6 +286,13 @@ class ProfileScreen extends ConsumerWidget {
                             title: 'change_password'.tr(ref),
                             onTap: () => context.push(RoutePaths.changePassword),
                           ),
+                          Divider(color: colors.textSecondary.withOpacity(0.08), height: 1, indent: 50),
+                          ProfileMenuItem(
+                            icon: Icons.devices_other_rounded,
+                            iconColor: colors.profileSecurity,
+                            title: 'device_sessions_management'.tr(ref),
+                            onTap: () => context.push(RoutePaths.activeSessions),
+                          ),
                         ],
                       ),
                     ),

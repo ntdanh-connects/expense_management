@@ -11,6 +11,8 @@ class ApiEndpoints {
   static const String wallets = 'api/wallets';
   static const String logout = 'api/logout';
   static const String logoutAll = 'api/logout-all';
+  static const String activeSessions = 'api/user/sessions';
+  static const String revokeSession = 'api/user/sessions/{id}';
   static const String changePassword = 'api/user/change-password';
   static const String deleteAccount = 'api/user';
   static const String forgotPassword = 'api/auth/forgot-password';

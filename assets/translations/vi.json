@@ -634,5 +634,20 @@
   "agree_enable": "Đồng ý bật",
   "enter_pin_to_unlock": "Nhập mã PIN để mở khóa",
   "logout_confirm_title": "Đăng xuất tài khoản?",
-  "forgot_pin_logout_desc": "Nếu bạn quên mã PIN, bạn có thể đăng xuất và đăng nhập lại bằng email/mật khẩu để tạo mã PIN mới. Lưu ý mã PIN cũ trên thiết bị sẽ bị xóa."
+  "forgot_pin_logout_desc": "Nếu bạn quên mã PIN, bạn có thể đăng xuất và đăng nhập lại bằng email/mật khẩu để tạo mã PIN mới. Lưu ý mã PIN cũ trên thiết bị sẽ bị xóa.",
+  "device_sessions_management": "Quản lý phiên đăng nhập",
+  "active_sessions_title": "Phiên đăng nhập",
+  "current_device": "Thiết bị này",
+  "active_sessions_list": "Các thiết bị đang hoạt động",
+  "revoke_session_confirm_title": "Đăng xuất thiết bị?",
+  "revoke_session_confirm_desc": "Bạn có chắc chắn muốn kết thúc phiên đăng nhập trên thiết bị '{name}' này không?",
+  "revoke_all_sessions_confirm_title": "Thu hồi toàn bộ thiết bị?",
+  "revoke_all_sessions_confirm_desc": "Hành động này sẽ hủy và đăng xuất toàn bộ các phiên làm việc đang hoạt động (bao gồm cả thiết bị này). Bạn sẽ cần phải đăng nhập lại.",
+  "revoke_all_devices": "Đăng xuất tất cả các thiết bị",
+  "revoking_session_progress": "Đang kết thúc phiên đăng nhập...",
+  "revoking_all_progress": "Đang đăng xuất toàn bộ các thiết bị...",
+  "revoke_session_success": "Đăng xuất thiết bị thành công!",
+  "revoke_all_success": "Đã đăng xuất toàn bộ các thiết bị.",
+  "last_active": "Hoạt động: {time}",
+  "ip_address_label": "Địa chỉ IP: {ip}"
 }

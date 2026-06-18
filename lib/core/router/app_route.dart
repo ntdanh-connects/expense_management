@@ -17,6 +17,7 @@ import 'package:expense_management/features/profile/presentation/screens/change_
 import 'package:expense_management/features/profile/presentation/screens/personal_info_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/profile_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/category_management_screen.dart';
+import 'package:expense_management/features/profile/presentation/screens/active_sessions_screen.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
 import 'package:expense_management/features/transaction/presentation/screens/transaction_detail_screen.dart';
 import 'package:expense_management/features/transaction/presentation/screens/transaction_history_screen.dart';
@@ -58,6 +59,7 @@ class RoutePaths {
   static const profile = '/profile';
   static const editProfile = '/profile/edit';
   static const changePassword = '/profile/change-password';
+  static const activeSessions = '/profile/active-sessions';
   static const forgotPassword = '/auth/forgot-password';
   static const categories = '/profile/categories';
   static const transactionResult = '/transaction-result';
@@ -318,6 +320,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: 'change-password',
                 parentNavigatorKey: rootNavigatorKey,
                 builder: (context, state) => const ChangePasswordScreen(),
+              ),
+              GoRoute(
+                path: 'active-sessions',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) => const ActiveSessionsScreen(),
               ),
               GoRoute(
                 path: 'categories',
