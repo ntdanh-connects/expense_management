@@ -2,17 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
-import 'package:intl/intl.dart';
 import '../providers/ai_chat_provider.dart';
 
 class AIAssistantScreen extends ConsumerStatefulWidget {
-  const AIAssistantScreen({super.key});
+  final String? initialMessage;
+
+  const AIAssistantScreen({super.key, this.initialMessage});
 
   @override
   ConsumerState<AIAssistantScreen> createState() => _AIAssistantScreenState();
 }
 
 class _AIAssistantScreenState extends ConsumerState<AIAssistantScreen> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialMessage != null && widget.initialMessage!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _sendMessage(widget.initialMessage);
+      });
+    }
+  }
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -320,6 +330,11 @@ class _AIAssistantScreenState extends ConsumerState<AIAssistantScreen> {
     );
   }
 
+  String _getUserLastName(String? fullName) {
+    if (fullName == null || fullName.trim().isEmpty) return 'bạn';
+    return fullName.trim().split(' ').last;
+  }
+
   Widget _buildMessageItem(ChatMessage message, dynamic colors, bool isDark, String? userAvatarUrl) {
     if (message.isUser) {
       // Tin nhắn người dùng (Bên phải)
@@ -430,6 +445,9 @@ class _AIAssistantScreenState extends ConsumerState<AIAssistantScreen> {
   }
 
   Widget _buildLoadingBubble(dynamic colors, bool isDark) {
+    final currentUser = ref.watch(currentUserProvider);
+    final userName = _getUserLastName(currentUser?.fullName);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Row(
@@ -484,7 +502,7 @@ class _AIAssistantScreenState extends ConsumerState<AIAssistantScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'EM đang phân tích...',
+                  '$userName chờ EM xíu nha',
                   style: TextStyle(
                     color: colors.textSecondary,
                     fontSize: 12,

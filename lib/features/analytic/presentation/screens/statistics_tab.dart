@@ -30,6 +30,7 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
 
   bool _isLineChartExpanded = true;
   bool _isCategoriesExpanded = true;
+  String _distributionMode = 'category'; // 'category' or 'wallet'
 
   String _formatCurrency(double amount) {
     final format = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ', decimalDigits: 0);
@@ -513,57 +514,7 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
     return groupedList;
   }
 
-  void _navigateToHistory(WidgetRef ref) {
-    final categoriesAsync = ref.read(reportCategoriesProvider);
-    final reportData = categoriesAsync.asData?.value;
-    final entries = reportData?.categories ?? [];
-    
-    final range = ref.read(selectedDateRangeProvider);
-    final isChildMode = _categoryViewMode == 'child';
-    
-    if (!isChildMode) {
-      final groupedList = _groupCategories(entries, reportData?.totalAmount ?? 0.0);
-      final selectedIndex = (_selectedDonutIndex != null && _selectedDonutIndex! < groupedList.length)
-          ? _selectedDonutIndex
-          : null;
 
-      if (selectedIndex != null) {
-        ref.read(transactionFilterProvider.notifier).state = TransactionFilter(
-          categoryId: groupedList[selectedIndex].id,
-          startDate: range.start.toUtc().toIso8601String(),
-          endDate: range.end.toUtc().toIso8601String(),
-          type: 'expense',
-        );
-      } else {
-        ref.read(transactionFilterProvider.notifier).state = TransactionFilter(
-          startDate: range.start.toUtc().toIso8601String(),
-          endDate: range.end.toUtc().toIso8601String(),
-          type: 'expense',
-        );
-      }
-    } else {
-      final childList = List<ReportCategoryEntryDto>.from(entries)..sort((a, b) => b.amount.compareTo(a.amount));
-      final selectedIndex = (_selectedDonutIndex != null && _selectedDonutIndex! < childList.length)
-          ? _selectedDonutIndex
-          : null;
-
-      if (selectedIndex != null) {
-        ref.read(transactionFilterProvider.notifier).state = TransactionFilter(
-          categoryId: childList[selectedIndex].categoryId,
-          startDate: range.start.toUtc().toIso8601String(),
-          endDate: range.end.toUtc().toIso8601String(),
-          type: 'expense',
-        );
-      } else {
-        ref.read(transactionFilterProvider.notifier).state = TransactionFilter(
-          startDate: range.start.toUtc().toIso8601String(),
-          endDate: range.end.toUtc().toIso8601String(),
-          type: 'expense',
-        );
-      }
-    }
-    context.go(RoutePaths.history);
-  }
 
   Widget _buildCategoriesSection(WidgetRef ref) {
     final colors = context.colors;
@@ -617,13 +568,525 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
             ),
           ),
           if (_isCategoriesExpanded) ...[
-            const SizedBox(height: 24),
-            _buildDonutChartContent(ref),
+            const SizedBox(height: 16),
+            _buildDistributionToggle(ref),
             const SizedBox(height: 20),
-            const Divider(height: 1, thickness: 0.5),
-            const SizedBox(height: 20),
-            _buildTopExpensesContent(ref),
+            if (_distributionMode == 'category') ...[
+              _buildDonutChartContent(ref),
+              const SizedBox(height: 20),
+              const Divider(height: 1, thickness: 0.5),
+              const SizedBox(height: 20),
+              _buildTopExpensesContent(ref),
+            ] else ...[
+              _buildDonutChartContentForWallet(ref),
+              const SizedBox(height: 20),
+              const Divider(height: 1, thickness: 0.5),
+              const SizedBox(height: 20),
+              _buildTopExpensesContentForWallet(ref),
+            ],
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDistributionToggle(WidgetRef ref) {
+    final colors = context.colors;
+    final isEnglish = ref.watch(localeProvider) == 'en';
+
+    final byCategoryLabel = isEnglish ? 'By Category' : 'Theo danh mục';
+    final byWalletLabel = isEnglish ? 'By Wallet/Account' : 'Theo ví / tài khoản';
+
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: colors.textSecondary.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildToggleButton(
+              isSelected: _distributionMode == 'category',
+              label: byCategoryLabel,
+              icon: Icons.folder_copy_rounded,
+              onTap: () {
+                setState(() {
+                  _distributionMode = 'category';
+                  _selectedDonutIndex = null;
+                  _lastSelectedFromList = false;
+                });
+              },
+              colors: colors,
+            ),
+            const SizedBox(width: 4),
+            _buildToggleButton(
+              isSelected: _distributionMode == 'wallet',
+              label: byWalletLabel,
+              icon: Icons.account_balance_wallet_rounded,
+              onTap: () {
+                setState(() {
+                  _distributionMode = 'wallet';
+                  _selectedDonutIndex = null;
+                  _lastSelectedFromList = false;
+                });
+              },
+              colors: colors,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToggleButton({
+    required bool isSelected,
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+    required AppColorsExtension colors,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: isSelected
+              ? LinearGradient(
+                  colors: [colors.primary, colors.primary.withOpacity(0.85)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: isSelected ? null : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: colors.primary.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: isSelected ? Colors.white : colors.textSecondary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : colors.textSecondary,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                fontSize: 12.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDonutChartContentForWallet(WidgetRef ref) {
+    final walletsAsync = ref.watch(reportWalletsProvider);
+    final colors = context.colors;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'wallet_distribution'.tr(ref) == 'wallet_distribution' ? 'Phân bổ theo ví' : 'wallet_distribution'.tr(ref),
+          style: TextStyle(
+            color: colors.textPrimary,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        () {
+          final reportData = walletsAsync.asData?.value;
+          if (reportData == null) {
+            if (walletsAsync.isLoading) {
+              return _buildShimmerCard(height: 160);
+            }
+            return SizedBox(
+              height: 160,
+              child: Center(
+                child: Text(
+                  walletsAsync.error != null
+                      ? 'error_with_details'.tr(ref).replaceAll('{error}', walletsAsync.error.toString())
+                      : 'no_data'.tr(ref),
+                  style: TextStyle(color: colors.expenseRed),
+                ),
+              ),
+            );
+          }
+
+          final entries = reportData.wallets;
+          if (entries.isEmpty) {
+            return SizedBox(
+              height: 160,
+              child: Center(
+                child: Text('no_spending_this_period'.tr(ref)),
+              ),
+            );
+          }
+
+          final selectedIndex = (_selectedDonutIndex != null &&
+                  _selectedDonutIndex! < entries.length)
+              ? _selectedDonutIndex
+              : null;
+
+          final walletEntry = selectedIndex != null ? entries[selectedIndex] : null;
+
+          final List<ChartSegment> segments;
+          const double minVisualPercentage = 0.02; // Enforce a 2% minimum visual slice size
+
+          final rawPercentages = entries.map((e) => reportData.totalAmount > 0 ? (e.amount / reportData.totalAmount) : 0.0).toList();
+          double totalAdjusted = 0.0;
+          final adjusted = <double>[];
+          for (final p in rawPercentages) {
+            final adj = p > 0 ? (p < minVisualPercentage ? minVisualPercentage : p) : 0.0;
+            adjusted.add(adj);
+            totalAdjusted += adj;
+          }
+          segments = List.generate(entries.length, (i) {
+            final e = entries[i];
+            final walletColor = CategoryUIConstants.getColorFromHex(e.walletColor);
+            final normPercentage = totalAdjusted > 0 ? (adjusted[i] / totalAdjusted) : 0.0;
+            return ChartSegment(
+              color: walletColor,
+              percentage: normPercentage,
+            );
+          });
+
+          return Center(
+            child: SizedBox(
+              width: 160,
+              height: 160,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapUp: (details) {
+                  final x = details.localPosition.dx;
+                  final y = details.localPosition.dy;
+                  
+                  const centerX = 80.0;
+                  const centerY = 80.0;
+                  
+                  final dx = x - centerX;
+                  final dy = y - centerY;
+                  final distance = sqrt(dx * dx + dy * dy);
+                  
+                  if (distance < 40) {
+                    setState(() {
+                      _selectedDonutIndex = null;
+                      _lastSelectedFromList = false;
+                    });
+                  } else if (distance >= 40 && distance <= 85) {
+                    double angle = atan2(dy, dx);
+                    double normalizedAngle = angle + pi / 2;
+                    if (normalizedAngle < 0) {
+                      normalizedAngle += 2 * pi;
+                    }
+                    
+                    double currentAngle = 0.0;
+                    for (int i = 0; i < segments.length; i++) {
+                      final sweepAngle = segments[i].percentage * 2 * pi;
+                      if (normalizedAngle >= currentAngle && normalizedAngle <= currentAngle + sweepAngle) {
+                        setState(() {
+                          _selectedDonutIndex = (_selectedDonutIndex == i) ? null : i;
+                          _lastSelectedFromList = false;
+                        });
+                        break;
+                      }
+                      currentAngle += sweepAngle;
+                    }
+                  }
+                },
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    IgnorePointer(
+                      child: CustomPaint(
+                        size: const Size(150, 150),
+                        painter: DonutChartPainter(
+                          segments: segments,
+                          strokeWidth: 20,
+                          selectedIndex: _selectedDonutIndex,
+                        ),
+                      ),
+                    ),
+                    IgnorePointer(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (selectedIndex == null) ...[
+                              Text(
+                                'Tổng chi',
+                                style: TextStyle(color: colors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _formatCompactCurrency(reportData.totalAmount),
+                                style: TextStyle(
+                                  color: colors.textPrimary,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ] else ...[
+                              Text(
+                                walletEntry!.walletName,
+                                style: TextStyle(
+                                  color: CategoryUIConstants.getColorFromHex(walletEntry.walletColor),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 1),
+                              Text(
+                                _formatCompactCurrency(walletEntry.amount),
+                                style: TextStyle(
+                                  color: colors.textPrimary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              Text(
+                                '${walletEntry.percentage.toStringAsFixed(1)}%',
+                                style: TextStyle(
+                                  color: colors.textSecondary,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }(),
+        const SizedBox(height: 16),
+        Center(
+          child: Text(
+            'click_to_view'.tr(ref),
+            style: TextStyle(color: colors.textSecondary, fontSize: 11.5),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTopExpensesContentForWallet(WidgetRef ref) {
+    final walletsAsync = ref.watch(reportWalletsProvider);
+    final colors = context.colors;
+
+    return () {
+      final reportData = walletsAsync.asData?.value;
+      if (reportData == null) {
+        if (walletsAsync.isLoading) {
+          return _buildShimmerCard(height: 200);
+        }
+        return Center(
+          child: Text(
+            walletsAsync.error != null
+                ? 'error_with_details'.tr(ref).replaceAll('{error}', walletsAsync.error.toString())
+                : 'no_data'.tr(ref),
+            style: TextStyle(color: colors.expenseRed, fontSize: 13),
+          ),
+        );
+      }
+
+      final entries = reportData.wallets;
+      if (entries.isEmpty) {
+        return Center(
+          child: Text(
+            'no_spending_data'.tr(ref),
+            style: TextStyle(color: colors.textSecondary, fontSize: 13),
+          ),
+        );
+      }
+
+      final selectedIndex = (_selectedDonutIndex != null && _selectedDonutIndex! < entries.length)
+          ? _selectedDonutIndex
+          : null;
+
+      return Column(
+        children: List.generate(entries.length, (index) {
+          final e = entries[index];
+          final progressColor = CategoryUIConstants.getColorFromHex(e.walletColor);
+          final isSelected = selectedIndex == index;
+
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              if (isSelected) {
+                if (_lastSelectedFromList) {
+                  final range = ref.read(selectedDateRangeProvider);
+                  ref.read(transactionFilterProvider.notifier).state = TransactionFilter(
+                    walletId: e.walletId,
+                    startDate: range.start.toUtc().toIso8601String(),
+                    endDate: range.end.toUtc().toIso8601String(),
+                    type: 'expense',
+                  );
+                  context.go(RoutePaths.history);
+                } else {
+                  setState(() {
+                    _lastSelectedFromList = true;
+                  });
+                }
+              } else {
+                setState(() {
+                  _selectedDonutIndex = index;
+                  _lastSelectedFromList = true;
+                });
+              }
+            },
+            child: _buildWalletExpenseRow(
+              e.walletName,
+              _formatCurrency(e.amount),
+              reportData.totalAmount > 0 ? (e.amount / reportData.totalAmount) : 0.0,
+              progressColor,
+              e.walletIcon,
+              colors,
+              isSelected: isSelected,
+            ),
+          );
+        }),
+      );
+    }();
+  }
+
+  Widget _buildWalletExpenseRow(
+    String title,
+    String amount,
+    double pct,
+    Color progressColor,
+    String walletIconKey,
+    AppColorsExtension colors, {
+    bool isSelected = false,
+  }) {
+    IconData iconData;
+    final iconKey = walletIconKey.toLowerCase();
+    if (iconKey.contains('cash') || iconKey.contains('payment')) {
+      iconData = Icons.payments_rounded;
+    } else if (iconKey.contains('bank') || iconKey.contains('balance')) {
+      iconData = Icons.account_balance_rounded;
+    } else {
+      iconData = Icons.credit_card_rounded;
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.only(bottom: 12.0),
+      padding: const EdgeInsets.all(12.0),
+      decoration: BoxDecoration(
+        color: isSelected ? progressColor.withOpacity(0.08) : colors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isSelected ? progressColor.withOpacity(0.3) : colors.textSecondary.withOpacity(0.05),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: progressColor.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  iconData,
+                  color: progressColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                        fontSize: 14.5,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Chiếm ${(pct * 100).toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        color: colors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                amount,
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: isSelected ? progressColor : colors.textSecondary.withOpacity(0.3),
+                size: 18,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: pct,
+              minHeight: 4,
+              backgroundColor: colors.textSecondary.withOpacity(0.06),
+              valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+            ),
+          ),
         ],
       ),
     );
@@ -985,13 +1448,21 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
                 if (isSelected) {
                   if (_lastSelectedFromList) {
                     final range = ref.read(selectedDateRangeProvider);
-                    ref.read(transactionFilterProvider.notifier).state = TransactionFilter(
-                      categoryId: e.categoryId,
-                      startDate: range.start.toUtc().toIso8601String(),
-                      endDate: range.end.toUtc().toIso8601String(),
-                      type: 'expense',
-                    );
-                    _navigateToHistory(ref);
+                    final timeFilter = ref.read(selectedTimeFilterProvider);
+                    String timeMode = 'month';
+                    if (timeFilter == TimeFilter.thisWeek) timeMode = 'week';
+                    if (timeFilter == TimeFilter.thisYear) timeMode = 'year';
+
+                    context.push(RoutePaths.categoryDetail, extra: {
+                      'categoryId': e.categoryId,
+                      'categoryName': e.categoryName,
+                      'categoryColor': e.categoryColor,
+                      'categoryIcon': e.categoryIcon,
+                      'type': 'expense',
+                      'startDate': range.start,
+                      'endDate': range.end,
+                      'timeMode': timeMode,
+                    });
                   } else {
                     setState(() {
                       _lastSelectedFromList = true;
@@ -1033,13 +1504,21 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
                 if (isSelected) {
                   if (_lastSelectedFromList) {
                     final range = ref.read(selectedDateRangeProvider);
-                    ref.read(transactionFilterProvider.notifier).state = TransactionFilter(
-                      categoryId: g.id,
-                      startDate: range.start.toUtc().toIso8601String(),
-                      endDate: range.end.toUtc().toIso8601String(),
-                      type: 'expense',
-                    );
-                    _navigateToHistory(ref);
+                    final timeFilter = ref.read(selectedTimeFilterProvider);
+                    String timeMode = 'month';
+                    if (timeFilter == TimeFilter.thisWeek) timeMode = 'week';
+                    if (timeFilter == TimeFilter.thisYear) timeMode = 'year';
+
+                    context.push(RoutePaths.categoryDetail, extra: {
+                      'categoryId': g.id,
+                      'categoryName': g.name,
+                      'categoryColor': g.color,
+                      'categoryIcon': g.icon,
+                      'type': 'expense',
+                      'startDate': range.start,
+                      'endDate': range.end,
+                      'timeMode': timeMode,
+                    });
                   } else {
                     setState(() {
                       _lastSelectedFromList = true;

@@ -310,10 +310,14 @@ class _TransactionHistoryScreenState
     final categoriesAsync = ref.watch(categoriesNotifierProvider);
     String categoryLabel = 'category'.tr(ref);
     if (filter.categoryId != null) {
-      final allCats = categoriesAsync.value ?? [];
-      final match = allCats.where((c) => c.id == filter.categoryId).firstOrNull;
-      if (match != null) {
-        categoryLabel = match.name.tr(ref);
+      if (filter.categoryId == 'uncategorized') {
+        categoryLabel = 'uncategorized'.tr(ref);
+      } else {
+        final allCats = categoriesAsync.value ?? [];
+        final match = allCats.where((c) => c.id == filter.categoryId).firstOrNull;
+        if (match != null) {
+          categoryLabel = match.name.tr(ref);
+        }
       }
     }
 

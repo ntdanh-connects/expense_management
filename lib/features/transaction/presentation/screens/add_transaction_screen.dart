@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:currency_text_input_formatter/currency_text_input_formatter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
@@ -12,6 +13,7 @@ import 'package:expense_management/features/transaction/domain/entities/transact
 import 'package:expense_management/features/transaction/presentation/screens/sub_category_selection_screen.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
+import 'package:expense_management/features/wallet/presentation/provider/qr_transfer_provider.dart';
 import 'package:expense_management/core/language/app_language.dart';
 
 import 'package:flutter/material.dart';
@@ -23,7 +25,8 @@ import 'package:shimmer/shimmer.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 class AddTransactionScreen extends ConsumerStatefulWidget {
-  const AddTransactionScreen({super.key});
+  final Map<String, dynamic>? qrData;
+  const AddTransactionScreen({super.key, this.qrData});
 
   @override
   ConsumerState<AddTransactionScreen> createState() =>
@@ -34,6 +37,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   final _amountController = TextEditingController();
   final _notesController = TextEditingController();
   final _titleController = TextEditingController();
+  final _payeeController = TextEditingController();
 
   CategoryDto? _selectedParentCategory;
   CategoryDto? _selectedCategory;
@@ -41,6 +45,12 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   WalletEntity? _selectedWallet;
   File? _imageFile;
   final bool _isLoading = false;
+
+  String? _recipientWalletName;
+  String? _toWalletId;
+  String? _payeeUserId;
+  String? _payeeId;
+  bool _isLoadingRecipientWallet = false;
 
   late CurrencyTextInputFormatter _formatter;
 
@@ -59,6 +69,60 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       _selectedDate = tz.TZDateTime.now(location);
     } catch (_) {
       _selectedDate = DateTime.now();
+    }
+
+    if (widget.qrData != null) {
+      final qr = widget.qrData!;
+      if (qr['amount'] != null) {
+        final double amt = double.tryParse(qr['amount'].toString()) ?? 0.0;
+        if (amt > 0) {
+          _amountController.text = _formatter.formatDouble(amt);
+        }
+      }
+      if (qr['description'] != null) {
+        _notesController.text = qr['description'].toString();
+      }
+      final rawPayeeName = qr['payee_name']?.toString().trim() ?? '';
+      final payeeName = (rawPayeeName.isEmpty || rawPayeeName.toUpperCase() == 'UNKNOWN RECIPIENT')
+          ? ''
+          : rawPayeeName;
+      _payeeController.text = payeeName;
+
+      _recipientWalletName = qr['recipient_wallet_name']?.toString() ?? qr['wallet_name']?.toString() ?? qr['recipient_wallet']?.toString();
+      _toWalletId = qr['to_wallet_id']?.toString();
+      _payeeUserId = qr['payee_user_id']?.toString();
+      _payeeId = qr['payee_id']?.toString();
+
+      final isInternal = qr['type'] == 'internal' || qr['payee_type'] == 'internal';
+      if (isInternal && (_recipientWalletName == null || _toWalletId == null)) {
+        _isLoadingRecipientWallet = true;
+        final identifier = qr['identifier'] ?? qr['account_number'] ?? '';
+        if (identifier.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            try {
+              final result = await ref.read(qrTransferProvider.notifier).decodeQrCode(identifier.toString());
+              if (result != null && mounted) {
+                setState(() {
+                  _recipientWalletName = result['recipient_wallet_name']?.toString() ?? result['wallet_name']?.toString() ?? result['recipient_wallet']?.toString();
+                  _toWalletId = result['to_wallet_id']?.toString();
+                  _payeeUserId = result['payee_user_id']?.toString();
+                  _payeeId = result['payee_id']?.toString();
+                });
+              }
+            } catch (e) {
+              // ignore
+            } finally {
+              if (mounted) {
+                setState(() {
+                  _isLoadingRecipientWallet = false;
+                });
+              }
+            }
+          });
+        } else {
+          _isLoadingRecipientWallet = false;
+        }
+      }
     }
   }
 
@@ -109,6 +173,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     _amountController.dispose();
     _notesController.dispose();
     _titleController.dispose();
+    _payeeController.dispose();
     super.dispose();
   }
 
@@ -478,9 +543,62 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
 
 
+    final payeeName = _payeeController.text.trim();
+    if (_isIncome && _selectedWallet!.type.toLowerCase() != 'cash') {
+      if (payeeName.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Thu nhập của ví ngân hàng/ví điện tử bắt buộc phải có thông tin người chuyển/thụ hưởng!'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
+
     final title = _titleController.text.trim().isEmpty
         ? _selectedCategory!.name
         : _titleController.text.trim();
+
+    // Nếu là giao dịch chuyển khoản từ QR Code
+    if (widget.qrData != null) {
+      if (amount > _selectedWallet!.balance) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('insufficient_balance_error'.trRead(ref)),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      final qr = widget.qrData!;
+      final rawPayeeName = qr['payee_name']?.toString().trim() ?? '';
+      final resolvedPayeeName = (rawPayeeName.isEmpty || rawPayeeName.toUpperCase() == 'UNKNOWN RECIPIENT')
+          ? 'Không xác định'
+          : rawPayeeName;
+      final identifier = qr['identifier'] ?? qr['account_number'] ?? '';
+      final bankName = qr['bank_name'] ?? '';
+
+      context.push('/qr-transfer-result', extra: {
+        'is_pending_execution': true,
+        'from_wallet_id': _selectedWallet!.id,
+        'payee_type': qr['type'] ?? qr['payee_type'] ?? 'internal',
+        'amount': amount,
+        'notes': _notesController.text.isNotEmpty ? _notesController.text : 'QR transfer',
+        'payee_user_id': _payeeUserId ?? qr['payee_user_id'],
+        'bank_code': qr['bank_code'],
+        'account_number': qr['account_number'] ?? qr['identifier'],
+        'payee_name': resolvedPayeeName,
+        'sender_wallet': _selectedWallet!.name,
+        'bank_name': bankName,
+        'identifier': identifier,
+        'type': qr['type'] ?? qr['payee_type'] ?? 'internal',
+        'to_wallet_id': _toWalletId ?? qr['to_wallet_id'],
+        'category_id': _selectedCategory!.id,
+      });
+      return;
+    }
 
     // Xác định loại giao dịch cho backend (income hoặc expense)
     final backendType = _selectedParentCategory?.type ?? 'expense';
@@ -501,8 +619,8 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       exchangeRate: 1.0,
       timezone: ref.read(currentUserProvider)?.timezone ?? 'Asia/Ho_Chi_Minh',
       attachmentPath: _imageFile?.path,
-      payeeName: null,
-      payeeId: null,
+      payeeName: payeeName.isEmpty ? null : payeeName,
+      payeeId: _payeeId,
       payeeAccountNumber: null,
       payeeBankName: null,
       sourceType: 'manual',
@@ -515,6 +633,134 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     });
   }
 
+
+  Widget _buildQrRecipientCard(AppColorsExtension colors) {
+    if (widget.qrData == null) return const SizedBox.shrink();
+    
+    final qr = widget.qrData!;
+    final isInternal = qr['type'] == 'internal' || qr['payee_type'] == 'internal';
+    final recipientWalletName = _recipientWalletName ?? qr['recipient_wallet_name'] ?? qr['wallet_name'] ?? qr['recipient_wallet'];
+    final rawPayeeName = qr['payee_name']?.toString().trim() ?? '';
+    final payeeName = (rawPayeeName.isEmpty || rawPayeeName.toUpperCase() == 'UNKNOWN RECIPIENT')
+        ? 'Không xác định'
+        : rawPayeeName;
+    final identifier = qr['identifier'] ?? qr['account_number'] ?? '';
+    final bankName = qr['bank_name'] ?? '';
+    final bankLogo = qr['bank_logo'];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.authCardBg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colors.textSecondary.withOpacity(0.1)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))
+        ],
+      ),
+      child: Row(
+        children: [
+          if (isInternal)
+            CircleAvatar(
+              radius: 24,
+              backgroundImage: qr['avatar_url'] != null ? NetworkImage(qr['avatar_url']) : null,
+              child: qr['avatar_url'] == null ? const Icon(Icons.person) : null,
+            )
+          else
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: bankLogo != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: CachedNetworkImage(
+                        imageUrl: bankLogo,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => const Center(
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => const Icon(
+                          Icons.account_balance_rounded,
+                          color: Colors.blue,
+                        ),
+                      ),
+                    )
+                  : const Icon(Icons.account_balance_rounded, color: Colors.blue),
+            ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  payeeName,
+                  style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isInternal ? "ID: $identifier" : "$bankName - $identifier",
+                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
+                ),
+                if (isInternal) ...[
+                  const SizedBox(height: 6),
+                  if (_isLoadingRecipientWallet)
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.account_balance_wallet_rounded,
+                          size: 14,
+                          color: colors.primary,
+                        ),
+                        const SizedBox(width: 6),
+                        Shimmer.fromColors(
+                          baseColor: colors.textSecondary.withOpacity(0.1),
+                          highlightColor: colors.textSecondary.withOpacity(0.05),
+                          child: Container(
+                            width: 120,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  else if (recipientWalletName != null)
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.account_balance_wallet_rounded,
+                          size: 14,
+                          color: colors.primary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          "Ví nhận: $recipientWalletName",
+                          style: TextStyle(
+                            color: colors.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   // Helper method to resolve dynamic parent icons & colors
   Map<String, dynamic> _getParentStyle(
@@ -566,7 +812,12 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
     // Extract parent categories dynamically
     final allCats = categoriesAsync.value ?? [];
-    final parentCategories = allCats.where((c) => c.parentId == null).toList();
+    final bool isQr = widget.qrData != null;
+    final parentCategories = allCats.where((c) {
+      if (c.parentId != null) return false;
+      if (isQr && c.type == 'income') return false; // Loại bỏ Thu nhập khi quét QR
+      return true;
+    }).toList();
     parentCategories.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
     // Handle default parent selection on load
@@ -579,18 +830,43 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     subCategoryList.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     final quickSubcategories = subCategoryList.take(4).toList();
 
-    // Thêm giao dịch thủ công hỗ trợ ví Tiền mặt, Ngân hàng, và Ví điện tử (chỉ VND)
+    // Phân loại ví: Nhập tay -> Tiền mặt; QR -> Ngân hàng/Ví điện tử
     final rawWalletList = walletsAsync.value ?? [];
-    final walletList = rawWalletList.where((w) {
-      final type = w.type.toLowerCase();
-      return (type == 'cash' || type == 'bank' || type == 'e-wallet') && w.currencyCode == 'VND';
-    }).toList();
+    final List<WalletEntity> walletList;
+    
+    if (isQr) {
+      final isInternal = widget.qrData!['type'] == 'internal';
+      walletList = rawWalletList.where((w) {
+        if (w.type.toLowerCase() == 'cash') return false;
+        if (!isInternal && w.currencyCode != 'VND') return false;
+        return !w.isHidden;
+      }).toList();
+    } else {
+      walletList = rawWalletList.where((w) {
+        final type = w.type.toLowerCase();
+        return type == 'cash' && w.currencyCode == 'VND' && !w.isHidden;
+      }).toList();
+    }
 
     if (_selectedWallet == null && walletList.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         setState(() {
-          _selectedWallet = walletList.first;
-          _updateFormatter(_selectedWallet!.currencyCode);
+          if (isQr) {
+            final prefilledWalletId = widget.qrData!['from_wallet_id'];
+            WalletEntity? prefilledWallet;
+            if (prefilledWalletId != null) {
+              prefilledWallet = walletList.where((w) => w.id == prefilledWalletId).firstOrNull;
+            }
+            _selectedWallet = prefilledWallet ?? walletList.firstWhere(
+              (w) => w.type.toLowerCase() == 'bank',
+              orElse: () => walletList.first,
+            );
+          } else {
+            _selectedWallet = walletList.first;
+          }
+          if (_selectedWallet != null) {
+            _updateFormatter(_selectedWallet!.currencyCode);
+          }
         });
       });
     }
@@ -700,6 +976,20 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
+
+                if (widget.qrData != null) ...[
+                  Text(
+                    'recipient_info'.tr(ref),
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildQrRecipientCard(colors),
+                  const SizedBox(height: 24),
+                ],
 
                 // 📁 2. Parent Category Section
                 Text(
@@ -1106,6 +1396,43 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
+
+                if (_isIncome) ...[
+                  Text(
+                    'Người gửi / Người thụ hưởng',
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.authCardBg,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: colors.textSecondary.withOpacity(0.06),
+                      ),
+                    ),
+                    child: TextField(
+                      controller: _payeeController,
+                      style: TextStyle(color: colors.textPrimary),
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        hintText: 'Nhập tên người gửi...',
+                        hintStyle: TextStyle(
+                          color: colors.textSecondary.withOpacity(0.5),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
 
                 // 📝 6. Notes field
                 Text(

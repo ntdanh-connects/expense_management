@@ -5,7 +5,7 @@ import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/auth/auth_provider.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'bottom_bar_config.dart';
-import 'quick_action_button.dart';
+import 'package:go_router/go_router.dart';
 
 class CustomSlidingBottomBar extends ConsumerWidget {
   final int currentIndex;
@@ -64,17 +64,31 @@ class CustomSlidingBottomBar extends ConsumerWidget {
     );
   }
 
-  // Widget vẽ nút (+) phát sáng Neon
+  // Widget vẽ nút Quét QR phát sáng Neon
   Widget _buildPlusButton(BuildContext context, double width, Color neonColor) {
     return SizedBox(
       width: width, height: 68,
       child: Center(
         child: InkWell(
-          onTap: () => showModalBottomSheet(context: context, useRootNavigator: true, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (context) => QuickActionBottomSheet(systemAccentColor: neonColor)),
+          onTap: () => context.push('/qr-scanner'),
           child: Container(
             width: 48, height: 48,
-            decoration: BoxDecoration(color: neonColor, shape: BoxShape.circle, boxShadow: [BoxShadow(color: neonColor.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 4))]),
-            child: Icon(Icons.add_rounded, color: neonColor.computeLuminance() > 0.5 ? Colors.black : Colors.white, size: 28),
+            decoration: BoxDecoration(
+              color: neonColor,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: neonColor.withOpacity(0.4),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.qr_code_scanner_rounded,
+              color: neonColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+              size: 26,
+            ),
           ),
         ),
       ),

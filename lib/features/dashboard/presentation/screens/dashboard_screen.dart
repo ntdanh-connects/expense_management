@@ -369,10 +369,10 @@ class DashboardScreen extends ConsumerWidget {
                         Expanded(
                           child: _buildQuickActionItem(
                             context: context,
-                            icon: Icons.qr_code_scanner_rounded,
-                            label: 'qr_transfer'.tr(ref),
+                            icon: Icons.edit_note_rounded,
+                            label: 'manual_input'.tr(ref),
                             iconColor: const Color(0xFF0D9488),
-                            onTap: () => context.push('/qr-scanner'),
+                            onTap: () => context.push(RoutePaths.addTransaction),
                           ),
                         ),
                         Expanded(

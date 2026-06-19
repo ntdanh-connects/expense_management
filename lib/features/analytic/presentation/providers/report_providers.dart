@@ -438,26 +438,186 @@ final categoriesByPeriodProvider = FutureProvider.family<ReportCategoryDto, Cate
 });
 
 // Transaction list provider for the Category Detail Screen
-typedef CategoryDetailTransArg = ({String categoryId, DateTime startDate, DateTime endDate});
+typedef CategoryDetailTransArg = ({String categoryId, DateTime startDate, DateTime endDate, String type});
 final categoryDetailTransactionsProvider = FutureProvider.family<List<TransactionEntity>, CategoryDetailTransArg>((ref, arg) async {
   ref.watch(transactionListProvider);
   final useCase = ref.read(getTransactionsUseCaseProvider);
 
   final isUncategorized = arg.categoryId == 'uncategorized';
-  final result = await useCase.execute(
-    categoryId: isUncategorized ? null : arg.categoryId,
-    startDate: DateFormat('yyyy-MM-dd').format(arg.startDate),
-    endDate: DateFormat('yyyy-MM-dd').format(arg.endDate),
-    sortBy: 'date',
-    sortOrder: 'desc',
-    perPage: 100,
-  );
-
   if (isUncategorized) {
+    final result = await useCase.execute(
+      categoryId: null,
+      startDate: DateFormat('yyyy-MM-dd').format(arg.startDate),
+      endDate: DateFormat('yyyy-MM-dd').format(arg.endDate.add(const Duration(days: 1))),
+      type: arg.type,
+      sortBy: 'date',
+      sortOrder: 'desc',
+      perPage: 100,
+    );
     return result.items
-        .where((tx) => tx.categoryId == null || tx.categoryName == null)
+        .where((tx) => (tx.categoryId == null || tx.categoryName == null) && tx.type == arg.type)
         .toList();
   }
-  return result.items;
+
+  // Lấy các danh mục con nếu đây là danh mục cha
+  final database = ref.read(appDatabaseProvider);
+  final allCategories = await database.getAllCategories();
+  final childIds = allCategories
+      .where((c) => c.parentId == arg.categoryId)
+      .map((c) => c.id)
+      .toList();
+
+  final idsToFetch = [arg.categoryId, ...childIds];
+
+  // Fetch transactions song song cho tất cả các ID danh mục liên quan
+  final results = await Future.wait(idsToFetch.map((id) => useCase.execute(
+        categoryId: id,
+        startDate: DateFormat('yyyy-MM-dd').format(arg.startDate),
+        endDate: DateFormat('yyyy-MM-dd').format(arg.endDate.add(const Duration(days: 1))),
+        type: arg.type,
+        sortBy: 'date',
+        sortOrder: 'desc',
+        perPage: 100,
+      )));
+
+  // Gộp tất cả kết quả, đảm bảo tính duy nhất theo ID giao dịch và sắp xếp theo ngày giảm dần
+  final allTransactions = results.expand((r) => r.items).toList();
+  final uniqueMap = {for (var tx in allTransactions) tx.id: tx};
+  
+  final enrichedList = uniqueMap.values.map((tx) {
+    if (tx.categoryId != null) {
+      final match = allCategories.where((c) => c.id == tx.categoryId);
+      if (match.isNotEmpty) {
+        final cat = match.first;
+        return TransactionEntity(
+          id: tx.id,
+          walletId: tx.walletId,
+          categoryId: tx.categoryId,
+          type: tx.type,
+          status: tx.status,
+          amount: tx.amount,
+          currencyCode: tx.currencyCode,
+          exchangeRate: tx.exchangeRate,
+          title: tx.title,
+          notes: tx.notes,
+          timezone: tx.timezone,
+          sourceType: tx.sourceType,
+          sourceId: tx.sourceId,
+          isTransferLocked: tx.isTransferLocked,
+          transactionDate: tx.transactionDate,
+          createdAt: tx.createdAt,
+          categoryName: cat.name,
+          categoryIcon: cat.icon,
+          categoryColor: cat.color,
+          walletName: tx.walletName,
+          walletIcon: tx.walletIcon,
+          walletColor: tx.walletColor,
+          attachmentUrls: tx.attachmentUrls,
+          payeeId: tx.payeeId,
+          payeeName: tx.payeeName,
+          payeeAccountNumber: tx.payeeAccountNumber,
+          payeeBankName: tx.payeeBankName,
+          senderName: tx.senderName,
+          senderWalletName: tx.senderWalletName,
+          senderIdentifier: tx.senderIdentifier,
+        );
+      }
+    }
+    return tx;
+  }).toList();
+
+  final sortedList = enrichedList
+    ..sort((a, b) => b.transactionDate.compareTo(a.transactionDate));
+
+  return sortedList;
+});
+
+class ReportWalletEntryDto {
+  final String walletId;
+  final String walletName;
+  final String walletColor;
+  final String walletIcon;
+  final double amount;
+  final double percentage;
+
+  ReportWalletEntryDto({
+    required this.walletId,
+    required this.walletName,
+    required this.walletColor,
+    required this.walletIcon,
+    required this.amount,
+    required this.percentage,
+  });
+}
+
+class ReportWalletDto {
+  final double totalAmount;
+  final List<ReportWalletEntryDto> wallets;
+
+  ReportWalletDto({
+    required this.totalAmount,
+    required this.wallets,
+  });
+}
+
+final reportWalletsProvider = FutureProvider<ReportWalletDto>((ref) async {
+  // Watch transactionListProvider to refresh when transactions are updated/synced
+  ref.watch(transactionListProvider);
+
+  final database = ref.read(appDatabaseProvider);
+  final userId = ref.read(currentUserProvider)?.id ?? '';
+  if (userId.isEmpty) {
+    return ReportWalletDto(totalAmount: 0.0, wallets: []);
+  }
+
+  final range = ref.watch(selectedDateRangeProvider);
+
+  // Fetch all active wallets
+  final wallets = await database.select(database.wallets).get();
+  final walletMap = {for (var w in wallets) w.id: w};
+
+  // Fetch all local transactions in the date range of type 'expense'
+  final txs = await (database.select(database.localTransactions)
+        ..where((t) => t.userId.equals(userId) & 
+                       t.deletedAt.isNull() & 
+                       t.type.equals('expense') &
+                       t.sourceType.equals('transfer').not() & // Loại bỏ chuyển khoản nội bộ
+                       t.transactionDate.isBiggerOrEqualValue(range.start) & 
+                       t.transactionDate.isSmallerOrEqualValue(range.end)))
+      .get();
+
+  double totalAmount = 0.0;
+  final Map<String, double> walletAmounts = {};
+
+  for (final tx in txs) {
+    final amt = tx.amountInUserCurrency;
+    totalAmount += amt;
+    walletAmounts[tx.walletId] = (walletAmounts[tx.walletId] ?? 0.0) + amt;
+  }
+
+  final List<ReportWalletEntryDto> entries = [];
+  walletAmounts.forEach((walletId, amount) {
+    final wallet = walletMap[walletId];
+    final walletName = wallet?.name ?? 'Ví không xác định';
+    final walletColor = wallet?.color ?? '#CCCCCC';
+    final walletIcon = wallet?.icon ?? '';
+
+    entries.add(ReportWalletEntryDto(
+      walletId: walletId,
+      walletName: walletName,
+      walletColor: walletColor,
+      walletIcon: walletIcon,
+      amount: amount,
+      percentage: totalAmount > 0 ? (amount / totalAmount) * 100 : 0.0,
+    ));
+  });
+
+  // Sắp xếp chi tiêu từ ví nhiều nhất đến ít nhất
+  entries.sort((a, b) => b.amount.compareTo(a.amount));
+
+  return ReportWalletDto(
+    totalAmount: totalAmount,
+    wallets: entries,
+  );
 });
 

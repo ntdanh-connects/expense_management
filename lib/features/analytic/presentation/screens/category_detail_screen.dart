@@ -7,6 +7,10 @@ import 'package:expense_management/features/profile/presentation/widgets/categor
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:expense_management/core/language/app_language.dart';
+import 'package:expense_management/core/router/app_route.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 class CategoryDetailScreen extends ConsumerStatefulWidget {
   final String categoryId;
@@ -40,9 +44,9 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
   late String? _currentCategoryColor;
   late String? _currentCategoryIcon;
   
-  // Track selected period index in the 5-column chart (-1 means the latest/selected one)
-  int _selectedChartIndex = 4; // defaults to the latest period
-  final String _activeFilterTab = 'all'; // 'all', 'top_spend', 'top_recipient'
+  // Track selected period index in the chart (-1 means the latest/selected one)
+  int _selectedChartIndex = 5; // defaults to the latest period
+  String _activeFilterTab = 'all'; // 'all', 'top_spend', 'top_recipient'
   bool _isAmountVisible = true;
 
   @override
@@ -52,6 +56,7 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
     _currentCategoryName = widget.categoryName;
     _currentCategoryColor = widget.categoryColor;
     _currentCategoryIcon = widget.categoryIcon;
+    _selectedChartIndex = (widget.timeMode == 'year') ? 1 : 5;
   }
 
   String _formatCurrency(double amount) {
@@ -59,15 +64,27 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
     return format.format(amount);
   }
 
-  // Calculate start of chart range (e.g. 5 periods back)
+  // Calculate start of chart range (e.g. 6 periods back)
   DateTime _getChartStartDate() {
-    if (widget.timeMode == 'week') {
-      return widget.endDate.subtract(const Duration(days: 34)); // 5 weeks total (this week + 4 previous)
-    } else if (widget.timeMode == 'month') {
-      return DateTime(widget.endDate.year, widget.endDate.month - 4, 1);
+    final endDate = widget.endDate;
+    if (endDate is tz.TZDateTime) {
+      final loc = endDate.location;
+      if (widget.timeMode == 'week') {
+        final start = endDate.subtract(const Duration(days: 41));
+        return tz.TZDateTime(loc, start.year, start.month, start.day);
+      } else if (widget.timeMode == 'month') {
+        return tz.TZDateTime(loc, endDate.year, endDate.month - 5, 1);
+      } else {
+        return tz.TZDateTime(loc, endDate.year - 1, 1, 1);
+      }
     } else {
-      // year: 2 years (last year and this year)
-      return DateTime(widget.endDate.year - 1, 1, 1);
+      if (widget.timeMode == 'week') {
+        return endDate.subtract(const Duration(days: 41));
+      } else if (widget.timeMode == 'month') {
+        return DateTime(endDate.year, endDate.month - 5, 1);
+      } else {
+        return DateTime(endDate.year - 1, 1, 1);
+      }
     }
   }
 
@@ -75,6 +92,10 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final user = ref.watch(currentUserProvider);
+    final tzName = user?.timezone ?? 'Asia/Ho_Chi_Minh';
+    final location = tz.getLocation(tzName);
 
     final chartStartDate = _getChartStartDate();
     final chartEndDate = widget.endDate;
@@ -84,6 +105,7 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
       categoryId: _currentCategoryId,
       startDate: chartStartDate,
       endDate: chartEndDate,
+      type: widget.type,
     )));
 
     return Scaffold(
@@ -122,10 +144,11 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
           // 2. Aggregate transactions into period buckets
           final List<double> periodAmounts = List.filled(periods.length, 0.0);
           for (final tx in transactions) {
+            final txDate = tz.TZDateTime.from(tx.transactionDate, location);
             for (int i = 0; i < periods.length; i++) {
-              if (tx.transactionDate.isAfter(periods[i].start.subtract(const Duration(seconds: 1))) &&
-                  tx.transactionDate.isBefore(periods[i].end.add(const Duration(seconds: 1)))) {
-                periodAmounts[i] += tx.amount;
+              if (txDate.isAfter(periods[i].start.subtract(const Duration(seconds: 1))) &&
+                  txDate.isBefore(periods[i].end.add(const Duration(seconds: 1)))) {
+                periodAmounts[i] += tx.amount * (tx.exchangeRate ?? 1.0);
                 break;
               }
             }
@@ -139,17 +162,16 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
           final currentPeriod = periods[_selectedChartIndex];
           final currentPeriodAmount = periodAmounts[_selectedChartIndex];
 
-          // Compute average of non-zero periods (or all periods)
-          double totalSum = 0;
-          for (var amt in periodAmounts) {
-            totalSum += amt;
-          }
-          final double averageAmount = periodAmounts.isEmpty ? 0 : totalSum / periodAmounts.length;
+          // Compute average of non-zero periods (only months with spending)
+          final nonZeroAmounts = periodAmounts.where((amt) => amt > 0).toList();
+          final double averageAmount = nonZeroAmounts.isEmpty ? 0 : nonZeroAmounts.reduce((a, b) => a + b) / nonZeroAmounts.length;
 
           // Filter transactions matching the selected period
-          final selectedPeriodTxs = transactions.where((tx) =>
-              tx.transactionDate.isAfter(currentPeriod.start.subtract(const Duration(seconds: 1))) &&
-              tx.transactionDate.isBefore(currentPeriod.end.add(const Duration(seconds: 1)))).toList();
+          final selectedPeriodTxs = transactions.where((tx) {
+            final txDate = tz.TZDateTime.from(tx.transactionDate, location);
+            return txDate.isAfter(currentPeriod.start.subtract(const Duration(seconds: 1))) &&
+                txDate.isBefore(currentPeriod.end.add(const Duration(seconds: 1)));
+          }).toList();
 
           return SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
@@ -420,6 +442,10 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                   ),
                 ),
 
+                // 💸 Suggestion Card Section (if it's expense type)
+                if (widget.type == 'expense')
+                  _buildSuggestionCard(colors, averageAmount),
+
                 // 💸 Transactions List Section
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -443,8 +469,27 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                         style: TextStyle(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 16),
-                      // Filter tabs removed as requested
-                      const SizedBox(height: 12),
+                      // Filter tabs row
+                      Row(
+                        children: [
+                          _buildTabButton('all', 'Tất cả', Icons.list_alt_rounded, selectedPeriodTxs.length),
+                          const SizedBox(width: 8),
+                          _buildTabButton(
+                            'top_spend',
+                            widget.type == 'expense' ? 'Top chi tiêu' : 'Top thu nhập',
+                            Icons.bar_chart_rounded,
+                            null,
+                          ),
+                          const SizedBox(width: 8),
+                          _buildTabButton(
+                            'top_recipient',
+                            widget.type == 'expense' ? 'Top người nhận' : 'Top nguồn gửi',
+                            Icons.person_outline_rounded,
+                            null,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
                       // Render transactions based on active filter tab
                       _buildTransactionListContent(selectedPeriodTxs, colors),
                     ],
@@ -474,43 +519,199 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
     );
   }
 
-  // Widget _buildFilterTabButton(String key, String label, int? count) {
-  //   final colors = context.colors;
-  //   final isActive = _activeFilterTab == key;
-  //   final btnText = count != null ? '$label ($count)' : label;
-  // 
-  //   return Expanded(
-  //     child: GestureDetector(
-  //       onTap: () {
-  //         setState(() {
-  //           _activeFilterTab = key;
-  //         });
-  //       },
-  //       child: AnimatedContainer(
-  //         duration: const Duration(milliseconds: 200),
-  //         padding: const EdgeInsets.symmetric(vertical: 8),
-  //         alignment: Alignment.center,
-  //         decoration: BoxDecoration(
-  //           color: isActive ? colors.primary.withOpacity(0.08) : Colors.transparent,
-  //           borderRadius: BorderRadius.circular(12),
-  //           border: Border.all(
-  //             color: isActive ? colors.primary.withOpacity(0.3) : colors.textSecondary.withOpacity(0.15),
-  //             width: 1,
-  //           ),
-  //         ),
-  //         child: Text(
-  //           btnText,
-  //           textAlign: TextAlign.center,
-  //           style: TextStyle(
-  //             color: isActive ? colors.primary : colors.textSecondary,
-  //             fontSize: 11,
-  //             fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-  //           ),
-  //         ),
-  //       ),
-  //     ),
-  //   );
-  // }
+  Widget _buildSuggestionCard(AppColorsExtension colors, double averageAmount) {
+    // Tạo danh sách các gợi ý động cho danh mục
+    final suggestions = [
+      (
+        icon: '👀',
+        text: 'So sánh chi tiêu $_currentCategoryName với người 20 tuổi',
+        query: 'Hãy so sánh mức chi tiêu cho danh mục $_currentCategoryName của tôi với mức trung bình của những người ở độ tuổi 20.'
+      ),
+      (
+        icon: '✨',
+        text: '20 tuổi, chi tiêu $_currentCategoryName như nào?',
+        query: 'Ở tuổi 20, tôi nên chi tiêu cho danh mục $_currentCategoryName như thế nào cho hợp lý và tiết kiệm nhất?'
+      ),
+      (
+        icon: '💡',
+        text: 'Mẹo cắt giảm $_currentCategoryName hiệu quả',
+        query: 'Hãy cho tôi một số mẹo thực tế để cắt giảm chi tiêu trong danh mục $_currentCategoryName.'
+      ),
+      (
+        icon: '📊',
+        text: 'Dự báo $_currentCategoryName tháng tới',
+        query: 'Dựa trên lịch sử giao dịch của tôi, hãy dự báo chi tiêu danh mục $_currentCategoryName trong tháng tới và đưa ra lời khuyên.'
+      ),
+    ];
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            'Gợi ý cho bạn',
+            style: TextStyle(
+              color: colors.textSecondary,
+              fontSize: 13.5,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 48,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: suggestions.length + 1, // +1 cho icon Bot Moni ở đầu
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                // Vẽ mặt Bot Moni nhỏ lấp lánh ở đầu hàng cuộn ngang
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: Container(
+                      width: 26,
+                      height: 26,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF9C27B0), Color(0xFFE91E63)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Center(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 3,
+                              height: 3,
+                              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                            ),
+                            const SizedBox(width: 3),
+                            Container(
+                              width: 3,
+                              height: 3,
+                              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              final suggestion = suggestions[index - 1];
+
+              // Màu pastel cho từng chip khi ở chế độ Light Mode
+              final List<Color> bgColorsLight = [
+                const Color(0xFFE3F2FD), // Xanh lam nhạt
+                const Color(0xFFF3E5F5), // Tím nhạt
+                const Color(0xFFE8F5E9), // Xanh lá nhạt
+                const Color(0xFFFFF3E0), // Cam nhạt
+              ];
+              final List<Color> borderColorsLight = [
+                const Color(0xFFBBDEFB),
+                const Color(0xFFE1BEE7),
+                const Color(0xFFC8E6C9),
+                const Color(0xFFFFE0B2),
+              ];
+
+              final chipIndex = (index - 1) % bgColorsLight.length;
+              final bgColor = isDark ? colors.surface : bgColorsLight[chipIndex];
+              final borderColor = isDark ? colors.textSecondary.withOpacity(0.15) : borderColorsLight[chipIndex];
+
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Center(
+                  child: ActionChip(
+                    onPressed: () {
+                      context.push(RoutePaths.aiAssistant, extra: suggestion.query);
+                    },
+                    avatar: Text(suggestion.icon, style: const TextStyle(fontSize: 13)),
+                    label: Text(
+                      suggestion.text,
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    backgroundColor: bgColor,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(color: borderColor, width: 0.8),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+
+  Widget _buildTabButton(String key, String label, IconData icon, int? count) {
+    final colors = context.colors;
+    final isActive = _activeFilterTab == key;
+    final displayLabel = count != null ? '$label ($count)' : label;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _activeFilterTab = key;
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isActive ? colors.primary.withOpacity(0.08) : colors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isActive ? colors.primary : colors.textSecondary.withOpacity(0.15),
+              width: 1.2,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                color: isActive ? colors.primary : colors.textSecondary,
+                size: 14,
+              ),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  displayLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: isActive ? colors.primary : colors.textSecondary,
+                    fontSize: 11,
+                    fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildTransactionListContent(List<TransactionEntity> originalList, AppColorsExtension colors) {
     if (originalList.isEmpty) {
@@ -564,9 +765,9 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
         },
       );
     } else if (_activeFilterTab == 'top_spend') {
-      // Sort by amount descending
+      // Sort by amount descending in user currency
       final sortedList = List<TransactionEntity>.from(originalList)
-        ..sort((a, b) => b.amount.compareTo(a.amount));
+        ..sort((a, b) => (b.amount * (b.exchangeRate ?? 1.0)).compareTo(a.amount * (a.exchangeRate ?? 1.0)));
 
       return ListView.separated(
         shrinkWrap: true,
@@ -579,18 +780,31 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
         },
       );
     } else {
-      // Group and sum by payee
-      final Map<String, double> payeeSums = {};
-      final Map<String, TransactionEntity> payeeSample = {};
+      // Group and sum by payee using user currency amount
+      final Map<String, ({double amount, int count})> payeeGroups = {};
 
       for (final tx in originalList) {
-        final payee = tx.payeeName ?? tx.title;
-        payeeSums[payee] = (payeeSums[payee] ?? 0.0) + tx.amount;
-        payeeSample[payee] = tx;
+        final String payee = (tx.payeeName != null && tx.payeeName!.trim().isNotEmpty)
+            ? tx.payeeName!.trim()
+            : tx.title.trim();
+        
+        final txAmount = tx.amount * (tx.exchangeRate ?? 1.0);
+        final existing = payeeGroups[payee];
+        if (existing != null) {
+          payeeGroups[payee] = (
+            amount: existing.amount + txAmount,
+            count: existing.count + 1,
+          );
+        } else {
+          payeeGroups[payee] = (
+            amount: txAmount,
+            count: 1,
+          );
+        }
       }
 
-      final sortedPayees = payeeSums.keys.toList()
-        ..sort((a, b) => payeeSums[b]!.compareTo(payeeSums[a]!));
+      final sortedPayees = payeeGroups.keys.toList()
+        ..sort((a, b) => payeeGroups[b]!.amount.compareTo(payeeGroups[a]!.amount));
 
       return ListView.separated(
         shrinkWrap: true,
@@ -599,19 +813,35 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
         separatorBuilder: (context, index) => const Divider(height: 12, thickness: 0.5),
         itemBuilder: (context, index) {
           final name = sortedPayees[index];
-          final sum = payeeSums[name]!;
+          final data = payeeGroups[name]!;
 
-          final catColor = CategoryUIConstants.getColorFromHex(_currentCategoryColor);
-          final catIcon = CategoryUIConstants.getIconData(_currentCategoryIcon);
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          final rankColor = isDark ? Colors.grey[400] : Colors.grey[600];
 
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(
               children: [
+                // Rank number
+                SizedBox(
+                  width: 24,
+                  child: Text(
+                    '${index + 1}',
+                    style: TextStyle(
+                      color: rankColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
                 CircleAvatar(
-                  backgroundColor: catColor.withOpacity(0.12),
+                  backgroundColor: colors.primary.withOpacity(0.1),
                   radius: 20,
-                  child: Icon(catIcon, color: catColor, size: 20),
+                  child: Icon(
+                    Icons.person_outline_rounded,
+                    color: colors.primary,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -624,14 +854,14 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Người nhận / Chi tiết',
-                        style: TextStyle(color: colors.textSecondary, fontSize: 11),
+                        '${data.count} giao dịch',
+                        style: TextStyle(color: colors.textSecondary, fontSize: 11, fontWeight: FontWeight.w500),
                       ),
                     ],
                   ),
                 ),
                 Text(
-                  (widget.type == 'expense' ? '-' : '+') + _formatCurrency(sum),
+                  (widget.type == 'expense' ? '-' : '+') + _formatCurrency(data.amount),
                   style: TextStyle(
                     color: widget.type == 'expense' ? colors.expenseRed : colors.incomeGreen,
                     fontWeight: FontWeight.bold,
@@ -647,8 +877,10 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
   }
 
   Widget _buildTransactionItemRow(TransactionEntity tx, AppColorsExtension colors) {
-    final catColor = CategoryUIConstants.getColorFromHex(_currentCategoryColor);
-    final catIcon = CategoryUIConstants.getIconData(_currentCategoryIcon);
+    final catColor = CategoryUIConstants.getColorFromHex(tx.categoryColor ?? _currentCategoryColor);
+    final catIcon = CategoryUIConstants.getIconData(tx.categoryIcon ?? _currentCategoryIcon);
+
+    final showCategoryName = tx.categoryName != null && tx.categoryName!.isNotEmpty;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -670,21 +902,40 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: colors.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
                 ),
-                if (tx.notes != null && tx.notes!.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    tx.notes!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: colors.textSecondary, fontSize: 11),
-                  ),
-                ],
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    if (showCategoryName) ...[
+                      Text(
+                        tx.categoryName!.tr(ref),
+                        style: TextStyle(color: colors.primary, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                      if (tx.notes != null && tx.notes!.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          '•',
+                          style: TextStyle(color: colors.textSecondary.withOpacity(0.5), fontSize: 11),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                    ],
+                    if (tx.notes != null && tx.notes!.isNotEmpty)
+                      Expanded(
+                        child: Text(
+                          tx.notes!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: colors.textSecondary, fontSize: 11),
+                        ),
+                      ),
+                  ],
+                ),
               ],
             ),
           ),
           const SizedBox(width: 8),
           Text(
-            (tx.type == 'expense' ? '-' : '+') + _formatCurrency(tx.amount),
+            (tx.type == 'expense' ? '-' : '+') + _formatCurrency(tx.amount * (tx.exchangeRate ?? 1.0)),
             style: TextStyle(
               color: tx.type == 'expense' ? colors.expenseRed : colors.incomeGreen,
               fontWeight: FontWeight.bold,
@@ -711,15 +962,15 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
         ));
       }
     } else if (mode == 'month') {
-      // 5 months
-      for (int i = 0; i < 5; i++) {
+      // 6 months
+      for (int i = 0; i < 6; i++) {
         final date = DateTime(start.year, start.month + i, 1);
         final mStart = DateTime(date.year, date.month, 1);
         final mEnd = DateTime(date.year, date.month + 1, 0, 23, 59, 59);
         buckets.add(PeriodBucket(
           start: mStart,
           end: mEnd,
-          label: 'T${mStart.month}',
+          label: i == 0 ? '${mStart.month}/${mStart.year}' : '${mStart.month}',
         ));
       }
     } else {

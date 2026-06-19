@@ -5,6 +5,9 @@ import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
+import 'package:expense_management/features/profile/category_provider.dart';
+import 'package:expense_management/features/profile/data/models/category_dto.dart';
+import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:elegant_notification/elegant_notification.dart';
@@ -20,6 +23,7 @@ class QrTransferConfirmScreen extends ConsumerStatefulWidget {
 
 class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScreen> {
   WalletEntity? _selectedWallet;
+  CategoryDto? _selectedCategory;
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
 
@@ -89,6 +93,14 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
       ).show(context);
       return;
     }
+
+    if (_selectedCategory == null) {
+      ElegantNotification.error(
+        title: Text('error'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
+        description: const Text('Vui lòng chọn danh mục chi tiêu cho giao dịch này!'),
+      ).show(context);
+      return;
+    }
     
     final cleanAmountString = _amountController.text.replaceAll(RegExp(r'[^0-9]'), '');
     final double? amount = double.tryParse(cleanAmountString);
@@ -133,8 +145,143 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
         'identifier': identifier,
         'type': widget.payeeData['type'] ?? 'internal',
         'to_wallet_id': widget.payeeData['to_wallet_id'],
+        'category_id': _selectedCategory!.id,
       });
     }
+  }
+
+  void _showCategoryPicker(BuildContext context, List<CategoryDto> parents) {
+    final color = context.colors;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: BoxDecoration(
+                color: color.background,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: Column(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: color.textSecondary.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Chọn danh mục chi tiêu',
+                    style: TextStyle(
+                      color: color.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: scrollController,
+                      itemCount: parents.length,
+                      itemBuilder: (context, idx) {
+                        final parent = parents[idx];
+                        final subCats = parent.children ?? [];
+                        if (subCats.isEmpty) return const SizedBox.shrink();
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Text(
+                                parent.name.tr(ref),
+                                style: TextStyle(
+                                  color: color.textSecondary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                            ),
+                            GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 4,
+                                mainAxisSpacing: 12,
+                                crossAxisSpacing: 8,
+                                childAspectRatio: 0.85,
+                              ),
+                              itemCount: subCats.length,
+                              itemBuilder: (context, sIdx) {
+                                final subCat = subCats[sIdx];
+                                final iconData = CategoryUIConstants.getIconData(subCat.icon);
+                                final catColor = CategoryUIConstants.getColorFromHex(subCat.color);
+                                final isSelected = _selectedCategory?.id == subCat.id;
+
+                                return InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedCategory = subCat;
+                                    });
+                                    Navigator.pop(context);
+                                  },
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        width: 48,
+                                        height: 48,
+                                        decoration: BoxDecoration(
+                                          color: catColor.withOpacity(isSelected ? 0.3 : 0.12),
+                                          shape: BoxShape.circle,
+                                          border: isSelected
+                                              ? Border.all(color: catColor, width: 2)
+                                              : null,
+                                        ),
+                                        child: Icon(iconData, color: catColor, size: 22),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        subCat.name.tr(ref),
+                                        style: TextStyle(
+                                          color: isSelected ? catColor : color.textPrimary,
+                                          fontSize: 11,
+                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            const Divider(),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -142,6 +289,9 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
     final color = context.colors;
     final wallets = ref.watch(walletNotifierProvider).value ?? [];
     final isInternal = widget.payeeData['type'] == 'internal';
+    final categoriesAsync = ref.watch(categoriesNotifierProvider);
+    final allCats = categoriesAsync.value ?? [];
+    final parentCategories = allCats.where((c) => c.parentId == null && c.type == 'expense').toList();
     
     final filteredWallets = wallets.where((w) {
       if (w.type == 'cash') return false;
@@ -385,7 +535,7 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
                 ),
                 const SizedBox(height: 16),
 
-                // 4. DESCRIPTION
+                 // 4. DESCRIPTION
                 Text(
                   'notes'.tr(ref),
                   style: TextStyle(color: color.textSecondary, fontWeight: FontWeight.bold, fontSize: 13),
@@ -400,6 +550,66 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
                     filled: true,
                     fillColor: color.surface,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 4.5. CATEGORY SELECTOR
+                Text(
+                  'category'.tr(ref),
+                  style: TextStyle(color: color.textSecondary, fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () => _showCategoryPicker(context, parentCategories),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: color.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: _selectedCategory != null 
+                            ? CategoryUIConstants.getColorFromHex(_selectedCategory!.color).withOpacity(0.4)
+                            : Colors.transparent
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: _selectedCategory != null
+                                ? CategoryUIConstants.getColorFromHex(_selectedCategory!.color).withOpacity(0.12)
+                                : color.primary.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            _selectedCategory != null
+                                ? CategoryUIConstants.getIconData(_selectedCategory!.icon)
+                                : Icons.category_rounded,
+                            color: _selectedCategory != null
+                                ? CategoryUIConstants.getColorFromHex(_selectedCategory!.color)
+                                : color.primary,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            _selectedCategory != null
+                                ? _selectedCategory!.name.tr(ref)
+                                : 'Chọn danh mục chi tiêu...',
+                            style: TextStyle(
+                              color: _selectedCategory != null ? color.textPrimary : color.textSecondary.withOpacity(0.8),
+                              fontWeight: _selectedCategory != null ? FontWeight.bold : FontWeight.normal,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                        Icon(Icons.arrow_forward_ios_rounded, color: color.textSecondary.withOpacity(0.4), size: 14),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 32),

@@ -176,7 +176,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.addTransaction,
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const AddTransactionScreen(),
+        builder: (context, state) {
+          final qrData = state.extra as Map<String, dynamic>?;
+          return AddTransactionScreen(qrData: qrData);
+        },
       ),
       GoRoute(
         path: RoutePaths.qrScanner,
@@ -226,7 +229,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.aiAssistant,
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const AIAssistantScreen(),
+        builder: (context, state) {
+          final initialMessage = state.extra as String?;
+          return AIAssistantScreen(initialMessage: initialMessage);
+        },
       ),
 
 
@@ -276,7 +282,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: 'budget/create',
                 parentNavigatorKey: rootNavigatorKey,
-                builder: (context, state) => const BudgetCreateScreen(),
+                builder: (context, state) {
+                  final extra = state.extra as Map<String, dynamic>?;
+                  return BudgetCreateScreen(
+                    preselectedCategoryId: extra?['categoryId'] as String?,
+                    suggestedAmount: extra?['suggestedAmount'] as double?,
+                  );
+                },
               ),
               GoRoute(
                 path: 'budget/edit',

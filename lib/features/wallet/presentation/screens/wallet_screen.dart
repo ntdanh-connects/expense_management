@@ -789,7 +789,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                                         : 'Chuyển tiền cho $_fetchedPayeeName',
                                     'to_wallet_id': _fetchedToWalletId,
                                   };
-                                  context.push('/qr-transfer-confirm', extra: mappedPayee);
+                                  context.push('/add-transaction', extra: mappedPayee);
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: colors.primary,

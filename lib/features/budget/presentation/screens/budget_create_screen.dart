@@ -64,7 +64,14 @@ class TempCategoryBudget {
 }
 
 class BudgetCreateScreen extends ConsumerStatefulWidget {
-  const BudgetCreateScreen({super.key});
+  final String? preselectedCategoryId;
+  final double? suggestedAmount;
+
+  const BudgetCreateScreen({
+    super.key,
+    this.preselectedCategoryId,
+    this.suggestedAmount,
+  });
 
   @override
   ConsumerState<BudgetCreateScreen> createState() => _BudgetCreateScreenState();
@@ -195,6 +202,32 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
             controller: controller,
             formatter: formatter,
           ));
+        }
+
+        if (widget.preselectedCategoryId != null) {
+          final alreadyExists = _categoryBudgetsList.any((c) => c.categoryId == widget.preselectedCategoryId);
+          if (!alreadyExists) {
+            final allCategories = ref.read(categoriesNotifierProvider).value ?? [];
+            final cat = allCategories.where((c) => c.id == widget.preselectedCategoryId).firstOrNull;
+            if (cat != null) {
+              final formatter = CurrencyTextInputFormatter.currency(
+                locale: 'vi',
+                decimalDigits: 0,
+                symbol: '',
+              );
+              final displayAmount = _convertToDisplayCurrency(widget.suggestedAmount ?? 1000000.0, 'VND', userCurrency, ratesData);
+              final controller = TextEditingController(text: formatter.formatDouble(displayAmount));
+              _categoryBudgetsList.add(TempCategoryBudget(
+                id: null,
+                categoryId: cat.id,
+                categoryName: cat.name,
+                categoryIcon: cat.icon,
+                categoryColor: cat.color,
+                controller: controller,
+                formatter: formatter,
+              ));
+            }
+          }
         }
       });
     } catch (e) {

@@ -73,6 +73,7 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
         accountNumber: widget.resultData['account_number'] as String?,
         payeeName: widget.resultData['payee_name'] as String?,
         toWalletId: widget.resultData['to_wallet_id'] as String?,
+        categoryId: widget.resultData['category_id'] as String?,
       );
 
       if (mounted) {

@@ -307,11 +307,13 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     final newState = await AsyncValue.guard(() async {
       final useCase = ref.read(getTransactionsUseCaseProvider);
       final filter = currentFilter;
+      final isUncategorized = filter.categoryId == 'uncategorized';
+      
       final result = await useCase.execute(
         search: filter.search,
         startDate: filter.startDate,
         endDate: filter.endDate,
-        categoryId: filter.categoryId,
+        categoryId: isUncategorized ? null : filter.categoryId,
         type: filter.type,
         walletId: filter.walletId,
         minAmount: filter.minAmount,
@@ -343,7 +345,12 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
         _syncPendingTransactions();
       }
 
-      return [...filteredPending, ...result.items];
+      var items = result.items;
+      if (isUncategorized) {
+        items = items.where((tx) => tx.categoryId == null || tx.categoryName == null).toList();
+      }
+
+      return [...filteredPending, ...items];
     });
     
     // Nếu chạy silent và gặp lỗi, giữ nguyên danh sách hiện tại thay vì hiện màn hình lỗi
@@ -366,11 +373,13 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     try {
       final useCase = ref.read(getTransactionsUseCaseProvider);
       final filter = currentFilter;
+      final isUncategorized = filter.categoryId == 'uncategorized';
+      
       final result = await useCase.execute(
         search: filter.search,
         startDate: filter.startDate,
         endDate: filter.endDate,
-        categoryId: filter.categoryId,
+        categoryId: isUncategorized ? null : filter.categoryId,
         type: filter.type,
         walletId: filter.walletId,
         minAmount: filter.minAmount,
@@ -381,9 +390,14 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
         cursor: pagination.nextCursor,
       );
 
+      var items = result.items;
+      if (isUncategorized) {
+        items = items.where((tx) => tx.categoryId == null || tx.categoryName == null).toList();
+      }
+
       state = AsyncValue.data([
         ...(state.value ?? []),
-        ...result.items,
+        ...items,
       ]);
 
       ref.read(transactionPaginationProvider.notifier).state = PaginationState(
@@ -848,13 +862,17 @@ List<TransactionEntity> _filterLocalList(
 
   // 3. Lọc theo danh mục (bao gồm cả danh mục con trực thuộc danh mục được chọn)
   if (filter.categoryId != null) {
-    final childCategoryIds = categories
-        .where((c) => c.parentId == filter.categoryId)
-        .map((c) => c.id)
-        .toList();
-    result = result.where((tx) =>
-        tx.categoryId == filter.categoryId ||
-        childCategoryIds.contains(tx.categoryId)).toList();
+    if (filter.categoryId == 'uncategorized') {
+      result = result.where((tx) => tx.categoryId == null || tx.categoryName == null).toList();
+    } else {
+      final childCategoryIds = categories
+          .where((c) => c.parentId == filter.categoryId)
+          .map((c) => c.id)
+          .toList();
+      result = result.where((tx) =>
+          tx.categoryId == filter.categoryId ||
+          childCategoryIds.contains(tx.categoryId)).toList();
+    }
   }
 
   // 4. Lọc theo loại (income, expense, transfer)

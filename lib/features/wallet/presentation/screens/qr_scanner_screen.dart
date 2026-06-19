@@ -38,6 +38,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
   bool _isLoadingDecode = false;
   bool _isCameraActive = true;
   bool _isProcessingQr = false;
+  String _loadingMsg = 'Đang giải mã QR...';
 
   // My QR Tab State
   WalletEntity? _selectedWallet;
@@ -50,6 +51,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
   List<dynamic> _payees = [];
   bool _isLoadingPayees = false;
   final TextEditingController _searchPayeeController = TextEditingController();
+  bool _isNavigating = false;
 
   @override
   void initState() {
@@ -135,7 +137,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
 
     if (result != null && mounted) {
       AppLogger.info("✅ [QR-Scan] Giải mã thành công! Điều hướng đến màn hình xác nhận...");
-      await context.push('/qr-transfer-confirm', extra: result);
+      await context.push('/add-transaction', extra: result);
       
       // Khi quay lại từ màn hình xác nhận, khởi động lại camera và reset trạng thái loading
       if (mounted) {
@@ -406,15 +408,15 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
         if (_isLoadingDecode)
           Container(
             color: Colors.black54,
-            child: const Center(
+            child: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
                   Text(
-                    'Đang giải mã QR...',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    _loadingMsg,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -809,26 +811,37 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
                               children: [
                                 IconButton(
                                   icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
-                                  onPressed: () => _deletePayee(payee['id']),
+                                  onPressed: _isNavigating ? null : () => _deletePayee(payee['id']),
                                 ),
                                 const Icon(Icons.arrow_forward_ios_rounded, size: 14),
                               ],
                             ),
-                            onTap: () {
-                              final mappedPayee = {
-                                'payee_id': payee['id'],
-                                'type': payee['payee_type'],
-                                'payee_user_id': payee['payee_user_id'],
-                                'identifier': payee['identifier'],
-                                'payee_name': payee['payee_name'],
-                                'bank_code': payee['bank_code'],
-                                'bank_name': payee['bank_name'],
-                                'account_number': payee['identifier'],
-                                'amount': null,
-                                'description': null,
-                              };
-                              context.push('/qr-transfer-confirm', extra: mappedPayee);
-                            },
+                             onTap: _isNavigating
+                                 ? null
+                                 : () async {
+                                     setState(() {
+                                       _isNavigating = true;
+                                     });
+                                     final mappedPayee = {
+                                       'payee_id': payee['id'],
+                                       'type': payee['payee_type'],
+                                       'payee_user_id': payee['payee_user_id'],
+                                       'identifier': payee['identifier'],
+                                       'payee_name': payee['payee_name'],
+                                       'bank_code': payee['bank_code'],
+                                       'bank_name': payee['bank_name'],
+                                       'account_number': payee['identifier'],
+                                       'amount': null,
+                                       'description': null,
+                                       'recipient_wallet_name': payee['recipient_wallet_name'] ?? payee['wallet_name'] ?? payee['recipient_wallet'],
+                                     };
+                                     await context.push('/add-transaction', extra: mappedPayee);
+                                     if (mounted) {
+                                       setState(() {
+                                         _isNavigating = false;
+                                       });
+                                     }
+                                   },
                           ),
                         );
                       },
