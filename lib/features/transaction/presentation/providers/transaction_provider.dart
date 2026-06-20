@@ -534,8 +534,14 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
   Future<void> deleteTransaction(String transactionId) async {
     await ref.read(cacheStoreProvider).clean();
     final dio = ref.read(dioClientProvider);
-    final url = ApiEndpoints.deleteTransaction.replaceAll('{id}', transactionId);
-    await dio.delete(url);
+
+    final currentList = state.value ?? [];
+    final tx = currentList.where((t) => t.id == transactionId).firstOrNull;
+
+    if (tx != null && tx.status != 'pending') {
+      final url = ApiEndpoints.deleteTransaction.replaceAll('{id}', transactionId);
+      await dio.delete(url);
+    }
 
     // Xóa local
     final database = ref.read(appDatabaseProvider);
