@@ -29,7 +29,6 @@ class DashboardScreen extends ConsumerWidget {
     final colors = context.colors;
     final walletState = ref.watch(walletNotifierProvider);
     final showBalance = ref.watch(showBalanceProvider);
-    final transactionState = ref.watch(transactionListProvider);
 
     final userCurrency = ref.watch(currentUserProvider.select((u) => u?.currency)) ?? 'VND';
     final currencySymbol = AppConstant.getCurrencySymbol(userCurrency);

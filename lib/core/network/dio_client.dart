@@ -62,8 +62,9 @@ final dioClientProvider = Provider<Dio>((ref) {
           options.extra.addAll(customOptions.toExtra());
         } else if (options.path.contains('wallets') || 
                    options.path.contains('transactions') || 
-                   options.path.contains('notifications')) {
-          // Bỏ qua cache hoàn toàn cho ví, giao dịch và thông báo để đảm bảo dữ liệu luôn mới nhất
+                   options.path.contains('notifications') ||
+                   options.path.contains('dashboard')) {
+          // Bỏ qua cache hoàn toàn cho ví, giao dịch, thông báo và dashboard để đảm bảo dữ liệu luôn mới nhất
           final customOptions = cacheOptions.copyWith(
             policy: CachePolicy.noCache,
           );

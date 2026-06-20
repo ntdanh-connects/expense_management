@@ -1,6 +1,7 @@
 import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/core/database/app_database.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_provider.dart';
 import 'package:expense_management/features/dashboard/data/datasource/remote/dashboard_api_service.dart';
 import 'package:expense_management/features/dashboard/data/repository_impl/dashboard_repository_impl.dart';
