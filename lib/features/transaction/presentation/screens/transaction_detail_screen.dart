@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:expense_management/shared/widgets/image_overlay_viewer.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:image_picker/image_picker.dart';
@@ -909,91 +910,117 @@ class _TransactionDetailScreenState
                               ),
                               const SizedBox(width: 10),
                               ...tx.attachmentUrls.map(
-                                (url) => Container(
-                                  width: 120,
-                                  height: 120,
-                                  margin: const EdgeInsets.only(right: 10),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(
-                                      color: colors.textSecondary.withOpacity(
-                                        0.1,
-                                      ),
-                                    ),
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(14),
-                                    child: CachedNetworkImage(
+                                (url) {
+                                  final heroTag = 'tx_attachment_${tx.id}_$url';
+                                  return GestureDetector(
+                                    onTap: () => ImageOverlayViewer.show(
+                                      context,
                                       imageUrl: url,
-                                      fit: BoxFit.cover,
-                                      placeholder: (context, url) => const Center(
-                                        child: SizedBox(
-                                          width: 24,
-                                          height: 24,
-                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                      heroTag: heroTag,
+                                    ),
+                                    child: Hero(
+                                      tag: heroTag,
+                                      child: Container(
+                                        width: 120,
+                                        height: 120,
+                                        margin: const EdgeInsets.only(right: 10),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(14),
+                                          border: Border.all(
+                                            color: colors.textSecondary.withOpacity(
+                                              0.1,
+                                            ),
+                                          ),
+                                        ),
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(14),
+                                          child: CachedNetworkImage(
+                                            imageUrl: url,
+                                            fit: BoxFit.cover,
+                                            placeholder: (context, url) => const Center(
+                                              child: SizedBox(
+                                                width: 24,
+                                                height: 24,
+                                                child: CircularProgressIndicator(strokeWidth: 2),
+                                              ),
+                                            ),
+                                            errorWidget: (context, url, error) {
+                                              return Container(
+                                                color: colors.surface,
+                                                child: Icon(
+                                                  Icons.broken_image_rounded,
+                                                  color: colors.textSecondary.withOpacity(0.5),
+                                                  size: 32,
+                                                ),
+                                              );
+                                            },
+                                          ),
                                         ),
                                       ),
-                                      errorWidget: (context, url, error) {
-                                        return Container(
-                                          color: colors.surface,
-                                          child: Icon(
-                                            Icons.broken_image_rounded,
-                                            color: colors.textSecondary.withOpacity(0.5),
-                                            size: 32,
-                                          ),
-                                        );
-                                      },
                                     ),
-                                  ),
-                                ),
+                                  );
+                                },
                               ),
                               ..._selectedImages.map(
-                                (file) => Stack(
-                                  children: [
-                                    Container(
-                                      width: 120,
-                                      height: 120,
-                                      margin: const EdgeInsets.only(right: 10),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(14),
-                                        border: Border.all(
-                                          color: colors.textSecondary
-                                              .withOpacity(0.1),
+                                (file) {
+                                  final heroTag = 'tx_local_image_${file.path}';
+                                  return Stack(
+                                    children: [
+                                      GestureDetector(
+                                        onTap: () => ImageOverlayViewer.show(
+                                          context,
+                                          imageFile: file,
+                                          heroTag: heroTag,
                                         ),
-                                      ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(14),
-                                        child: Image.file(
-                                          file,
-                                          fit: BoxFit.cover,
-                                        ),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      top: 4,
-                                      right: 14,
-                                      child: GestureDetector(
-                                        onTap: () {
-                                          setState(() {
-                                            _selectedImages.remove(file);
-                                          });
-                                        },
-                                        child: Container(
-                                          padding: const EdgeInsets.all(4),
-                                          decoration: const BoxDecoration(
-                                            color: Colors.black54,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(
-                                            Icons.close,
-                                            color: Colors.white,
-                                            size: 14,
+                                        child: Hero(
+                                          tag: heroTag,
+                                          child: Container(
+                                            width: 120,
+                                            height: 120,
+                                            margin: const EdgeInsets.only(right: 10),
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(14),
+                                              border: Border.all(
+                                                color: colors.textSecondary
+                                                    .withOpacity(0.1),
+                                              ),
+                                            ),
+                                            child: ClipRRect(
+                                              borderRadius: BorderRadius.circular(14),
+                                              child: Image.file(
+                                                file,
+                                                fit: BoxFit.cover,
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ),
+                                      Positioned(
+                                        top: 4,
+                                        right: 14,
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            setState(() {
+                                              _selectedImages.remove(file);
+                                            });
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.all(4),
+                                            decoration: const BoxDecoration(
+                                              color: Colors.black54,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(
+                                              Icons.close,
+                                              color: Colors.white,
+                                              size: 14,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
                               ),
                             ],
                           ),

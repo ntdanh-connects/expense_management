@@ -109,7 +109,7 @@
   "update_profile_error": "Lỗi cập nhật: ",
 
   "unnamed_user": "Người dùng chưa có tên",
-  "platinum_member": "Hội viên Bạch Kim",
+  "platinum_member": "Thành viên EM",
 
   "login_failed": "Đăng nhập thất bại!",
   "welcome_back": "Chào mừng trở lại",
@@ -442,6 +442,7 @@
   "recurring_end_date": "Ngày kết thúc",
   "recurring_no_end_date": "Không kết thúc",
   "total_expense": "TỔNG CHI",
+  "total_income": "TỔNG THU",
   "budget_title": "Ngân sách",
   "budget_create": "Tạo ngân sách",
   "budget_edit": "Chỉnh sửa ngân sách",

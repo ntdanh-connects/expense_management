@@ -200,7 +200,7 @@ class ProfileScreen extends ConsumerWidget {
           physics: const BouncingScrollPhysics(),
           slivers: [
             SliverAppBar(
-              expandedHeight: 345.0,
+              expandedHeight: 370.0,
               floating: false,
               pinned: true,
               backgroundColor: colors.background,

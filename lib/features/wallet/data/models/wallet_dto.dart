@@ -7,8 +7,8 @@ class WalletDto {
   final String id;
   final String name;
   final String type;
-  final String icon;
-  final String color;
+  final String? icon;
+  final String? color;
   @JsonKey(name: 'is_hidden')
   final bool? isHidden;
   @JsonKey(name: 'available_balance', fromJson: _balanceFromJson)
@@ -22,8 +22,8 @@ class WalletDto {
     required this.id,
     required this.name,
     required this.type,
-    required this.icon,
-    required this.color,
+    this.icon,
+    this.color,
     this.isHidden,
     required this.availableBalance,
     this.currencyCode,

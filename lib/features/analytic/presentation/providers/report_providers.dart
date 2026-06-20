@@ -142,7 +142,6 @@ DateTimeRange getPreviousPeriodRange(TimeFilter filter, DateTimeRange currentRan
 
 // Data Fetching Providers
 final reportSummaryProvider = FutureProvider<ReportSummaryDto>((ref) async {
-  ref.keepAlive();
   ref.watch(transactionListProvider);
   final repository = ref.watch(reportRepositoryProvider);
   final range = ref.watch(selectedDateRangeProvider);
@@ -177,7 +176,6 @@ final dashboardSummaryProvider = FutureProvider<ReportSummaryDto>((ref) async {
 });
 
 final previousPeriodSummaryProvider = FutureProvider<ReportSummaryDto>((ref) async {
-  ref.keepAlive();
   ref.watch(transactionListProvider);
   final repository = ref.watch(reportRepositoryProvider);
   final filter = ref.watch(selectedTimeFilterProvider);
@@ -190,7 +188,6 @@ final previousPeriodSummaryProvider = FutureProvider<ReportSummaryDto>((ref) asy
 });
 
 final reportCategoriesProvider = FutureProvider<ReportCategoryDto>((ref) async {
-  ref.keepAlive();
   ref.watch(transactionListProvider);
   final repository = ref.watch(reportRepositoryProvider);
   final range = ref.watch(selectedDateRangeProvider);
@@ -212,8 +209,29 @@ final reportCategoriesProvider = FutureProvider<ReportCategoryDto>((ref) async {
   }
 });
 
+final reportIncomeCategoriesProvider = FutureProvider<ReportCategoryDto>((ref) async {
+  ref.watch(transactionListProvider);
+  final repository = ref.watch(reportRepositoryProvider);
+  final range = ref.watch(selectedDateRangeProvider);
+  final filter = ref.watch(selectedTimeFilterProvider);
+
+  if (filter == TimeFilter.thisMonth) {
+    final now = DateTime.now();
+    return repository.getCategories(
+      month: now.month,
+      year: now.year,
+      type: 'income',
+    );
+  } else {
+    return repository.getCategories(
+      startDate: range.start,
+      endDate: range.end,
+      type: 'income',
+    );
+  }
+});
+
 final trendsDailyProvider = FutureProvider<List<ReportTrendEntryDto>>((ref) async {
-  ref.keepAlive();
   ref.watch(transactionListProvider);
   final repository = ref.watch(reportRepositoryProvider);
   final range = ref.watch(selectedDateRangeProvider);
@@ -225,7 +243,6 @@ final trendsDailyProvider = FutureProvider<List<ReportTrendEntryDto>>((ref) asyn
 });
 
 final trends6MonthsProvider = FutureProvider<List<ReportTrendEntryDto>>((ref) async {
-  ref.keepAlive();
   ref.watch(transactionListProvider);
   final repository = ref.watch(reportRepositoryProvider);
   final now = DateTime.now();
@@ -240,7 +257,6 @@ final trends6MonthsProvider = FutureProvider<List<ReportTrendEntryDto>>((ref) as
 
 // Dynamic trend provider for 6 weeks, 12 months, or 2 years
 final trendsFlexibleProvider = FutureProvider.family<List<ReportTrendEntryDto>, String>((ref, timeMode) async {
-  ref.keepAlive();
   ref.watch(transactionListProvider);
   final repository = ref.watch(reportRepositoryProvider);
   final now = DateTime.now();

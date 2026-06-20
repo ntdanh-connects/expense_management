@@ -7,6 +7,8 @@ import 'package:expense_management/shared/widgets/shared_top_app_bar.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
 import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
+import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
+import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:expense_management/features/analytic/presentation/screens/statistics_tab.dart';
 import 'package:expense_management/features/analytic/presentation/screens/balance_fluctuation_tab.dart';
 import 'package:expense_management/features/analytic/presentation/screens/budget_tab.dart';
@@ -67,38 +69,62 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
           },
         );
       }(),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 📊 1. BỘ PHÂN LOẠI NGANG PHỤ (THỐNG KÊ / BIẾN ĐỘNG SỐ DƯ / NGÂN SÁCH)
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              child: Row(
-                children: [
-                  _buildSubTabButton('statistics', selectedSubTab),
-                  const SizedBox(width: 8),
-                  _buildSubTabButton('balance_fluctuations', selectedSubTab),
-                  const SizedBox(width: 8),
-                  _buildSubTabButton('budget', selectedSubTab),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          // 1. Refresh transactions
+          await ref.read(transactionListProvider.notifier).refreshTransactions();
+          await ref.read(filteredTransactionListProvider.notifier).refreshTransactions();
 
-            // 🟢 Conditional Rendering depending on active SubTab
-            if (selectedSubTab == 'statistics') ...[
-              const StatisticsTab(),
-            ] else if (selectedSubTab == 'balance_fluctuations') ...[
-              const BalanceFluctuationTab(),
-            ] else if (selectedSubTab == 'budget') ...[
-              const BudgetTab(),
+          // 2. Refresh wallets
+          await ref.read(walletNotifierProvider.notifier).refreshWallets();
+
+          // 3. Invalidate reports
+          ref.invalidate(reportSummaryProvider);
+          ref.invalidate(previousPeriodSummaryProvider);
+          ref.invalidate(reportCategoriesProvider);
+          ref.invalidate(trendsDailyProvider);
+          ref.invalidate(trends6MonthsProvider);
+          ref.invalidate(trendsFlexibleProvider);
+
+          // 4. Refresh budgets
+          await ref.read(budgetListProvider.notifier).refreshBudgets();
+          ref.invalidate(currentMonthBudgetsProvider);
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 📊 1. BỘ PHÂN LOẠI NGANG PHỤ (THỐNG KÊ / BIẾN ĐỘNG SỐ DƯ / NGÂN SÁCH)
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: [
+                    _buildSubTabButton('statistics', selectedSubTab),
+                    const SizedBox(width: 8),
+                    _buildSubTabButton('balance_fluctuations', selectedSubTab),
+                    const SizedBox(width: 8),
+                    _buildSubTabButton('budget', selectedSubTab),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+  
+              // 🟢 Conditional Rendering depending on active SubTab
+              if (selectedSubTab == 'statistics') ...[
+                const StatisticsTab(),
+              ] else if (selectedSubTab == 'balance_fluctuations') ...[
+                const BalanceFluctuationTab(),
+              ] else if (selectedSubTab == 'budget') ...[
+                const BudgetTab(),
+              ],
+              const SizedBox(height: 80), // Dành khoảng trống cho Bottom Bar trượt
             ],
-            const SizedBox(height: 80), // Dành khoảng trống cho Bottom Bar trượt
-          ],
+          ),
         ),
       ),
     );

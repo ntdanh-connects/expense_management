@@ -8,6 +8,8 @@ import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
 import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/features/analytic/data/models/report_summary_dto.dart';
 import 'package:expense_management/features/analytic/data/models/report_trend_dto.dart';
 import 'package:expense_management/features/analytic/data/models/report_category_dto.dart';
@@ -31,6 +33,7 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
   bool _isLineChartExpanded = true;
   bool _isCategoriesExpanded = true;
   String _distributionMode = 'category'; // 'category' or 'wallet'
+  String _categoryType = 'expense'; // 'expense' or 'income'
 
   String _formatCurrency(double amount) {
     final format = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ', decimalDigits: 0);
@@ -74,6 +77,7 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
             setState(() {
               _selectedDonutIndex = null;
               _categoryViewMode = 'parent';
+              _categoryType = 'expense';
               _lastSelectedFromList = false;
             });
           }
@@ -107,6 +111,14 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
     final dateRange = ref.watch(selectedDateRangeProvider);
     final colors = context.colors;
 
+    final user = ref.watch(currentUserProvider);
+    final tzName = user?.timezone ?? 'Asia/Ho_Chi_Minh';
+    final location = tz.getLocation(tzName);
+    final now = tz.TZDateTime.now(location);
+
+    final isCurrentMonthOrFuture = (dateRange.end.year > now.year) || 
+        (dateRange.end.year == now.year && dateRange.end.month >= now.month);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -128,17 +140,76 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
           ),
         ),
         const SizedBox(height: 10),
-        // Display the selected range text
-        Text(
-          '${DateFormat('dd/MM/yyyy').format(dateRange.start)} - ${DateFormat('dd/MM/yyyy').format(dateRange.end)}',
-          style: TextStyle(
-            color: colors.textSecondary,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Display the selected range text
+            Text(
+              '${DateFormat('dd/MM/yyyy').format(dateRange.start)} - ${DateFormat('dd/MM/yyyy').format(dateRange.end)}',
+              style: TextStyle(
+                color: colors.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left_rounded),
+                  onPressed: () => _changeMonth(ref, -1),
+                  color: colors.primary,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  splashRadius: 20,
+                ),
+                const SizedBox(width: 16),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right_rounded),
+                  onPressed: isCurrentMonthOrFuture ? null : () => _changeMonth(ref, 1),
+                  color: colors.primary,
+                  disabledColor: colors.textSecondary.withOpacity(0.3),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  splashRadius: 20,
+                ),
+              ],
+            ),
+          ],
         ),
       ],
     );
+  }
+
+  void _changeMonth(WidgetRef ref, int offset) {
+    final dateRange = ref.read(selectedDateRangeProvider);
+    final user = ref.read(currentUserProvider);
+    final tzName = user?.timezone ?? 'Asia/Ho_Chi_Minh';
+    final location = tz.getLocation(tzName);
+    
+    final currentStart = dateRange.start;
+    int newYear = currentStart.year;
+    int newMonth = currentStart.month + offset;
+    
+    if (newMonth > 12) {
+      newYear += 1;
+      newMonth = 1;
+    } else if (newMonth < 1) {
+      newYear -= 1;
+      newMonth = 12;
+    }
+    
+    final now = tz.TZDateTime.now(location);
+    
+    if (newYear == now.year && newMonth == now.month) {
+      ref.read(selectedTimeFilterProvider.notifier).state = TimeFilter.thisMonth;
+      ref.read(customDateRangeProvider.notifier).state = null;
+    } else {
+      final startOfMonth = tz.TZDateTime(location, newYear, newMonth, 1);
+      final endOfMonth = tz.TZDateTime(location, newYear, newMonth + 1, 0, 23, 59, 59);
+      
+      ref.read(customDateRangeProvider.notifier).state = DateTimeRange(start: startOfMonth, end: endOfMonth);
+      ref.read(selectedTimeFilterProvider.notifier).state = TimeFilter.custom;
+    }
   }
 
   Widget _buildFilterChip(WidgetRef ref, TimeFilter filter, String label, TimeFilter currentFilter) {
@@ -518,6 +589,7 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
 
   Widget _buildCategoriesSection(WidgetRef ref) {
     final colors = context.colors;
+    final isEnglish = ref.watch(localeProvider) == 'en';
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -548,7 +620,9 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'spending_categories'.tr(ref),
+                      _categoryType == 'income'
+                          ? (isEnglish ? 'Income Categories' : 'Danh mục thu nhập')
+                          : 'spending_categories'.tr(ref),
                       style: TextStyle(
                         color: colors.textPrimary,
                         fontSize: 18,
@@ -572,6 +646,8 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
             _buildDistributionToggle(ref),
             const SizedBox(height: 20),
             if (_distributionMode == 'category') ...[
+              _buildCategoryTypeToggle(ref),
+              const SizedBox(height: 20),
               _buildDonutChartContent(ref),
               const SizedBox(height: 20),
               const Divider(height: 1, thickness: 0.5),
@@ -586,6 +662,74 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
             ],
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryTypeToggle(WidgetRef ref) {
+    final colors = context.colors;
+    final isEnglish = ref.watch(localeProvider) == 'en';
+
+    return Center(
+      child: CupertinoSlidingSegmentedControl<String>(
+        groupValue: _categoryType,
+        backgroundColor: colors.textSecondary.withOpacity(0.05),
+        thumbColor: colors.surface,
+        children: {
+          'expense': Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.trending_down_rounded,
+                  size: 14,
+                  color: _categoryType == 'expense' ? colors.expenseRed : colors.textSecondary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  isEnglish ? 'Expense' : 'Chi tiêu',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: _categoryType == 'expense' ? colors.expenseRed : colors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          'income': Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.trending_up_rounded,
+                  size: 14,
+                  color: _categoryType == 'income' ? colors.incomeGreen : colors.textSecondary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  isEnglish ? 'Income' : 'Thu nhập',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: _categoryType == 'income' ? colors.incomeGreen : colors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        },
+        onValueChanged: (value) {
+          if (value != null) {
+            setState(() {
+              _categoryType = value;
+              _selectedDonutIndex = null;
+              _lastSelectedFromList = false;
+            });
+          }
+        },
       ),
     );
   }
@@ -1093,7 +1237,9 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
   }
 
   Widget _buildDonutChartContent(WidgetRef ref) {
-    final categoriesAsync = ref.watch(reportCategoriesProvider);
+    final categoriesAsync = ref.watch(
+      _categoryType == 'income' ? reportIncomeCategoriesProvider : reportCategoriesProvider,
+    );
     final colors = context.colors;
     final isEnglish = ref.watch(localeProvider) == 'en';
 
@@ -1104,7 +1250,9 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'category_distribution'.tr(ref),
+              _categoryType == 'income'
+                  ? (isEnglish ? 'Income Distribution' : 'Phân bổ thu nhập')
+                  : 'category_distribution'.tr(ref),
               style: TextStyle(
                 color: colors.textPrimary,
                 fontSize: 16,
@@ -1176,7 +1324,11 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
             return SizedBox(
               height: 160,
               child: Center(
-                child: Text('no_spending_this_period'.tr(ref)),
+                child: Text(
+                  _categoryType == 'income'
+                      ? (isEnglish ? 'No income in this period' : 'Chưa có thu nhập trong kỳ này')
+                      : 'no_spending_this_period'.tr(ref),
+                ),
               ),
             );
           }
@@ -1298,7 +1450,7 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
                           children: [
                             if (selectedIndex == null) ...[
                               Text(
-                                'total_expense'.tr(ref),
+                                _categoryType == 'income' ? 'total_income'.tr(ref) : 'total_expense'.tr(ref),
                                 style: TextStyle(color: colors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold),
                                 textAlign: TextAlign.center,
                               ),
@@ -1399,8 +1551,11 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
   }
 
   Widget _buildTopExpensesContent(WidgetRef ref) {
-    final categoriesAsync = ref.watch(reportCategoriesProvider);
+    final categoriesAsync = ref.watch(
+      _categoryType == 'income' ? reportIncomeCategoriesProvider : reportCategoriesProvider,
+    );
     final colors = context.colors;
+    final isEnglish = ref.watch(localeProvider) == 'en';
 
     return () {
       final reportData = categoriesAsync.asData?.value;
@@ -1422,7 +1577,9 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
       if (entries.isEmpty) {
         return Center(
           child: Text(
-            'no_spending_data'.tr(ref),
+            _categoryType == 'income'
+                ? (isEnglish ? 'No income data' : 'Chưa có dữ liệu thu nhập')
+                : 'no_spending_data'.tr(ref),
             style: TextStyle(color: colors.textSecondary, fontSize: 13),
           ),
         );
@@ -1458,7 +1615,7 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
                       'categoryName': e.categoryName,
                       'categoryColor': e.categoryColor,
                       'categoryIcon': e.categoryIcon,
-                      'type': 'expense',
+                      'type': _categoryType,
                       'startDate': range.start,
                       'endDate': range.end,
                       'timeMode': timeMode,
@@ -1514,7 +1671,7 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
                       'categoryName': g.name,
                       'categoryColor': g.color,
                       'categoryIcon': g.icon,
-                      'type': 'expense',
+                      'type': _categoryType,
                       'startDate': range.start,
                       'endDate': range.end,
                       'timeMode': timeMode,

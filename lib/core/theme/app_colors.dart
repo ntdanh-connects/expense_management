@@ -144,7 +144,7 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
     profileHeaderGradient: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFF8A2387), Color(0xFFE94057), Color(0xFFF27121)],
+      colors: [Color(0xFF4F46E5), Color(0xFF6366F1), Color(0xFF3B82F6)],
     ),
   );
 
@@ -178,7 +178,7 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
     profileHeaderGradient: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFF8A2387), Color(0xFFE94057), Color(0xFFF27121)],
+      colors: [Color(0xFF1E1B4B), Color(0xFF312E81), Color(0xFF4F46E5)],
     ),
   );
 }

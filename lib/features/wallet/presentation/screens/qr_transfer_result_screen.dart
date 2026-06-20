@@ -126,14 +126,18 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
       final fromWalletId = widget.resultData['from_wallet_id'] as String;
 
       AppLogger.info("🔄 [QR-Result-BG] Syncing wallets...");
+      if (!mounted) return;
       await ref.read(walletNotifierProvider.notifier).refreshWallets();
       
       AppLogger.info("🔄 [QR-Result-BG] Refreshing transaction history...");
+      if (!mounted) return;
       await ref.read(transactionListProvider.notifier).refreshTransactions(silent: true);
 
       AppLogger.info("🔄 [QR-Result-BG] Refreshing notifications...");
+      if (!mounted) return;
       await ref.read(notificationNotifierProvider.notifier).refresh();
 
+      if (!mounted) return;
       // Invalidate dashboard and reports providers to refresh state immediately
       ref.invalidate(fetchDashboardSummaryProvider);
       ref.invalidate(dashboardSummaryProvider);
@@ -161,6 +165,7 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
           body: body,
         );
 
+        if (!mounted) return;
         final userId = ref.read(currentUserProvider)?.id ?? '';
         if (userId.isNotEmpty) {
           final localNotif = await LocalNotificationStorage.createAndSave(
@@ -170,6 +175,7 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
             body: body,
           );
           if (localNotif != null) {
+            if (!mounted) return;
             ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
           }
         }
