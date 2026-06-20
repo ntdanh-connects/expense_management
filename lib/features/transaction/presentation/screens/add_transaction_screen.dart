@@ -179,6 +179,9 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
   bool get _isIncome => _selectedParentCategory?.type == 'income';
 
+  bool get _showTitleField =>
+      _selectedWallet == null || _selectedWallet!.type.toLowerCase() == 'cash';
+
   double _getAmount() {
     return _formatter.getDouble();
   }
@@ -556,9 +559,19 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       }
     }
 
-    final title = _titleController.text.trim().isEmpty
-        ? _selectedCategory!.name
-        : _titleController.text.trim();
+    String title = '';
+    if (_selectedWallet!.type.toLowerCase() == 'cash') {
+      title = _titleController.text.trim();
+      if (title.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vui lòng nhập tiêu đề cho giao dịch ví tiền mặt!'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
 
     // Nếu là giao dịch chuyển khoản từ QR Code
     if (widget.qrData != null) {
@@ -1358,44 +1371,46 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
 
                 // 📝 5. Optional Title Input
-                Text(
-                  'transaction_title'.tr(ref),
-                  style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colors.authCardBg,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: colors.textSecondary.withOpacity(0.06),
+                if (_showTitleField) ...[
+                  Text(
+                    'transaction_title'.tr(ref),
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  child: TextField(
-                    controller: _titleController,
-                    style: TextStyle(color: colors.textPrimary),
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      hintText: _selectedCategory != null
-                          ? 'transaction_title_default_hint'
-                                .tr(ref)
-                                .replaceAll('{name}', _selectedCategory!.name.tr(ref))
-                          : 'transaction_title_hint'.tr(ref),
-                      hintStyle: TextStyle(
-                        color: colors.textSecondary.withOpacity(0.5),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.authCardBg,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: colors.textSecondary.withOpacity(0.06),
+                      ),
+                    ),
+                    child: TextField(
+                      controller: _titleController,
+                      style: TextStyle(color: colors.textPrimary),
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        hintText: _selectedCategory != null
+                            ? 'transaction_title_default_hint'
+                                  .tr(ref)
+                                  .replaceAll('{name}', _selectedCategory!.name.tr(ref))
+                            : 'transaction_title_hint'.tr(ref),
+                        hintStyle: TextStyle(
+                          color: colors.textSecondary.withOpacity(0.5),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
+                ],
 
                 if (_isIncome) ...[
                   Text(
