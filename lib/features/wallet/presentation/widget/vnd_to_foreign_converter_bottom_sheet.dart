@@ -42,11 +42,32 @@ class _VndToForeignConverterBottomSheetState
     return c != 'VND' && c != 'JPY' && c != 'KRW';
   }
 
+  double? _parseLocaleSafeDouble(String val) {
+    if (val.isEmpty) return null;
+
+    final lastDot = val.lastIndexOf('.');
+    final lastComma = val.lastIndexOf(',');
+
+    if (lastDot == -1 && lastComma == -1) {
+      return double.tryParse(val);
+    }
+
+    if (lastDot > lastComma) {
+      // '.' is the decimal separator (e.g. 1,234.56)
+      final clean = val.replaceAll(',', '');
+      return double.tryParse(clean);
+    } else {
+      // ',' is the decimal separator (e.g. 1.234,56)
+      final clean = val.replaceAll('.', '').replaceAll(',', '.');
+      return double.tryParse(clean);
+    }
+  }
+
   String _formatInputAmount(double value, String currencyCode) {
     if (_isDecimalCurrency(currencyCode)) {
-      return NumberFormat('0.00').format(value);
+      return NumberFormat('0.00', 'en_US').format(value);
     }
-    return NumberFormat('#,###').format(value);
+    return NumberFormat('#,###', 'en_US').format(value);
   }
 
   String _getCurrencyFlag(String code) {
@@ -113,7 +134,7 @@ class _VndToForeignConverterBottomSheetState
         setState(() {
           _inputAmount = amt;
         });
-        final formatted = NumberFormat('#,###').format(amt);
+        final formatted = NumberFormat('#,###', 'en_US').format(amt);
         _amountController.value = TextEditingValue(
           text: formatted,
           selection: TextSelection.fromPosition(
@@ -123,8 +144,7 @@ class _VndToForeignConverterBottomSheetState
       }
     } else {
       // Decimal currency logic (USD, EUR, GBP, etc.)
-      final cleanString = val.replaceAll(',', '');
-      final double? amt = double.tryParse(cleanString);
+      final double? amt = _parseLocaleSafeDouble(val);
       if (amt != null) {
         setState(() {
           _inputAmount = amt;
@@ -601,26 +621,33 @@ class _VndToForeignConverterBottomSheetState
                                     ),
                                   ),
                                   const SizedBox(width: 12),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        _formatForeignCurrency(convertedSell, currencyCode),
-                                        style: TextStyle(
-                                          color: colors.primary,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 18,
+                                  Flexible(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          _formatForeignCurrency(convertedSell, currencyCode),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: colors.primary,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 18,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        exchangeRateText,
-                                        style: TextStyle(
-                                          color: colors.textSecondary,
-                                          fontSize: 11,
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          exchangeRateText,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: colors.textSecondary,
+                                            fontSize: 11,
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                   const SizedBox(width: 6),
                                   Icon(

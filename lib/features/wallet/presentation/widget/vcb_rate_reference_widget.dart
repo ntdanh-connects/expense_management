@@ -49,6 +49,27 @@ class _VcbRateReferenceWidgetState extends ConsumerState<VcbRateReferenceWidget>
     super.dispose();
   }
 
+  double? _parseLocaleSafeDouble(String val) {
+    if (val.isEmpty) return null;
+
+    final lastDot = val.lastIndexOf('.');
+    final lastComma = val.lastIndexOf(',');
+
+    if (lastDot == -1 && lastComma == -1) {
+      return double.tryParse(val);
+    }
+
+    if (lastDot > lastComma) {
+      // '.' is the decimal separator (e.g. 1,234.56)
+      final clean = val.replaceAll(',', '');
+      return double.tryParse(clean);
+    } else {
+      // ',' is the decimal separator (e.g. 1.234,56)
+      final clean = val.replaceAll('.', '').replaceAll(',', '.');
+      return double.tryParse(clean);
+    }
+  }
+
   String _formatVnd(double value) {
     return NumberFormat('#,###').format(value) + ' ₫';
   }
@@ -225,7 +246,7 @@ class _VcbRateReferenceWidgetState extends ConsumerState<VcbRateReferenceWidget>
                           contentPadding: EdgeInsets.symmetric(vertical: 10),
                         ),
                         onChanged: (val) {
-                          final double? amt = double.tryParse(val.replaceAll(',', ''));
+                          final double? amt = _parseLocaleSafeDouble(val);
                           if (amt != null) {
                             setState(() {
                               _customAmount = amt;
@@ -363,14 +384,19 @@ class _VcbRateReferenceWidgetState extends ConsumerState<VcbRateReferenceWidget>
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: colors.textPrimary,
-                fontWeight: FontWeight.bold,
-                fontSize: 13.5,
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13.5,
+                ),
               ),
             ),
+            const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
@@ -400,13 +426,16 @@ class _VcbRateReferenceWidgetState extends ConsumerState<VcbRateReferenceWidget>
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Tỷ giá tham chiếu:',
-              style: TextStyle(
-                color: colors.textSecondary,
-                fontSize: 12.5,
+            Expanded(
+              child: Text(
+                'Tỷ giá tham chiếu:',
+                style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: 12.5,
+                ),
               ),
             ),
+            const SizedBox(width: 8),
             Text(
               '${NumberFormat('#,###.##').format(rateValue)} ₫',
               style: TextStyle(
@@ -421,14 +450,17 @@ class _VcbRateReferenceWidgetState extends ConsumerState<VcbRateReferenceWidget>
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Số tiền quy đổi:',
-              style: TextStyle(
-                color: colors.textPrimary,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
+            Expanded(
+              child: Text(
+                'Số tiền quy đổi:',
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
               ),
             ),
+            const SizedBox(width: 8),
             Text(
               _formatVnd(vndValue),
               style: TextStyle(

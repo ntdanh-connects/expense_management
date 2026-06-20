@@ -26,6 +26,7 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
   CategoryDto? _selectedCategory;
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
+  bool _isProcessing = false;
 
   @override
   void initState() {
@@ -78,6 +79,8 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
   }
 
   Future<void> _executeTransfer() async {
+    if (_isProcessing) return;
+
     final wallets = ref.read(walletNotifierProvider).value ?? [];
     final isInternal = widget.payeeData['type'] == 'internal';
     final filtered = wallets.where((w) {
@@ -129,24 +132,35 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
     final identifier = widget.payeeData['identifier'] ?? widget.payeeData['account_number'] ?? '';
     final bankName = widget.payeeData['bank_name'] ?? '';
 
-    if (mounted) {
-      context.push('/qr-transfer-result', extra: {
-        'is_pending_execution': true,
-        'from_wallet_id': _selectedWallet!.id,
-        'payee_type': widget.payeeData['type'] ?? 'internal',
-        'amount': amount,
-        'notes': _descController.text.isNotEmpty ? _descController.text : 'QR transfer',
-        'payee_user_id': widget.payeeData['payee_user_id'],
-        'bank_code': widget.payeeData['bank_code'],
-        'account_number': widget.payeeData['account_number'] ?? widget.payeeData['identifier'],
-        'payee_name': payeeName,
-        'sender_wallet': _selectedWallet?.name ?? '',
-        'bank_name': bankName,
-        'identifier': identifier,
-        'type': widget.payeeData['type'] ?? 'internal',
-        'to_wallet_id': widget.payeeData['to_wallet_id'],
-        'category_id': _selectedCategory!.id,
-      });
+    setState(() {
+      _isProcessing = true;
+    });
+    try {
+      if (mounted) {
+        await context.push('/qr-transfer-result', extra: {
+          'is_pending_execution': true,
+          'from_wallet_id': _selectedWallet!.id,
+          'payee_type': widget.payeeData['type'] ?? 'internal',
+          'amount': amount,
+          'notes': _descController.text.isNotEmpty ? _descController.text : 'QR transfer',
+          'payee_user_id': widget.payeeData['payee_user_id'],
+          'bank_code': widget.payeeData['bank_code'],
+          'account_number': widget.payeeData['account_number'] ?? widget.payeeData['identifier'],
+          'payee_name': payeeName,
+          'sender_wallet': _selectedWallet?.name ?? '',
+          'bank_name': bankName,
+          'identifier': identifier,
+          'type': widget.payeeData['type'] ?? 'internal',
+          'to_wallet_id': widget.payeeData['to_wallet_id'],
+          'category_id': _selectedCategory!.id,
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+        });
+      }
     }
   }
 

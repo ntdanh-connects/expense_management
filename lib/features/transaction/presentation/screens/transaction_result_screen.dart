@@ -13,6 +13,7 @@ import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
+import 'package:expense_management/features/budget/data/models/budget_dto.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
 import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
@@ -107,7 +108,7 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
       ref.invalidate(currentMonthBudgetsProvider);
       ref.invalidate(filteredTransactionListProvider);
       // Force rebuild to trigger budget threshold checks
-      ref.read(currentMonthBudgetsProvider.future).catchError((_) => []);
+      ref.read(currentMonthBudgetsProvider.future).catchError((_) => <BudgetDto>[]);
 
       // Hiển thị thông báo giao dịch thành công ngoài app
       try {

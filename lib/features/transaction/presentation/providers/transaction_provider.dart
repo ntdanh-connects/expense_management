@@ -24,6 +24,7 @@ import 'package:elegant_notification/resources/arrays.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
+import 'package:expense_management/features/budget/data/models/budget_dto.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
@@ -107,7 +108,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     ref.invalidate(budgetListProvider);
     ref.invalidate(currentMonthBudgetsProvider);
     // Force rebuild to trigger budget threshold checks
-    ref.read(currentMonthBudgetsProvider.future).catchError((_) => []);
+    ref.read(currentMonthBudgetsProvider.future).catchError((_) => <BudgetDto>[]);
   }
 
   @override

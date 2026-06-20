@@ -4,6 +4,7 @@ import 'package:expense_management/core/network/api_endpoints.dart';
 import 'package:expense_management/features/analytic/data/models/report_summary_dto.dart';
 import 'package:expense_management/features/analytic/data/models/report_category_dto.dart';
 import 'package:expense_management/features/analytic/data/models/report_trend_dto.dart';
+import 'package:expense_management/features/analytic/data/models/report_wallet_dto.dart';
 import 'package:retrofit/retrofit.dart';
 
 part 'report_api_service.g.dart';
@@ -33,5 +34,12 @@ abstract class ReportApiService {
     @Query('start_date') required String startDate,
     @Query('end_date') required String endDate,
     @Query('group_by') required String groupBy,
+  });
+
+  @GET(ApiEndpoints.reportsWallets)
+  Future<BaseResponseDto<ReportWalletDto>> getWallets({
+    @Query('start_date') required String startDate,
+    @Query('end_date') required String endDate,
+    @Query('type') String? type,
   });
 }

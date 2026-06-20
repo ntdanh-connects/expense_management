@@ -8,6 +8,7 @@ import 'package:expense_management/features/analytic/data/datasource/remote/repo
 import 'package:expense_management/features/analytic/data/models/report_category_dto.dart';
 import 'package:expense_management/features/analytic/data/models/report_summary_dto.dart';
 import 'package:expense_management/features/analytic/data/models/report_trend_dto.dart';
+import 'package:expense_management/features/analytic/data/models/report_wallet_dto.dart';
 import 'package:expense_management/features/analytic/data/repository_impl/report_repository_impl.dart';
 import 'package:expense_management/features/analytic/domain/repository/report_repository.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
@@ -318,10 +319,10 @@ final trendsFlexibleProvider = FutureProvider.family<List<ReportTrendEntryDto>, 
       final targetMonth = DateTime(now.year, now.month - i, 1);
       final label = 'T${targetMonth.month}';
       final match = trends.firstWhere(
-        (t) => t.month == targetMonth.month && t.year == targetMonth.year,
+        (ReportTrendEntryDto t) => t.month == targetMonth.month && t.year == targetMonth.year,
         orElse: () {
           return trends.firstWhere(
-            (t) =>
+            (ReportTrendEntryDto t) =>
                 t.label.contains('${targetMonth.month}/${targetMonth.year}') ||
                 t.label.contains('${targetMonth.year}-${targetMonth.month.toString().padLeft(2, '0')}'),
             orElse: () => ReportTrendEntryDto(
@@ -500,92 +501,22 @@ final categoryDetailTransactionsProvider = FutureProvider.family<List<Transactio
   return sortedList;
 });
 
-class ReportWalletEntryDto {
-  final String walletId;
-  final String walletName;
-  final String walletColor;
-  final String walletIcon;
-  final double amount;
-  final double percentage;
-
-  ReportWalletEntryDto({
-    required this.walletId,
-    required this.walletName,
-    required this.walletColor,
-    required this.walletIcon,
-    required this.amount,
-    required this.percentage,
-  });
-}
-
-class ReportWalletDto {
-  final double totalAmount;
-  final List<ReportWalletEntryDto> wallets;
-
-  ReportWalletDto({
-    required this.totalAmount,
-    required this.wallets,
-  });
-}
-
-final reportWalletsProvider = FutureProvider<ReportWalletDto>((ref) async {
+final reportWalletsProvider = FutureProvider.family<ReportWalletDto, String>((ref, type) async {
   // Watch transactionListProvider to refresh when transactions are updated/synced
   ref.watch(transactionListProvider);
 
-  final database = ref.read(appDatabaseProvider);
-  final userId = ref.read(currentUserProvider)?.id ?? '';
+  final userId = ref.read(currentUserProvider.select((u) => u?.id)) ?? '';
   if (userId.isEmpty) {
     return ReportWalletDto(totalAmount: 0.0, wallets: []);
   }
 
+  final repository = ref.watch(reportRepositoryProvider);
   final range = ref.watch(selectedDateRangeProvider);
 
-  // Fetch all active wallets
-  final wallets = await database.select(database.wallets).get();
-  final walletMap = {for (var w in wallets) w.id: w};
-
-  // Fetch all local transactions in the date range of type 'expense'
-  final txs = await (database.select(database.localTransactions)
-        ..where((t) => t.userId.equals(userId) & 
-                       t.deletedAt.isNull() & 
-                       t.type.equals('expense') &
-                       t.sourceType.equals('transfer').not() & // Loại bỏ chuyển khoản nội bộ
-                       t.transactionDate.isBiggerOrEqualValue(range.start) & 
-                       t.transactionDate.isSmallerOrEqualValue(range.end)))
-      .get();
-
-  double totalAmount = 0.0;
-  final Map<String, double> walletAmounts = {};
-
-  for (final tx in txs) {
-    final amt = tx.amountInUserCurrency;
-    totalAmount += amt;
-    walletAmounts[tx.walletId] = (walletAmounts[tx.walletId] ?? 0.0) + amt;
-  }
-
-  final List<ReportWalletEntryDto> entries = [];
-  walletAmounts.forEach((walletId, amount) {
-    final wallet = walletMap[walletId];
-    final walletName = wallet?.name ?? 'Ví không xác định';
-    final walletColor = wallet?.color ?? '#CCCCCC';
-    final walletIcon = wallet?.icon ?? '';
-
-    entries.add(ReportWalletEntryDto(
-      walletId: walletId,
-      walletName: walletName,
-      walletColor: walletColor,
-      walletIcon: walletIcon,
-      amount: amount,
-      percentage: totalAmount > 0 ? (amount / totalAmount) * 100 : 0.0,
-    ));
-  });
-
-  // Sắp xếp chi tiêu từ ví nhiều nhất đến ít nhất
-  entries.sort((a, b) => b.amount.compareTo(a.amount));
-
-  return ReportWalletDto(
-    totalAmount: totalAmount,
-    wallets: entries,
+  return repository.getWallets(
+    startDate: range.start,
+    endDate: range.end,
+    type: type,
   );
 });
 

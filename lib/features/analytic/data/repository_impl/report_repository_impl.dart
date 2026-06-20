@@ -2,6 +2,7 @@ import 'package:expense_management/features/analytic/data/datasource/remote/repo
 import 'package:expense_management/features/analytic/data/models/report_summary_dto.dart';
 import 'package:expense_management/features/analytic/data/models/report_category_dto.dart';
 import 'package:expense_management/features/analytic/data/models/report_trend_dto.dart';
+import 'package:expense_management/features/analytic/data/models/report_wallet_dto.dart';
 import 'package:expense_management/features/analytic/domain/repository/report_repository.dart';
 import 'package:intl/intl.dart';
 
@@ -56,6 +57,20 @@ class ReportRepositoryImpl implements ReportRepository {
       startDate: _formatDate(startDate),
       endDate: _formatDate(endDate),
       groupBy: groupBy,
+    );
+    return response.data;
+  }
+
+  @override
+  Future<ReportWalletDto> getWallets({
+    required DateTime startDate,
+    required DateTime endDate,
+    String? type,
+  }) async {
+    final response = await _apiService.getWallets(
+      startDate: _formatDate(startDate),
+      endDate: _formatDate(endDate),
+      type: type,
     );
     return response.data;
   }

@@ -38,6 +38,8 @@ class WalletScreen extends ConsumerStatefulWidget {
 class _WalletScreenState extends ConsumerState<WalletScreen> {
   WalletEntity? _fromWallet;
   WalletEntity? _toWallet;
+  String? _filterWalletName;
+  DateTimeRange? _filterDateRange;
   final TextEditingController _amountController = TextEditingController();
   bool _isTransferring = false;
 
@@ -849,12 +851,101 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
+
+                // Bộ lọc ví và ngày
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      // Wallet filter chip
+                      _buildFilterChip(
+                        context: context,
+                        label: _filterWalletName ?? 'Tất cả ví',
+                        icon: Icons.account_balance_wallet_rounded,
+                        isActive: _filterWalletName != null,
+                        onTap: () {
+                          walletState.whenData((wallets) {
+                            _showFilterWalletSelector(context, wallets);
+                          });
+                        },
+                        onClear: _filterWalletName != null
+                            ? () {
+                                setState(() {
+                                  _filterWalletName = null;
+                                });
+                              }
+                            : null,
+                        colors: colors,
+                      ),
+                      const SizedBox(width: 8),
+                      // Date filter chip
+                      _buildFilterChip(
+                        context: context,
+                        label: _filterDateRange == null
+                            ? 'Tất cả ngày'
+                            : '${DateFormat('dd/MM').format(_filterDateRange!.start)} - ${DateFormat('dd/MM').format(_filterDateRange!.end)}',
+                        icon: Icons.calendar_today_rounded,
+                        isActive: _filterDateRange != null,
+                        onTap: () async {
+                          final pickedRange = await showDateRangePicker(
+                            context: context,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                            initialDateRange: _filterDateRange,
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: ColorScheme.fromSeed(
+                                    seedColor: colors.primary,
+                                    primary: colors.primary,
+                                    onPrimary: Colors.white,
+                                    surface: colors.surface,
+                                    onSurface: colors.textPrimary,
+                                  ),
+                                ),
+                                child: child!,
+                              );
+                            },
+                          );
+                          if (pickedRange != null) {
+                            setState(() {
+                              _filterDateRange = pickedRange;
+                            });
+                          }
+                        },
+                        onClear: _filterDateRange != null
+                            ? () {
+                                setState(() {
+                                  _filterDateRange = null;
+                                });
+                              }
+                            : null,
+                        colors: colors,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
 
                 // List lịch sử giao dịch
                 transferState.when(
                   data: (transfersList) {
-                    if (transfersList.isEmpty) {
+                    var filteredList = transfersList;
+                    if (_filterWalletName != null) {
+                      filteredList = filteredList.where((tx) =>
+                          tx.fromWalletName == _filterWalletName ||
+                          tx.toWalletName == _filterWalletName).toList();
+                    }
+                    if (_filterDateRange != null) {
+                      final start = DateTime(_filterDateRange!.start.year, _filterDateRange!.start.month, _filterDateRange!.start.day);
+                      final end = DateTime(_filterDateRange!.end.year, _filterDateRange!.end.month, _filterDateRange!.end.day, 23, 59, 59);
+                      filteredList = filteredList.where((tx) =>
+                          tx.date.isAfter(start.subtract(const Duration(seconds: 1))) &&
+                          tx.date.isBefore(end.add(const Duration(seconds: 1)))).toList();
+                    }
+
+                    if (filteredList.isEmpty) {
                       return Center(
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 32),
@@ -872,9 +963,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: transfersList.length,
+                      itemCount: filteredList.length,
                       itemBuilder: (context, index) {
-                        final tx = transfersList[index];
+                        final tx = filteredList[index];
                         return _buildTransferHistoryItem(tx, colors, AppConstant.getCurrencySymbol(tx.currencyCode ?? 'VND'));
                       },
                     );
@@ -1495,6 +1586,165 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         ),
       );
     }
+  }
+
+  Widget _buildFilterChip({
+    required BuildContext context,
+    required String label,
+    required IconData icon,
+    required bool isActive,
+    required VoidCallback onTap,
+    VoidCallback? onClear,
+    required AppColorsExtension colors,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final chipBg = isActive
+        ? colors.primary.withOpacity(0.12)
+        : (isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF3F4F6));
+    final textColor = isActive ? colors.primary : colors.textPrimary;
+    final iconColor = isActive ? colors.primary : colors.textSecondary;
+    final borderColor = isActive ? colors.primary.withOpacity(0.3) : colors.textSecondary.withOpacity(0.1);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: chipBg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor, width: 1),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: iconColor),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 13,
+                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+              if (onClear != null) ...[
+                const SizedBox(width: 6),
+                GestureDetector(
+                  onTap: onClear,
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 14,
+                    color: iconColor,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showFilterWalletSelector(BuildContext context, List<WalletEntity> wallets) {
+    final colors = context.colors;
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          height: MediaQuery.of(ctx).size.height * 0.5,
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colors.textSecondary.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Lọc theo ví',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: ListView(
+                  physics: const BouncingScrollPhysics(),
+                  children: [
+                    ListTile(
+                      leading: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: colors.primary.withOpacity(0.08),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.all_inclusive_rounded, color: colors.primary, size: 20),
+                      ),
+                      title: const Text('Tất cả ví', style: TextStyle(fontWeight: FontWeight.bold)),
+                      trailing: _filterWalletName == null
+                          ? Icon(Icons.check_circle_rounded, color: colors.primary)
+                          : null,
+                      onTap: () {
+                        setState(() {
+                          _filterWalletName = null;
+                        });
+                        Navigator.pop(ctx);
+                      },
+                    ),
+                    const Divider(height: 1),
+                    ...wallets.map((wallet) {
+                      final isSelected = _filterWalletName == wallet.name;
+                      final walletColor = Color(
+                        int.parse(wallet.color.replaceAll('#', 'FF'), radix: 16),
+                      );
+                      return ListTile(
+                        leading: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: walletColor.withOpacity(0.12),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.account_balance_wallet_rounded,
+                            color: walletColor,
+                            size: 18,
+                          ),
+                        ),
+                        title: Text(wallet.name),
+                        trailing: isSelected
+                            ? Icon(Icons.check_circle_rounded, color: colors.primary)
+                            : null,
+                        onTap: () {
+                          setState(() {
+                            _filterWalletName = wallet.name;
+                          });
+                          Navigator.pop(ctx);
+                        },
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 

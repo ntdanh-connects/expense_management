@@ -644,9 +644,9 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
             const SizedBox(height: 16),
             _buildDistributionToggle(ref),
             const SizedBox(height: 20),
+            _buildCategoryTypeToggle(ref),
+            const SizedBox(height: 20),
             if (_distributionMode == 'category') ...[
-              _buildCategoryTypeToggle(ref),
-              const SizedBox(height: 20),
               _buildDonutChartContent(ref),
               const SizedBox(height: 20),
               const Divider(height: 1, thickness: 0.5),
@@ -839,7 +839,7 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
   }
 
   Widget _buildDonutChartContentForWallet(WidgetRef ref) {
-    final walletsAsync = ref.watch(reportWalletsProvider);
+    final walletsAsync = ref.watch(reportWalletsProvider(_categoryType));
     final colors = context.colors;
 
     return Column(
@@ -975,7 +975,7 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
                           children: [
                             if (selectedIndex == null) ...[
                               Text(
-                                'Tổng chi',
+                                _categoryType == 'income' ? 'Tổng thu' : 'Tổng chi',
                                 style: TextStyle(color: colors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold),
                                 textAlign: TextAlign.center,
                               ),
@@ -1043,7 +1043,7 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
   }
 
   Widget _buildTopExpensesContentForWallet(WidgetRef ref) {
-    final walletsAsync = ref.watch(reportWalletsProvider);
+    final walletsAsync = ref.watch(reportWalletsProvider(_categoryType));
     final colors = context.colors;
 
     return () {
@@ -1092,7 +1092,7 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
                     walletId: e.walletId,
                     startDate: range.start.toUtc().toIso8601String(),
                     endDate: range.end.toUtc().toIso8601String(),
-                    type: 'expense',
+                    type: _categoryType,
                   );
                   context.go(RoutePaths.history);
                 } else {

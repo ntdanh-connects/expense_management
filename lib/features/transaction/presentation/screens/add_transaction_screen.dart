@@ -45,7 +45,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   DateTime _selectedDate = DateTime.now();
   WalletEntity? _selectedWallet;
   File? _imageFile;
-  final bool _isLoading = false;
+  bool _isLoading = false;
 
   bool _isClassifying = false;
   Timer? _classificationDebounce;
@@ -624,6 +624,8 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   }
 
   void _saveTransaction() async {
+    if (_isLoading) return;
+
     final amount = _getAmount();
 
     if (amount <= 0) {
@@ -701,24 +703,37 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       final identifier = qr['identifier'] ?? qr['account_number'] ?? '';
       final bankName = qr['bank_name'] ?? '';
 
-      context.push('/qr-transfer-result', extra: {
-        'is_pending_execution': true,
-        'from_wallet_id': _selectedWallet!.id,
-        'payee_type': qr['type'] ?? qr['payee_type'] ?? 'internal',
-        'amount': amount,
-        'notes': _notesController.text.isNotEmpty ? _notesController.text : 'QR transfer',
-        'payee_user_id': _payeeUserId ?? qr['payee_user_id'],
-        'bank_code': qr['bank_code'],
-        'account_number': qr['account_number'] ?? qr['identifier'],
-        'payee_name': resolvedPayeeName,
-        'sender_wallet': _selectedWallet!.name,
-        'bank_name': bankName,
-        'identifier': identifier,
-        'type': qr['type'] ?? qr['payee_type'] ?? 'internal',
-        'to_wallet_id': _toWalletId ?? qr['to_wallet_id'],
-        'category_id': _selectedCategory?.id,
-        'is_qr': qr['is_qr'] ?? true,
+      setState(() {
+        _isLoading = true;
       });
+      try {
+        if (mounted) {
+          await context.push('/qr-transfer-result', extra: {
+            'is_pending_execution': true,
+            'from_wallet_id': _selectedWallet!.id,
+            'payee_type': qr['type'] ?? qr['payee_type'] ?? 'internal',
+            'amount': amount,
+            'notes': _notesController.text.isNotEmpty ? _notesController.text : 'QR transfer',
+            'payee_user_id': _payeeUserId ?? qr['payee_user_id'],
+            'bank_code': qr['bank_code'],
+            'account_number': qr['account_number'] ?? qr['identifier'],
+            'payee_name': resolvedPayeeName,
+            'sender_wallet': _selectedWallet!.name,
+            'bank_name': bankName,
+            'identifier': identifier,
+            'type': qr['type'] ?? qr['payee_type'] ?? 'internal',
+            'to_wallet_id': _toWalletId ?? qr['to_wallet_id'],
+            'category_id': _selectedCategory?.id,
+            'is_qr': qr['is_qr'] ?? true,
+          });
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
       return;
     }
 
@@ -748,11 +763,20 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       sourceType: 'manual',
     );
 
-    context.push(RoutePaths.transactionResult, extra: params).then((_) {
-      if (mounted) {
-        // Có thể dọn dẹp hoặc reset UI sau khi quay lại chỉnh sửa
-      }
+    setState(() {
+      _isLoading = true;
     });
+    try {
+      if (mounted) {
+        await context.push(RoutePaths.transactionResult, extra: params);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
 
