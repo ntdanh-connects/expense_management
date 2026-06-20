@@ -27,4 +27,11 @@ abstract class WalletRepository {
 
   // 📥 Thiết lập ví nhận mặc định
   Future<void> setDefaultReceivingWallet(String id);
+
+  Future<void> simulateSandboxTransfer({
+    required String walletId,
+    required double amount,
+    String? senderName,
+    String? notes,
+  });
 }

@@ -10,8 +10,8 @@ class CreateWalletRequest {
   final String color;
   @JsonKey(name: 'is_hidden')
   final bool? isHidden;
-  @JsonKey(name: 'available_balance')
-  final String availableBalance;
+  @JsonKey(name: 'available_balance', includeIfNull: false)
+  final String? availableBalance;
   @JsonKey(name: 'currency_code')
   final String? currencyCode;
 
@@ -21,7 +21,7 @@ class CreateWalletRequest {
     required this.icon,
     required this.color,
     this.isHidden,
-    required this.availableBalance,
+    this.availableBalance,
     this.currencyCode,
   });
 

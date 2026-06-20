@@ -7,6 +7,7 @@ import 'package:expense_management/features/wallet/domain/use_case/get_wallet_us
 import 'package:expense_management/features/wallet/domain/use_case/sync_wallet_use_case.dart';
 import 'package:expense_management/features/wallet/domain/use_case/update_wallet_use_case.dart';
 import 'package:expense_management/features/wallet/domain/use_case/set_default_receiving_wallet_use_case.dart';
+import 'package:expense_management/features/wallet/domain/use_case/simulate_sandbox_transfer_use_case.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/database/app_database.dart';
 import 'package:expense_management/core/network/dio_client.dart';
@@ -57,4 +58,9 @@ final updateWalletUseCaseProvider = Provider<UpdateWalletUseCase>((ref) {
 final setDefaultReceivingWalletUseCaseProvider = Provider<SetDefaultReceivingWalletUseCase>((ref) {
   final repository = ref.read(walletRepositoryProvider);
   return SetDefaultReceivingWalletUseCase(repository);
+});
+
+final simulateSandboxTransferUseCaseProvider = Provider<SimulateSandboxTransferUseCase>((ref) {
+  final repository = ref.read(walletRepositoryProvider);
+  return SimulateSandboxTransferUseCase(repository);
 });

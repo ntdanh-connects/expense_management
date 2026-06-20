@@ -161,4 +161,33 @@ class WalletRepositoryImpl  implements WalletRepository{
       rethrow;
     }
   }
+
+  @override
+  Future<void> simulateSandboxTransfer({
+    required String walletId,
+    required double amount,
+    String? senderName,
+    String? notes,
+  }) async {
+    AppLogger.debug("🌐 [Wallet-Sync] Bắt đầu gửi yêu cầu giả lập nhận tiền từ Sandbox...", tag: "Wallet-Sync");
+    try {
+      final body = {
+        'wallet_id': walletId,
+        'amount': amount,
+        if (senderName != null) 'sender_name': senderName,
+        if (notes != null) 'notes': notes,
+      };
+      await _apiService.simulateSandboxTransfer(body);
+      AppLogger.info("☁️ [Wallet-Sync] Giả lập nhận tiền thành công trên Remote Server! Tiến hành đồng bộ lại ví...", tag: "Wallet-Sync");
+      await syncWalletsImplicit();
+    } catch (e, stackTrace) {
+      if (e is DioException) {
+        final serverError = e.response?.data;
+        AppLogger.error("🚨 [Wallet-Sync] Lỗi giả lập nhận tiền trên Remote Server: ${e.message}. Chi tiết từ Server: $serverError", tag: "Wallet-Sync", stackTrace: stackTrace);
+      } else {
+        AppLogger.error("🚨 [Wallet-Sync] Lỗi giả lập nhận tiền cục bộ: $e", tag: "Wallet-Sync", stackTrace: stackTrace);
+      }
+      rethrow;
+    }
+  }
 }

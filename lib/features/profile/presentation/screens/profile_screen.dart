@@ -546,6 +546,15 @@ class ProfileScreen extends ConsumerWidget {
                               },
                             ),
                             Divider(color: colors.textSecondary.withOpacity(0.08), height: 1, indent: 50),
+                            ProfileMenuItem(
+                              icon: Icons.account_balance_wallet_rounded,
+                              iconColor: colors.primary,
+                              title: 'Giả lập Sandbox',
+                              onTap: () {
+                                context.push(RoutePaths.sandboxSimulateTransfer);
+                              },
+                            ),
+                            Divider(color: colors.textSecondary.withOpacity(0.08), height: 1, indent: 50),
                             ValueListenableBuilder<bool>(
                               valueListenable: AppLogger.isConsoleOverlayVisible,
                               builder: (context, isVisible, _) {
