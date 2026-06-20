@@ -27,6 +27,7 @@ final dashboardRepositoryProvider = Provider<DashboardRepository>((ref) {
 
 // Provider gọi API aggregate để fetch & sync toàn bộ Dashboard data
 final fetchDashboardSummaryProvider = FutureProvider<DashboardSummaryDto>((ref) async {
+  ref.watch(transactionListProvider);
   final repository = ref.watch(dashboardRepositoryProvider);
   return repository.getSummary();
 });

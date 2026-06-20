@@ -22,6 +22,8 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:expense_management/features/wallet/presentation/provider/qr_transfer_provider.dart';
 import 'package:intl/intl.dart';
+import 'package:expense_management/core/network/dio_client.dart';
+import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 
 
 final showHiddenWalletsProvider = StateProvider<bool>((ref) => false);
@@ -1143,6 +1145,13 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           _toWallet = null;
         });
         _showSnackBar('transfer_success'.tr(ref), isError: false);
+
+        // Dọn dẹp HTTP cache để các báo cáo/thống kê kéo dữ liệu mới
+        ref.read(cacheStoreProvider).clean();
+        // Làm mới danh sách giao dịch để cập nhật giao dịch chuyển tiền mới
+        ref.invalidate(transactionListProvider);
+        // Làm mới ví để cập nhật số dư
+        ref.invalidate(walletNotifierProvider);
 
         // Hiển thị thông báo chuyển khoản ngoài app
         try {

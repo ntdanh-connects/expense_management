@@ -9,6 +9,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:expense_management/core/network/dio_client.dart';
+import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 
 class SandboxSimulateTransferScreen extends ConsumerStatefulWidget {
   const SandboxSimulateTransferScreen({super.key});
@@ -65,6 +67,13 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
             senderName: senderName,
             notes: notes.isNotEmpty ? notes : null,
           );
+
+      // Dọn dẹp HTTP cache để các báo cáo/thống kê kéo dữ liệu mới
+      await ref.read(cacheStoreProvider).clean();
+      // Làm mới danh sách giao dịch
+      ref.invalidate(transactionListProvider);
+      // Làm mới ví để cập nhật số dư
+      ref.invalidate(walletNotifierProvider);
 
       setState(() {
         _isLoading = false;
