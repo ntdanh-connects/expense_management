@@ -160,6 +160,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     final symbol = _getCurrencySymbol(currencyCode);
     final decimals = _getDecimalDigits(currencyCode);
     final locale = _getLocale(currencyCode);
+    final double currentAmount = _getAmount();
     
     _formatter = CurrencyTextInputFormatter.currency(
       locale: locale,
@@ -168,9 +169,8 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     );
     
     final text = _amountController.text;
-    if (text.isNotEmpty) {
-      final cleanVal = _getAmount();
-      _amountController.text = _formatter.formatDouble(cleanVal);
+    if (text.isNotEmpty && currentAmount > 0) {
+      _amountController.text = _formatter.formatDouble(currentAmount);
     }
   }
 
@@ -267,8 +267,39 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   bool get _showTitleField =>
       _selectedWallet == null || _selectedWallet!.type.toLowerCase() == 'cash';
 
+  double _parseAmountFromString(String text, String? currencyCode) {
+    if (text.isEmpty) return 0.0;
+    try {
+      final code = currencyCode ?? 'VND';
+      if (code == 'VND') {
+        final cleanString = text.replaceAll(RegExp(r'[^0-9]'), '');
+        return double.tryParse(cleanString) ?? 0.0;
+      } else {
+        final clean = text.replaceAll(RegExp(r'[^0-9.,]'), '');
+        if (clean.isEmpty) return 0.0;
+        if (code == 'EUR') {
+          final normalized = clean.replaceAll('.', '').replaceAll(',', '.');
+          return double.tryParse(normalized) ?? 0.0;
+        } else {
+          final normalized = clean.replaceAll(',', '');
+          return double.tryParse(normalized) ?? 0.0;
+        }
+      }
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
   double _getAmount() {
-    return _formatter.getDouble();
+    final text = _amountController.text;
+    if (text.isEmpty) return 0.0;
+    
+    final formatterDouble = _formatter.getDouble();
+    if (formatterDouble > 0) {
+      return formatterDouble;
+    }
+    
+    return _parseAmountFromString(text, _selectedWallet?.currencyCode);
   }
 
   String _formatDate(DateTime date) {

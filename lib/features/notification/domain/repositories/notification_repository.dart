@@ -6,6 +6,7 @@ abstract class NotificationRepository {
   Future<void> markAsRead(String id);
   Future<void> markAllAsRead();
   Future<void> deleteNotification(String id);
+  Future<void> clearAllNotifications();
   Future<NotificationPreferenceDto> getPreferences();
   Future<NotificationPreferenceDto> updatePreferences({
     bool? emailEnabled,

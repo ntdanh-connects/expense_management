@@ -87,6 +87,20 @@ class NotificationRepositoryImpl implements NotificationRepository {
   }
 
   @override
+  Future<void> clearAllNotifications() async {
+    try {
+      await _apiService.clearAllNotifications();
+    } on DioException catch (e, stackTrace) {
+      AppLogger.error(
+        '🚨 [Notification-Repo] clearAllNotifications: ${e.message}',
+        tag: 'Notification',
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
+  }
+
+  @override
   Future<NotificationPreferenceDto> getPreferences() async {
     try {
       final response = await _apiService.getPreferencesRaw() as Map<String, dynamic>;

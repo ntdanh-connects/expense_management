@@ -41,4 +41,10 @@ abstract class ReportingExportRepository {
 
   /// Deletes a local PDF/CSV report file from disk.
   Future<void> deleteLocalPdf(String filePath);
+
+  /// Deletes a remote report export record and file from the backend.
+  Future<void> deleteRemoteExport(String exportId);
+
+  /// Deletes all remote report export records and files from the backend.
+  Future<void> clearAllRemoteExports();
 }

@@ -21,6 +21,9 @@ abstract class NotificationApiService {
   @DELETE('api/notifications/{id}')
   Future<void> deleteNotification(@Path('id') String id);
 
+  @DELETE('api/notifications')
+  Future<void> clearAllNotifications();
+
   @GET('api/notifications/preferences')
   Future<dynamic> getPreferencesRaw();
 
