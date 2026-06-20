@@ -2,8 +2,8 @@
 class TransactionParams {
   final String walletId;
   final String walletName;
-  final String categoryId;
-  final String categoryName;
+  final String? categoryId;
+  final String? categoryName;
   final String type; // 'income' hoặc 'expense'
   final double amount;
   final String title;
@@ -22,8 +22,8 @@ class TransactionParams {
   TransactionParams({
     required this.walletId,
     required this.walletName,
-    required this.categoryId,
-    required this.categoryName,
+    this.categoryId,
+    this.categoryName,
     required this.type,
     required this.amount,
     required this.title,

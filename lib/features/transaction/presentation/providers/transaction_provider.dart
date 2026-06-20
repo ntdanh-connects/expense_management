@@ -467,7 +467,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
       id: tempId,
       userId: userId,
       walletId: params.walletId,
-      categoryId: params.categoryId.isEmpty ? null : params.categoryId,
+      categoryId: params.categoryId == null || params.categoryId!.isEmpty ? null : params.categoryId,
       amount: params.amount,
       amountInUserCurrency: params.amount * (params.exchangeRate ?? 1.0),
       type: params.type,

@@ -36,6 +36,8 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
   TransactionStatus _status = TransactionStatus.processing;
   String? _errorMessage;
   String? _transactionId;
+  String? _finalTitle;
+  String? _finalCategoryName;
 
   @override
   void initState() {
@@ -81,6 +83,8 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
 
       // Lưu trữ mã giao dịch trả về từ API
       _transactionId = result.id;
+      _finalTitle = result.title;
+      _finalCategoryName = result.categoryName;
 
       // Làm mới dữ liệu các ví và danh sách giao dịch
       await ref.read(walletNotifierProvider.notifier).refreshWallets();
@@ -307,7 +311,11 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  widget.params.title,
+                                  (_finalTitle != null && _finalTitle!.isNotEmpty)
+                                      ? _finalTitle!
+                                      : (widget.params.title.isNotEmpty
+                                          ? widget.params.title
+                                          : (widget.params.categoryName ?? 'uncategorized'.tr(ref))),
                                   style: TextStyle(
                                     color: colors.textSecondary,
                                     fontSize: 15,
@@ -338,7 +346,7 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
                                 _buildReceiptRow(
                                   context,
                                   'category_label'.tr(ref),
-                                  widget.params.categoryName,
+                                  _finalCategoryName ?? widget.params.categoryName ?? 'uncategorized'.tr(ref),
                                 ),
                                 _buildReceiptRow(
                                   context,
@@ -617,7 +625,9 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  widget.params.title,
+                                  widget.params.title.isNotEmpty
+                                      ? widget.params.title
+                                      : (widget.params.categoryName ?? 'uncategorized'.tr(ref)),
                                   style: TextStyle(
                                     color: colors.textSecondary,
                                     fontSize: 15,
@@ -646,7 +656,7 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
                                 _buildReceiptRow(
                                   context,
                                   'category_label'.tr(ref),
-                                  widget.params.categoryName,
+                                  widget.params.categoryName ?? 'uncategorized'.tr(ref),
                                 ),
                                 _buildReceiptRow(
                                   context,

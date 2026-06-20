@@ -605,15 +605,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       return;
     }
 
-    if (_selectedCategory == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('please_select_subcategory'.trRead(ref)),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
+    // Category selection is now optional (AI auto-classifies on backend if empty)
 
     if (_selectedWallet == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -693,7 +685,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
         'identifier': identifier,
         'type': qr['type'] ?? qr['payee_type'] ?? 'internal',
         'to_wallet_id': _toWalletId ?? qr['to_wallet_id'],
-        'category_id': _selectedCategory!.id,
+        'category_id': _selectedCategory?.id,
       });
       return;
     }
@@ -704,8 +696,8 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     final params = TransactionParams(
       walletId: _selectedWallet!.id,
       walletName: _selectedWallet!.name,
-      categoryId: _selectedCategory!.id,
-      categoryName: _selectedCategory!.name,
+      categoryId: _selectedCategory?.id,
+      categoryName: _selectedCategory?.name,
       type: backendType,
       amount: amount,
       title: title,
@@ -927,6 +919,11 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     final subCategoryList = _selectedParentCategory?.children ?? [];
     subCategoryList.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     final quickSubcategories = subCategoryList.take(4).toList();
+    if (_selectedCategory != null &&
+        _selectedCategory!.parentId == _selectedParentCategory?.id &&
+        !quickSubcategories.any((c) => c.id == _selectedCategory!.id)) {
+      quickSubcategories.add(_selectedCategory!);
+    }
 
     // Phân loại ví: Nhập tay -> Tiền mặt; QR -> Ngân hàng/Ví điện tử
     final rawWalletList = walletsAsync.value ?? [];
