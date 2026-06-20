@@ -43,6 +43,7 @@ class QrTransferNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>?>
     String? payeeName,
     String? toWalletId,
     String? categoryId,
+    bool? isQr,
   }) async {
     try {
       final payload = {
@@ -56,6 +57,7 @@ class QrTransferNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>?>
         if (payeeName != null) 'payee_name': payeeName,
         if (toWalletId != null) 'to_wallet_id': toWalletId,
         if (categoryId != null) 'category_id': categoryId,
+        if (isQr != null) 'is_qr': isQr,
       };
 
       final response = await _apiService.transferQr(payload);

@@ -51,6 +51,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   String? _recipientWalletName;
   String? _fetchedToWalletId;
   bool _isSearchingPayee = false;
+  bool _isQrScanUsed = false;
 
   WalletEntity? _selectedExternalSourceWallet;
   final TextEditingController _externalAmountController = TextEditingController();
@@ -476,6 +477,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                               onChanged: (val) {
                                 if (_fetchedPayeeName != null) {
                                   setState(() {
+                                    _isQrScanUsed = false;
                                     _fetchedPayeeName = null;
                                     _fetchedPayeeId = null;
                                     _fetchedPayeeUserId = null;
@@ -527,7 +529,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                                     if (qrString != null) {
                                       final extracted = _extractIdentifierFromQr(qrString);
                                       _payeeIdentifierController.text = extracted;
-                                      await _lookupPayee(extracted);
+                                      await _lookupPayee(extracted, isQr: true);
                                     }
                                   },
                                   icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
@@ -547,13 +549,13 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                                 ),
                               ),
                               const SizedBox(width: 8),
-
+ 
                               // Nút Kiểm tra
                               Expanded(
                                 child: ElevatedButton(
                                   onPressed: _isSearchingPayee
                                       ? null
-                                      : () => _lookupPayee(_payeeIdentifierController.text),
+                                      : () => _lookupPayee(_payeeIdentifierController.text, isQr: false),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: colors.primary,
                                     foregroundColor: Colors.white,
@@ -790,6 +792,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                                         ? _externalNotesController.text.trim()
                                         : 'Chuyển tiền cho $_fetchedPayeeName',
                                     'to_wallet_id': _fetchedToWalletId,
+                                    'is_qr': _isQrScanUsed,
                                   };
                                   context.push('/add-transaction', extra: mappedPayee);
                                 },
@@ -1307,13 +1310,14 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     return trimmed;
   }
 
-  Future<void> _lookupPayee(String identifier) async {
+  Future<void> _lookupPayee(String identifier, {bool isQr = false}) async {
     final normalized = _normalizeIdentifier(identifier);
     if (normalized.isEmpty) return;
 
     _payeeIdentifierController.text = normalized;
     
     setState(() {
+      _isQrScanUsed = isQr;
       _isSearchingPayee = true;
       _fetchedPayeeName = null;
       _fetchedPayeeId = null;
@@ -1469,7 +1473,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                         ),
                         onTap: () {
                           Navigator.pop(context);
-                          _lookupPayee(identifier);
+                          _lookupPayee(identifier, isQr: false);
                         },
                       );
                     },

@@ -17,6 +17,8 @@ import 'package:expense_management/features/notification/data/datasource/local/l
 import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
+import 'package:expense_management/features/dashboard/presentation/providers/dashboard_provider.dart';
+import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
 
 enum TransactionStatus { processing, success, failure, offlineSuccess }
 
@@ -93,6 +95,13 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
       // Làm mới danh sách thông báo để cập nhật badge và danh sách realtime
       await ref.read(notificationNotifierProvider.notifier).refresh();
       
+      // Invalidate dashboard and reports providers
+      ref.invalidate(fetchDashboardSummaryProvider);
+      ref.invalidate(dashboardSummaryProvider);
+      ref.invalidate(reportSummaryProvider);
+      ref.invalidate(previousPeriodSummaryProvider);
+      ref.invalidate(reportCategoriesProvider);
+
       // Invalidate budget providers to refresh budget lists and totals immediately
       ref.invalidate(budgetListProvider);
       ref.invalidate(currentMonthBudgetsProvider);

@@ -717,6 +717,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
         'type': qr['type'] ?? qr['payee_type'] ?? 'internal',
         'to_wallet_id': _toWalletId ?? qr['to_wallet_id'],
         'category_id': _selectedCategory?.id,
+        'is_qr': qr['is_qr'] ?? true,
       });
       return;
     }

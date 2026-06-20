@@ -14,6 +14,9 @@ import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
 import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
+import 'package:expense_management/features/dashboard/presentation/providers/dashboard_provider.dart';
+import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
+import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
 
 class QrTransferResultScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> resultData;
@@ -74,6 +77,7 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
         payeeName: widget.resultData['payee_name'] as String?,
         toWalletId: widget.resultData['to_wallet_id'] as String?,
         categoryId: widget.resultData['category_id'] as String?,
+        isQr: widget.resultData['is_qr'] as bool?,
       );
 
       if (mounted) {
@@ -121,11 +125,24 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
       final payeeName = widget.resultData['payee_name'] ?? '';
       final fromWalletId = widget.resultData['from_wallet_id'] as String;
 
-      AppLogger.info("🔄 [QR-Result-BG] Syncing wallets in background...");
-      ref.read(walletNotifierProvider.notifier).refreshWallets();
+      AppLogger.info("🔄 [QR-Result-BG] Syncing wallets...");
+      await ref.read(walletNotifierProvider.notifier).refreshWallets();
       
-      AppLogger.info("🔄 [QR-Result-BG] Refreshing transaction history in background...");
-      ref.read(transactionListProvider.notifier).refreshTransactions(silent: true);
+      AppLogger.info("🔄 [QR-Result-BG] Refreshing transaction history...");
+      await ref.read(transactionListProvider.notifier).refreshTransactions(silent: true);
+
+      AppLogger.info("🔄 [QR-Result-BG] Refreshing notifications...");
+      await ref.read(notificationNotifierProvider.notifier).refresh();
+
+      // Invalidate dashboard and reports providers to refresh state immediately
+      ref.invalidate(fetchDashboardSummaryProvider);
+      ref.invalidate(dashboardSummaryProvider);
+      ref.invalidate(reportSummaryProvider);
+      ref.invalidate(previousPeriodSummaryProvider);
+      ref.invalidate(reportCategoriesProvider);
+      ref.invalidate(budgetListProvider);
+      ref.invalidate(currentMonthBudgetsProvider);
+      ref.invalidate(filteredTransactionListProvider);
 
       // Trigger system and local notifications
       try {

@@ -136,8 +136,8 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
     final result = await ref.read(qrTransferProvider.notifier).decodeQrCode(qrString);
 
     if (result != null && mounted) {
-      AppLogger.info("✅ [QR-Scan] Giải mã thành công! Điều hướng đến màn hình xác nhận...");
-      await context.push('/add-transaction', extra: result);
+      final resultWithQrFlag = Map<String, dynamic>.from(result)..['is_qr'] = true;
+      await context.push('/add-transaction', extra: resultWithQrFlag);
       
       // Khi quay lại từ màn hình xác nhận, khởi động lại camera và reset trạng thái loading
       if (mounted) {
@@ -834,6 +834,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
                                        'amount': null,
                                        'description': null,
                                        'recipient_wallet_name': payee['recipient_wallet_name'] ?? payee['wallet_name'] ?? payee['recipient_wallet'],
+                                       'is_qr': false,
                                      };
                                      await context.push('/add-transaction', extra: mappedPayee);
                                      if (mounted) {
