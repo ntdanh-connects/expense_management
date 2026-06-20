@@ -74,13 +74,6 @@ class FinancialSettingsSection extends ConsumerWidget {
                 title: 'export_report'.tr(ref),
                 onTap: () => context.push(RoutePaths.export),
               ),
-              Divider(color: colors.textSecondary.withOpacity(0.08), height: 1, indent: 50),
-              ProfileMenuItem(
-                icon: Icons.file_download_outlined,
-                iconColor: colors.profileInfo,
-                title: 'import_csv'.tr(ref),
-                onTap: () => context.push(RoutePaths.csvImport),
-              ),
             ],
           ),
         ),
