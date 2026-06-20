@@ -39,4 +39,22 @@ class ReportingExportApiService {
     );
     return response.data as Map<String, dynamic>;
   }
+
+  /// DELETE /api/transactions/exports/{id}
+  /// Deletes a specific export record (and its file) on the backend.
+  Future<Map<String, dynamic>> deleteExport(String exportId) async {
+    final response = await _dio.delete(
+      '${ApiEndpoints.listExports}/$exportId',
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// DELETE /api/transactions/exports
+  /// Deletes all export records (and their files) on the backend.
+  Future<Map<String, dynamic>> clearAllExports() async {
+    final response = await _dio.delete(
+      ApiEndpoints.listExports,
+    );
+    return response.data as Map<String, dynamic>;
+  }
 }

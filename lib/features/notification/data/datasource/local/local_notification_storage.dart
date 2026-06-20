@@ -109,4 +109,11 @@ class LocalNotificationStorage {
       await prefs.setString('${_storageKey}_$userId', jsonStr);
     } catch (_) {}
   }
+
+  static Future<void> clearAllNotifications(String userId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('${_storageKey}_$userId');
+    } catch (_) {}
+  }
 }

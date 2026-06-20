@@ -266,6 +266,28 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
       state = AsyncValue.data(current.copyWith(notifications: updated));
     } catch (_) {}
   }
+
+  Future<void> deleteAllNotifications() async {
+    final current = state.value;
+    if (current == null) return;
+    try {
+      final user = ref.read(currentUserProvider);
+      final userId = user?.id ?? '';
+
+      // Xóa thông báo local
+      if (userId.isNotEmpty) {
+        await LocalNotificationStorage.clearAllNotifications(userId);
+      }
+
+      // Xóa thông báo remote (bỏ qua lỗi nếu không có kết nối)
+      try {
+        final repo = ref.read(notificationRepositoryProvider);
+        await repo.clearAllNotifications();
+      } catch (_) {}
+
+      state = AsyncValue.data(current.copyWith(notifications: []));
+    } catch (_) {}
+  }
 }
 
 final notificationNotifierProvider =

@@ -151,8 +151,9 @@ class _NotificationPanelState extends ConsumerState<_NotificationPanel> {
                 onMarkAll: () => ref
                     .read(notificationNotifierProvider.notifier)
                     .markAllAsRead(),
-                unreadCount:
-                    notifAsync.value?.unreadCount ?? 0,
+                onDeleteAll: () => _confirmDeleteAll(context),
+                unreadCount: notifAsync.value?.unreadCount ?? 0,
+                hasNotifications: (notifAsync.value?.notifications.isNotEmpty) ?? false,
               ),
 
               // ── Body ──────────────────────────────────────────────
@@ -219,6 +220,55 @@ class _NotificationPanelState extends ConsumerState<_NotificationPanel> {
       ),
     );
   }
+
+  Future<void> _confirmDeleteAll(BuildContext context) async {
+    final colors = context.colors;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: colors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.delete_sweep_rounded, color: colors.expenseRed, size: 24),
+            const SizedBox(width: 10),
+            Text(
+              'Xóa toàn bộ thông báo',
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Tất cả thông báo sẽ bị xóa vĩnh viễn. Bạn có chắc chắn muốn tiếp tục?',
+          style: TextStyle(color: colors.textSecondary, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'Hủy',
+              style: TextStyle(color: colors.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: colors.expenseRed),
+            child: const Text(
+              'Xóa tất cả',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await ref.read(notificationNotifierProvider.notifier).deleteAllNotifications();
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -228,12 +278,16 @@ class _NotificationPanelState extends ConsumerState<_NotificationPanel> {
 class _PanelHeader extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback onMarkAll;
+  final VoidCallback onDeleteAll;
   final int unreadCount;
+  final bool hasNotifications;
 
   const _PanelHeader({
     required this.onClose,
     required this.onMarkAll,
+    required this.onDeleteAll,
     required this.unreadCount,
+    required this.hasNotifications,
   });
 
   @override
@@ -324,6 +378,26 @@ class _PanelHeader extends StatelessWidget {
                     ),
                   ),
                 ),
+              // Delete all
+              if (hasNotifications) ...[
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: onDeleteAll,
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.delete_sweep_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

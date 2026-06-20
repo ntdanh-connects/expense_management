@@ -71,6 +71,12 @@ class FakeReportingExportRepository implements ReportingExportRepository {
 
   @override
   Future<void> deleteLocalPdf(String filePath) async {}
+
+  @override
+  Future<void> deleteRemoteExport(String exportId) async {}
+
+  @override
+  Future<void> clearAllRemoteExports() async {}
 }
 
 void main() {

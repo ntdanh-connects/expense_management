@@ -174,6 +174,13 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
       await repo.deleteLocalPdf(item.pathOrUrl);
     } else {
       if (item.remoteId != null) {
+        // Call backend API to delete the export record
+        try {
+          await repo.deleteRemoteExport(item.remoteId!);
+        } catch (_) {
+          // Ignore network/server errors to allow offline local hiding
+        }
+
         final user = ref.read(currentUserProvider);
         final userId = user?.id ?? '';
         final prefsKey = userId.isNotEmpty ? 'deleted_remote_export_ids_$userId' : 'deleted_remote_export_ids';
@@ -202,6 +209,13 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
 
   Future<void> clearAllLocalHistory() async {
     final repo = ref.read(reportingExportRepositoryProvider);
+    
+    // Clear remote items on server
+    try {
+      await repo.clearAllRemoteExports();
+    } catch (_) {
+      // Ignore server error so local clear still functions
+    }
     
     // Clear local PDFs
     final localFiles = await repo.getLocalPdfHistory();

@@ -222,4 +222,14 @@ class ReportingExportRepositoryImpl implements ReportingExportRepository {
       await file.delete();
     }
   }
+
+  @override
+  Future<void> deleteRemoteExport(String exportId) async {
+    await apiService.deleteExport(exportId);
+  }
+
+  @override
+  Future<void> clearAllRemoteExports() async {
+    await apiService.clearAllExports();
+  }
 }
