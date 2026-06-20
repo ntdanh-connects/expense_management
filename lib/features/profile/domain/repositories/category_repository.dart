@@ -23,4 +23,9 @@ abstract class CategoryRepository {
     required String fromCategoryId,
     required String toCategoryId,
   });
+  Future<String?> classifyCategory({
+    String? title,
+    String? notes,
+    required String type,
+  });
 }

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:expense_management/core/network/api_endpoints.dart';
 import 'package:expense_management/core/network/base_response_dto.dart';
 import 'package:expense_management/features/profile/data/models/category_dto.dart';
+import 'package:expense_management/features/profile/data/models/ai_classify_result_dto.dart';
 import 'package:retrofit/retrofit.dart';
 
 part 'category_api_service.g.dart';
@@ -30,4 +31,8 @@ abstract class CategoryApiService {
 
   @POST(ApiEndpoints.mergeCategories)
   Future<BaseResponseDto<void>> mergeCategories(@Body() Map<String, dynamic> body);
+
+  @POST(ApiEndpoints.aiClassifyCategory)
+  Future<BaseResponseDto<AiClassifyResultDto>> classifyCategory(@Body() Map<String, dynamic> body);
 }
+

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:currency_text_input_formatter/currency_text_input_formatter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -46,6 +47,9 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   File? _imageFile;
   final bool _isLoading = false;
 
+  bool _isClassifying = false;
+  Timer? _classificationDebounce;
+
   String? _recipientWalletName;
   String? _toWalletId;
   String? _payeeUserId;
@@ -57,6 +61,8 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   @override
   void initState() {
     super.initState();
+    _titleController.addListener(_onTextChanged);
+    _notesController.addListener(_onTextChanged);
     _formatter = CurrencyTextInputFormatter.currency(
       locale: 'vi',
       decimalDigits: 0,
@@ -168,8 +174,87 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     }
   }
 
+  void _onTextChanged() {
+    _classificationDebounce?.cancel();
+    _classificationDebounce = Timer(const Duration(milliseconds: 800), () {
+      if (mounted) {
+        _autoClassifyCategory();
+      }
+    });
+  }
+
+  Future<void> _autoClassifyCategory() async {
+    if (!mounted) return;
+    final titleText = _titleController.text.trim();
+    final notesText = _notesController.text.trim();
+
+    if (titleText.isEmpty && notesText.isEmpty) return;
+
+    var categories = ref.read(categoriesNotifierProvider).value ?? [];
+    int retries = 0;
+    while (categories.isEmpty && retries < 5) {
+      await Future.delayed(const Duration(milliseconds: 200));
+      if (!mounted) return;
+      categories = ref.read(categoriesNotifierProvider).value ?? [];
+      retries++;
+    }
+
+    if (categories.isEmpty) return;
+
+    setState(() {
+      _isClassifying = true;
+    });
+
+    try {
+      final type = _isIncome ? 'income' : 'expense';
+      final matchedId = await ref.read(categoryRepositoryProvider).classifyCategory(
+        title: titleText.isNotEmpty ? titleText : null,
+        notes: notesText.isNotEmpty ? notesText : null,
+        type: type,
+      );
+
+      if (matchedId == null || !mounted) return;
+
+      CategoryDto? matchedCat;
+      CategoryDto? matchedParent;
+
+      for (final parent in categories) {
+        if (parent.id == matchedId) {
+          matchedCat = null;
+          matchedParent = parent;
+          break;
+        }
+        final children = parent.children ?? [];
+        for (final child in children) {
+          if (child.id == matchedId) {
+            matchedCat = child;
+            matchedParent = parent;
+            break;
+          }
+        }
+        if (matchedParent != null) break;
+      }
+
+      if (matchedParent != null && mounted) {
+        setState(() {
+          _selectedParentCategory = matchedParent;
+          _selectedCategory = matchedCat;
+        });
+      }
+    } catch (e) {
+      debugPrint('AI classification error: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isClassifying = false;
+        });
+      }
+    }
+  }
+
   @override
   void dispose() {
+    _classificationDebounce?.cancel();
     _amountController.dispose();
     _notesController.dispose();
     _titleController.dispose();
@@ -1101,13 +1186,28 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'subcategory'.tr(ref),
-                      style: TextStyle(
-                        color: colors.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          'subcategory'.tr(ref),
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (_isClassifying) ...[
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.5,
+                              valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     if (_selectedParentCategory != null)
                       TextButton(

@@ -164,4 +164,23 @@ class CategoryRepositoryImpl implements CategoryRepository {
       throw AppException(e.toNetworkFailure());
     }
   }
+
+  @override
+  Future<String?> classifyCategory({
+    String? title,
+    String? notes,
+    required String type,
+  }) async {
+    try {
+      final body = {
+        if (title != null) 'title': title,
+        if (notes != null) 'notes': notes,
+        'type': type,
+      };
+      final response = await _apiService.classifyCategory(body);
+      return response.data.categoryId;
+    } on DioException catch (e) {
+      throw AppException(e.toNetworkFailure());
+    }
+  }
 }

@@ -22,6 +22,7 @@ class ApiEndpoints {
   static const String exchangeRates = 'api/exchange-rates';
   static const String categories = 'api/categories';
   static const String categoryIcons = 'api/categories/icons';
+  static const String aiClassifyCategory = 'api/ai/classify-category';
   static const String mergeCategories = 'api/categories/merge';
   static const String updateCategory = 'api/categories/{id}';
   static const String deleteCategory = 'api/categories/{id}';
