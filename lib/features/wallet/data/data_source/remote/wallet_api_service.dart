@@ -33,4 +33,7 @@ abstract class WalletApiService {
 
   @GET(ApiEndpoints.transfers)
   Future<BaseResponseDto<List<dynamic>>> getTransfers();
+
+  @POST(ApiEndpoints.sandboxSimulateTransfer)
+  Future<BaseResponseDto<dynamic>> simulateSandboxTransfer(@Body() Map<String, dynamic> body);
 }

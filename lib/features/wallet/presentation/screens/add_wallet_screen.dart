@@ -61,7 +61,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
         if (mounted) {
           setState(() {
             _walletName = 'my_new_wallet'.tr(ref);
-            _selectedCurrency = ref.read(currentUserProvider)?.currency ?? 'VND';
+            _selectedCurrency = 'VND';
           });
         }
       });
@@ -168,128 +168,65 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
             const SizedBox(height: 20),
 
             // 💰 3. Ô NHẬP SỐ DƯ BAN ĐẦU
-            Text(
-              'initial_balance'.tr(ref),
-              style: TextStyle(
-                color: colors.textPrimary,
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              decoration: BoxDecoration(
-                color: widget.walletToEdit != null
-                    ? (isDark ? Colors.white.withOpacity(0.02) : const Color(0xFFE5E7EB))
-                    : (isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF3F4F6)),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: TextField(
-                controller: _balanceController,
-                enabled: widget.walletToEdit == null, // 🔒 Khóa không cho chỉnh sửa số dư khi edit ví
-                keyboardType: TextInputType.number,
+            if (widget.walletToEdit != null) ...[
+              Text(
+                'initial_balance'.tr(ref),
                 style: TextStyle(
-                  color: widget.walletToEdit != null
-                      ? colors.textSecondary.withOpacity(0.8)
-                      : colors.textPrimary,
+                  color: colors.textPrimary,
+                  fontSize: 15,
                   fontWeight: FontWeight.bold,
                 ),
-                decoration: InputDecoration(
-                  hintText: '0',
-                  hintStyle: TextStyle(
-                    color: colors.textSecondary.withOpacity(0.6),
-                    fontSize: 14,
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.02) : const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: TextField(
+                  controller: _balanceController,
+                  enabled: false, // 🔒 Khóa không cho chỉnh sửa số dư khi edit ví
+                  keyboardType: TextInputType.number,
+                  style: TextStyle(
+                    color: colors.textSecondary.withOpacity(0.8),
+                    fontWeight: FontWeight.bold,
                   ),
-                  border: InputBorder.none,
-                  suffixIcon: Container(
-                    alignment: Alignment.centerRight,
-                    width: 40,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        if (widget.walletToEdit != null) ...[
+                  decoration: InputDecoration(
+                    hintText: '0',
+                    hintStyle: TextStyle(
+                      color: colors.textSecondary.withOpacity(0.6),
+                      fontSize: 14,
+                    ),
+                    border: InputBorder.none,
+                    suffixIcon: Container(
+                      alignment: Alignment.centerRight,
+                      width: 40,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
                           Icon(
                             Icons.lock_rounded,
                             size: 14,
                             color: colors.textSecondary.withOpacity(0.6),
                           ),
                           const SizedBox(width: 6),
-                        ],
-                        Text(
-                          AppConstant.getCurrencySymbol(ref.watch(currentUserProvider)?.currency),
-                          style: TextStyle(
-                            color: widget.walletToEdit != null
-                                ? colors.textSecondary.withOpacity(0.8)
-                                : colors.textPrimary,
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
+                          Text(
+                            AppConstant.getCurrencySymbol(ref.watch(currentUserProvider)?.currency),
+                            style: TextStyle(
+                              color: colors.textSecondary.withOpacity(0.8),
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-
-            // 🌍 CHỌN ĐƠN VỊ TIỀN TỆ
-            optionsAsync.when(
-              data: (options) {
-                final availableCodes = options.currencies.map((c) => c.code).toList();
-                if (!_selectedCurrencyInitialized) {
-                  _selectedCurrencyInitialized = true;
-                  if (widget.walletToEdit != null) {
-                    _selectedCurrency = widget.walletToEdit!.currencyCode;
-                  } else {
-                    _selectedCurrency = ref.read(currentUserProvider)?.currency ?? 'VND';
-                  }
-                }
-                if (!availableCodes.contains(_selectedCurrency)) {
-                  _selectedCurrency = availableCodes.isNotEmpty ? availableCodes.first : 'VND';
-                }
-
-                return _buildDropdownField<String>(
-                  colors: colors,
-                  label: 'currency_label'.tr(ref),
-                  value: _selectedCurrency,
-                  items: options.currencies.map((c) => DropdownMenuItem<String>(
-                    value: c.code,
-                    child: Text('${c.code} (${c.symbol}) - ${c.name}'),
-                  )).toList(),
-                  onChanged: widget.walletToEdit != null ? null : (val) {
-                    if (val != null) {
-                      setState(() => _selectedCurrency = val);
-                    }
-                  },
-                );
-              },
-              loading: () => const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: CircularProgressIndicator(),
-              ),
-              error: (err, _) => _buildDropdownField<String>(
-                colors: colors,
-                label: 'currency_label'.tr(ref),
-                value: _selectedCurrency,
-                items: const [
-                  DropdownMenuItem(value: 'VND', child: Text('VND (đ)')),
-                  DropdownMenuItem(value: 'USD', child: Text('USD (\$)')),
-                ],
-                onChanged: widget.walletToEdit != null ? null : (val) {
-                  if (val != null) {
-                    setState(() => _selectedCurrency = val);
-                  }
-                },
-              ),
-            ),
-            if (_selectedCurrency != 'VND')
-              VcbRateReferenceWidget(
-                currencyCode: _selectedCurrency,
-                initialAmount: _initialBalance,
-              ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
+            ],
 
             // 📁 4. CHỌN LOẠI VÍ
             Text(
@@ -968,7 +905,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
         icon: _selectedIcon,
         color: _selectedColor,
         isHidden: _isHidden,
-        availableBalance: _initialBalance.toStringAsFixed(0),
+        availableBalance: null,
         currencyCode: _selectedCurrency,
       );
 

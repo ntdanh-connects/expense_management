@@ -388,22 +388,6 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
 
                   return Column(
                     children: [
-                      // Dropdown Tiền tệ
-                      _buildDropdownField<String>(
-                        label: 'default_currency_label'.tr(ref),
-                        icon: Icons.monetization_on_outlined,
-                        value: _selectedCurrency!,
-                        items: options.currencies.map((c) => DropdownMenuItem<String>(
-                          value: c.code,
-                          child: Text('${c.code} (${c.symbol}) - ${c.name}'),
-                        )).toList(),
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() => _selectedCurrency = val);
-                          }
-                        },
-                      ),
-
                       // Chọn Múi giờ với Searchable Bottom Sheet
                       GestureDetector(
                         onTap: () => _showTimezoneSearchSheet(context, filteredTimezones),

@@ -42,6 +42,7 @@ import 'package:expense_management/features/ai_assistant/presentation/screens/ai
 import 'package:expense_management/features/security/presentation/screens/pin_setup_screen.dart';
 import 'package:expense_management/features/financial_month/presentation/screens/financial_month_screen.dart';
 import 'package:expense_management/features/csv_import/presentation/screens/csv_import_screen.dart';
+import 'package:expense_management/features/profile/presentation/screens/sandbox_simulate_transfer_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -83,6 +84,7 @@ class RoutePaths {
   static const pinSetup = '/profile/pin-setup';
   static const financialMonth = '/profile/financial-month';
   static const csvImport = '/profile/csv-import';
+  static const sandboxSimulateTransfer = '/profile/sandbox-simulate-transfer';
 }
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -376,6 +378,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: 'csv-import',
                 parentNavigatorKey: rootNavigatorKey,
                 builder: (context, state) => const CsvImportScreen(),
+              ),
+              GoRoute(
+                path: 'sandbox-simulate-transfer',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) => const SandboxSimulateTransferScreen(),
               ),
             ],
           ),

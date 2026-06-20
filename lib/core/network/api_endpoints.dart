@@ -59,4 +59,5 @@ class ApiEndpoints {
   static const String notificationReadAll = 'api/notifications/read-all';
   static const String notificationDelete = 'api/notifications/{id}';
   static const String notificationPreferences = 'api/notifications/preferences';
+  static const String sandboxSimulateTransfer = 'api/sandbox/simulate-transfer';
 }
