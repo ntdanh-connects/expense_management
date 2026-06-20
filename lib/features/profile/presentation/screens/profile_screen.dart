@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter_sficon/flutter_sficon.dart';
 import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/theme/theme_provider.dart';
@@ -371,11 +374,23 @@ class ProfileScreen extends ConsumerWidget {
                                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                     child: Row(
                                       children: [
-                                        Icon(Icons.fingerprint_rounded, color: colors.profileSecurity, size: 22),
+                                        Platform.isIOS
+                                            ? SFIcon(
+                                                SFIcons.sf_faceid,
+                                                fontSize: 22,
+                                                color: colors.profileSecurity,
+                                              )
+                                            : Icon(
+                                                Icons.fingerprint_rounded,
+                                                color: colors.profileSecurity,
+                                                size: 22,
+                                              ),
                                         const SizedBox(width: 16),
                                         Expanded(
                                           child: Text(
-                                            'unlock_with_biometric'.tr(ref),
+                                            Platform.isIOS
+                                                ? 'unlock_with_biometric_ios'.tr(ref)
+                                                : 'unlock_with_biometric_android'.tr(ref),
                                             style: TextStyle(
                                               color: colors.textPrimary,
                                               fontSize: 15,

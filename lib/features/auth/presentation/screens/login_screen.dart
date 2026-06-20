@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:elegant_notification/elegant_notification.dart';
 import 'package:elegant_notification/resources/arrays.dart';
 import 'package:expense_management/core/router/app_route.dart';
@@ -32,6 +33,147 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   
   final ValueNotifier<bool> _obscurePasswordNotifier = ValueNotifier(true);
+  bool _isSessionExpiredDialogShowing = false;
+ 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final sessionExpired = ref.read(sessionExpiredProvider);
+        if (sessionExpired) {
+          _showSessionExpiredDialog();
+          // Reset ngay lập tức
+          ref.read(sessionExpiredProvider.notifier).state = false;
+        }
+      }
+    });
+  }
+ 
+  void _showSessionExpiredDialog() {
+    if (_isSessionExpiredDialogShowing) return;
+    _isSessionExpiredDialogShowing = true;
+
+    final targetContext = rootNavigatorKey.currentContext ?? context;
+    final colors = targetContext.colors;
+    showDialog(
+      context: targetContext,
+      barrierDismissible: false, // Bắt buộc bấm nút mới đóng
+      builder: (BuildContext dialogContext) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Stack(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: colors.authCardBg,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: colors.textSecondary.withOpacity(0.1),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 15,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Icon cool ngầu cảnh báo phiên đăng nhập
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          color: colors.primary.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.key_off_rounded,
+                          color: colors.primary,
+                          size: 32,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // Tiêu đề
+                      Text(
+                        'session_expired_title'.tr(ref),
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      // Mô tả chi tiết
+                      Text(
+                        'session_expired_description'.tr(ref),
+                        style: TextStyle(
+                          color: colors.textSecondary,
+                          fontSize: 14,
+                          height: 1.4,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      // Nút Đóng
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.of(dialogContext).pop(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colors.primary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            'close'.tr(ref),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: colors.textSecondary,
+                    ),
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ).then((_) {
+      if (mounted) {
+        _isSessionExpiredDialogShowing = false;
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -44,6 +186,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final authState = ref.watch(authNotifierProvider);
+
+    ref.listen<bool>(sessionExpiredProvider, (previous, next) {
+      if (next) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _showSessionExpiredDialog();
+            // Reset ngay lập tức
+            ref.read(sessionExpiredProvider.notifier).state = false;
+          }
+        });
+      }
+    });
 
     ref.listen(authNotifierProvider, (previous, next) {
       next.maybeWhen(
@@ -77,12 +231,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         orElse: () {},
       );
     });
-
-    // Trích xuất trạng thái đợi API mạng
-    final isLoading = authState.maybeWhen(
-      authenticating: () => true,
-      orElse: () => false,
-    );
 
     return authState.when(
       authenticating: () => _buildLoginForm(isLoading: true, colors: colors),

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -83,12 +84,12 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
         backgroundColor: colors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(
-          'opt_in_biometrics_title'.trRead(ref),
+          (Platform.isIOS ? 'opt_in_biometrics_title_ios' : 'opt_in_biometrics_title_android').trRead(ref),
           style: const TextStyle(fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
         ),
         content: Text(
-          'opt_in_biometrics_desc'.trRead(ref),
+          (Platform.isIOS ? 'opt_in_biometrics_desc_ios' : 'opt_in_biometrics_desc_android').trRead(ref),
           textAlign: TextAlign.center,
         ),
         actionsAlignment: MainAxisAlignment.spaceEvenly,

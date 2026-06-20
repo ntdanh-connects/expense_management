@@ -93,8 +93,7 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
     final colors = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final user = ref.watch(currentUserProvider);
-    final tzName = user?.timezone ?? 'Asia/Ho_Chi_Minh';
+    final tzName = ref.watch(currentUserProvider.select((u) => u?.timezone)) ?? 'Asia/Ho_Chi_Minh';
     final location = tz.getLocation(tzName);
 
     final chartStartDate = _getChartStartDate();

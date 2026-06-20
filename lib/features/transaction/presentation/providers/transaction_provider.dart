@@ -112,8 +112,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
 
   @override
   FutureOr<List<TransactionEntity>> build() async {
-    final user = ref.watch(currentUserProvider);
-    final userId = user?.id ?? '';
+    final userId = ref.watch(currentUserProvider.select((u) => u?.id)) ?? '';
     if (userId.isEmpty) return [];
 
     final database = ref.read(appDatabaseProvider);
@@ -932,8 +931,7 @@ class FilteredTransactionListNotifier extends TransactionListNotifier {
 
   @override
   FutureOr<List<TransactionEntity>> build() async {
-    final user = ref.watch(currentUserProvider);
-    final userId = user?.id ?? '';
+    final userId = ref.watch(currentUserProvider.select((u) => u?.id)) ?? '';
     if (userId.isEmpty) return [];
 
     final filter = ref.watch(transactionFilterProvider);
@@ -948,7 +946,7 @@ class FilteredTransactionListNotifier extends TransactionListNotifier {
     final cachedData = cachedRows.map((r) => _mapLocalTransactionToEntity(r, categories, wallets)).toList();
     final pendingData = pendingRows.map((r) => _mapLocalTransactionToEntity(r, categories, wallets)).toList();
 
-    final tzName = user?.timezone ?? 'Asia/Ho_Chi_Minh';
+    final tzName = ref.watch(currentUserProvider.select((u) => u?.timezone)) ?? 'Asia/Ho_Chi_Minh';
     final filteredCached = _filterLocalList(cachedData, filter, tzName, categories);
     final filteredPending = _filterLocalList(pendingData, filter, tzName, categories);
 

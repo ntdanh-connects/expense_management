@@ -212,7 +212,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            AppConstant.getCurrencySymbol(ref.watch(currentUserProvider)?.currency),
+                            AppConstant.getCurrencySymbol(ref.watch(currentUserProvider.select((u) => u?.currency))),
                             style: TextStyle(
                               color: colors.textSecondary.withOpacity(0.8),
                               fontSize: 15,

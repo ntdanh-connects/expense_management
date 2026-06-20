@@ -512,7 +512,7 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final userCurrency = ref.watch(currentUserProvider)?.currency ?? 'VND';
+    final userCurrency = ref.watch(currentUserProvider.select((u) => u?.currency)) ?? 'VND';
     final currencySymbol = AppConstant.getCurrencySymbol(userCurrency);
     
     final overallAmount = _getOverallAmount();

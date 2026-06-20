@@ -19,9 +19,12 @@ class CustomSlidingBottomBar extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final tabs = BottomBarConfig.mainTabs;
 
-    final authState = ref.watch(authNotifierProvider);
+    final userThemeHex = ref.watch(authNotifierProvider.select((state) => state.maybeWhen(authenticated: (u) => u.theme, orElse: () => '')));
     Color dynamicColor = color.primary;
-    authState.maybeWhen(authenticated: (u) { final hex = u.theme.replaceAll('#', ''); if (hex.length == 6) dynamicColor = Color(int.parse('FF$hex', radix: 16)); }, orElse: () {});
+    final hex = userThemeHex.replaceAll('#', '');
+    if (hex.length == 6) {
+      dynamicColor = Color(int.parse('FF$hex', radix: 16));
+    }
 
     // Toán tử nhảy cóc qua ô số 2 của nút dấu (+) chính giữa
     int slidingIndex = currentIndex >= 2 ? currentIndex + 1 : currentIndex;

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
@@ -17,7 +18,8 @@ class VndToForeignConverterBottomSheet extends ConsumerStatefulWidget {
 class _VndToForeignConverterBottomSheetState
     extends ConsumerState<VndToForeignConverterBottomSheet> {
   late TextEditingController _amountController;
-  double _vndAmount = 1000000.0; // Mặc định 1.000.000đ
+  String _selectedInputCurrency = 'VND';
+  double _inputAmount = 1000000.0; // Mặc định 1.000.000đ
   final Set<String> _expandedCurrencies = {};
   bool _isExplanationExpanded = false;
 
@@ -25,7 +27,7 @@ class _VndToForeignConverterBottomSheetState
   void initState() {
     super.initState();
     _amountController = TextEditingController(
-      text: NumberFormat('#,###').format(_vndAmount),
+      text: _formatInputAmount(_inputAmount, _selectedInputCurrency),
     );
   }
 
@@ -35,8 +37,22 @@ class _VndToForeignConverterBottomSheetState
     super.dispose();
   }
 
+  bool _isDecimalCurrency(String code) {
+    final c = code.toUpperCase();
+    return c != 'VND' && c != 'JPY' && c != 'KRW';
+  }
+
+  String _formatInputAmount(double value, String currencyCode) {
+    if (_isDecimalCurrency(currencyCode)) {
+      return NumberFormat('0.00').format(value);
+    }
+    return NumberFormat('#,###').format(value);
+  }
+
   String _getCurrencyFlag(String code) {
     switch (code.toUpperCase()) {
+      case 'VND':
+        return '🇻🇳';
       case 'USD':
         return '🇺🇸';
       case 'EUR':
@@ -75,11 +91,128 @@ class _VndToForeignConverterBottomSheetState
   }
 
   String _formatForeignCurrency(double value, String currencyCode) {
-    final code = currencyCode.toUpperCase();
-    if (code == 'JPY' || code == 'VND' || code == 'KRW') {
+    if (!_isDecimalCurrency(currencyCode)) {
       return NumberFormat('#,###').format(value);
     }
     return NumberFormat('#,##0.00').format(value);
+  }
+
+  void _onAmountChanged(String val) {
+    if (val.isEmpty) {
+      setState(() {
+        _inputAmount = 0.0;
+      });
+      return;
+    }
+
+    if (!_isDecimalCurrency(_selectedInputCurrency)) {
+      // Non-decimal currency logic (VND, JPY, KRW)
+      final cleanString = val.replaceAll(RegExp(r'[^0-9]'), '');
+      final double? amt = double.tryParse(cleanString);
+      if (amt != null) {
+        setState(() {
+          _inputAmount = amt;
+        });
+        final formatted = NumberFormat('#,###').format(amt);
+        _amountController.value = TextEditingValue(
+          text: formatted,
+          selection: TextSelection.fromPosition(
+            TextPosition(offset: formatted.length),
+          ),
+        );
+      }
+    } else {
+      // Decimal currency logic (USD, EUR, GBP, etc.)
+      final cleanString = val.replaceAll(',', '');
+      final double? amt = double.tryParse(cleanString);
+      if (amt != null) {
+        setState(() {
+          _inputAmount = amt;
+        });
+      }
+    }
+  }
+
+  void _changeInputCurrency(String newCurrency, Map<String, VcbRateItemDto> vcbRates) {
+    if (newCurrency == _selectedInputCurrency) return;
+    
+    // Calculate the equivalent amount in the new currency
+    double currentVnd = _inputAmount * (_selectedInputCurrency == 'VND' ? 1.0 : (vcbRates[_selectedInputCurrency]?.sell ?? 1.0));
+    double newAmount = newCurrency == 'VND' ? currentVnd : (currentVnd / (vcbRates[newCurrency]?.sell ?? 1.0));
+    
+    setState(() {
+      _selectedInputCurrency = newCurrency;
+      _inputAmount = newAmount;
+      _expandedCurrencies.remove(newCurrency);
+      _amountController.text = _formatInputAmount(newAmount, newCurrency);
+    });
+  }
+
+  void _showCurrencySelector(
+      BuildContext context, Map<String, VcbRateItemDto> vcbRates, List<String> allCurrencies) {
+    final colors = context.colors;
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          height: MediaQuery.of(ctx).size.height * 0.6,
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colors.textSecondary.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Chọn đồng tiền nhập',
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Divider(),
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  itemCount: allCurrencies.length,
+                  itemBuilder: (context, idx) {
+                    final curr = allCurrencies[idx];
+                    final isSelected = curr == _selectedInputCurrency;
+                    final flag = _getCurrencyFlag(curr);
+                    final name = curr == 'VND' ? 'Việt Nam Đồng' : (vcbRates[curr]?.currencyName ?? '');
+                    
+                    return ListTile(
+                      leading: Text(flag, style: const TextStyle(fontSize: 24)),
+                      title: Text(curr, style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold)),
+                      subtitle: Text(name, style: TextStyle(color: colors.textSecondary, fontSize: 12)),
+                      trailing: isSelected ? Icon(Icons.check_circle_rounded, color: colors.primary) : null,
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.pop(ctx);
+                        _changeInputCurrency(curr, vcbRates);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -140,7 +273,7 @@ class _VndToForeignConverterBottomSheetState
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Quy đổi VND sang ngoại tệ khác',
+                          'Quy đổi ngoại tệ và VND thời gian thực',
                           style: TextStyle(
                             color: colors.textSecondary,
                             fontSize: 11.5,
@@ -163,14 +296,14 @@ class _VndToForeignConverterBottomSheetState
           ),
           const Divider(height: 24),
 
-          // ── Ô NHẬP SỐ TIỀN VND
+          // ── Ô NHẬP SỐ TIỀN VÀ CHỌN NGOẠI TỆ
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Nhập số tiền Việt Nam (VND):',
+                  'Nhập số tiền quy đổi:',
                   style: TextStyle(
                     color: colors.textPrimary,
                     fontSize: 13.5,
@@ -178,66 +311,92 @@ class _VndToForeignConverterBottomSheetState
                   ),
                 ),
                 const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: colors.primary.withOpacity(0.15),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _amountController,
-                          keyboardType: TextInputType.number,
-                          style: TextStyle(
-                            color: colors.textPrimary,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(vertical: 12),
-                          ),
-                          onChanged: (val) {
-                            if (val.isEmpty) {
-                              setState(() {
-                                _vndAmount = 0.0;
-                              });
-                              return;
-                            }
-                            final cleanString = val.replaceAll(RegExp(r'[^0-9]'), '');
-                            final double? amt = double.tryParse(cleanString);
-                            if (amt != null) {
-                              setState(() {
-                                _vndAmount = amt;
-                              });
-                              final formatted = NumberFormat('#,###').format(amt);
-                              _amountController.value = TextEditingValue(
-                                text: formatted,
-                                selection: TextSelection.fromPosition(
-                                  TextPosition(offset: formatted.length),
-                                ),
-                              );
-                            }
-                          },
+                ratesAsync.when(
+                  loading: () => Container(height: 56, color: Colors.transparent),
+                  error: (_, __) => Container(height: 56, color: Colors.transparent),
+                  data: (ratesData) {
+                    final vcbRates = ratesData.vcbRates ?? {};
+                    final allCurrencies = ['VND', ...vcbRates.keys.where((k) => k != 'VND')];
+                    final popularOrder = ['VND', 'USD', 'EUR', 'JPY', 'GBP', 'AUD', 'SGD', 'CAD'];
+                    allCurrencies.sort((a, b) {
+                      final idxA = popularOrder.indexOf(a.toUpperCase());
+                      final idxB = popularOrder.indexOf(b.toUpperCase());
+                      if (idxA != -1 && idxB != -1) return idxA.compareTo(idxB);
+                      if (idxA != -1) return -1;
+                      if (idxB != -1) return 1;
+                      return a.compareTo(b);
+                    });
+
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF3F4F6),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: colors.primary.withOpacity(0.15),
+                          width: 1.5,
                         ),
                       ),
-                      Text(
-                        'VND',
-                        style: TextStyle(
-                          color: colors.primary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      child: Row(
+                        children: [
+                          // Dropdown chọn ngoại tệ đầu vào
+                          InkWell(
+                            onTap: () => _showCurrencySelector(context, vcbRates, allCurrencies),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    _getCurrencyFlag(_selectedInputCurrency),
+                                    style: const TextStyle(fontSize: 20),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _selectedInputCurrency,
+                                    style: TextStyle(
+                                      color: colors.textPrimary,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                    color: colors.textSecondary,
+                                    size: 18,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Container(
+                            height: 24,
+                            width: 1,
+                            color: colors.textSecondary.withOpacity(0.3),
+                            margin: const EdgeInsets.symmetric(horizontal: 12),
+                          ),
+                          Expanded(
+                            child: TextField(
+                              controller: _amountController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              style: TextStyle(
+                                color: colors.textPrimary,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              onChanged: _onAmountChanged,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -273,10 +432,22 @@ class _VndToForeignConverterBottomSheetState
               ),
               data: (ratesData) {
                 final vcbRates = ratesData.vcbRates ?? {};
-                final currenciesList =
-                    vcbRates.entries.where((e) => e.key != 'VND').toList();
+                final allCurrencies = ['VND', ...vcbRates.keys.where((k) => k != 'VND')];
+                final popularOrder = ['VND', 'USD', 'EUR', 'JPY', 'GBP', 'AUD', 'SGD', 'CAD'];
+                allCurrencies.sort((a, b) {
+                  final idxA = popularOrder.indexOf(a.toUpperCase());
+                  final idxB = popularOrder.indexOf(b.toUpperCase());
+                  if (idxA != -1 && idxB != -1) return idxA.compareTo(idxB);
+                  if (idxA != -1) return -1;
+                  if (idxB != -1) return 1;
+                  return a.compareTo(b);
+                });
 
-                if (currenciesList.isEmpty) {
+                // Các đồng tiền được quy đổi là các đồng tiền khác đồng tiền đang nhập
+                final displayCurrencies =
+                    allCurrencies.where((c) => c != _selectedInputCurrency).toList();
+
+                if (displayCurrencies.isEmpty) {
                   return Center(
                     child: Text(
                       'Không có dữ liệu tỷ giá ngoại tệ.',
@@ -285,45 +456,72 @@ class _VndToForeignConverterBottomSheetState
                   );
                 }
 
-                // Sắp xếp các ngoại tệ phổ biến lên đầu
-                final popularOrder = ['USD', 'EUR', 'JPY', 'GBP', 'AUD', 'SGD', 'CAD'];
-                currenciesList.sort((a, b) {
-                  final idxA = popularOrder.indexOf(a.key.toUpperCase());
-                  final idxB = popularOrder.indexOf(b.key.toUpperCase());
-                  if (idxA != -1 && idxB != -1) return idxA.compareTo(idxB);
-                  if (idxA != -1) return -1;
-                  if (idxB != -1) return 1;
-                  return a.key.compareTo(b.key);
-                });
-
                 return ListView.builder(
                   physics: const BouncingScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  itemCount: currenciesList.length + 1,
+                  itemCount: displayCurrencies.length + 1,
                   itemBuilder: (context, index) {
-                    if (index == currenciesList.length) {
-                      // Chú thích cuối danh sách
+                    if (index == displayCurrencies.length) {
                       return _buildExplanationCollapsible(colors);
                     }
 
-                    final entry = currenciesList[index];
-                    final currencyCode = entry.key;
-                    final rateItem = entry.value;
-
+                    final currencyCode = displayCurrencies[index];
                     final isExpanded = _expandedCurrencies.contains(currencyCode);
 
-                    // Tính quy đổi dựa trên tỷ giá bán ra (Bán ngoại tệ từ bank cho khách)
-                    final sellRate = rateItem.sell;
-                    final convertedSell = sellRate > 0 ? (_vndAmount / sellRate) : 0.0;
+                    // 1. Lấy thông tin tỷ giá của đồng tiền đầu vào
+                    final inputRateItem = vcbRates[_selectedInputCurrency];
+                    // 2. Lấy thông tin tỷ giá của đồng tiền đích
+                    final targetRateItem = vcbRates[currencyCode];
 
-                    // Tính quy đổi mua tiền mặt và mua chuyển khoản để đối chiếu
-                    final buyCashRate = rateItem.buyCash;
-                    final convertedBuyCash =
-                        buyCashRate > 0 ? (_vndAmount / buyCashRate) : 0.0;
+                    // Tỷ giá quy đổi (VND cho 1 đơn vị tiền tệ)
+                    final inputSell = _selectedInputCurrency == 'VND' ? 1.0 : (inputRateItem?.sell ?? 0.0);
+                    final inputBuyCash = _selectedInputCurrency == 'VND' ? 1.0 : (inputRateItem?.buyCash ?? 0.0);
+                    final inputBuyTransfer = _selectedInputCurrency == 'VND' ? 1.0 : (inputRateItem?.buyTransfer ?? 0.0);
 
-                    final buyTransferRate = rateItem.buyTransfer;
-                    final convertedBuyTransfer =
-                        buyTransferRate > 0 ? (_vndAmount / buyTransferRate) : 0.0;
+                    final targetSell = currencyCode == 'VND' ? 1.0 : (targetRateItem?.sell ?? 0.0);
+                    final targetBuyCash = currencyCode == 'VND' ? 1.0 : (targetRateItem?.buyCash ?? 0.0);
+                    final targetBuyTransfer = currencyCode == 'VND' ? 1.0 : (targetRateItem?.buyTransfer ?? 0.0);
+
+                    // Quy đổi từ input sang target qua trung gian VND
+                    final double convertedSell;
+                    if (targetSell > 0) {
+                      final inputVnd = _inputAmount * inputSell;
+                      convertedSell = inputVnd / targetSell;
+                    } else {
+                      convertedSell = 0.0;
+                    }
+
+                    final double convertedBuyCash;
+                    if (targetBuyCash > 0) {
+                      final inputVnd = _inputAmount * inputBuyCash;
+                      convertedBuyCash = inputVnd / targetBuyCash;
+                    } else {
+                      convertedBuyCash = 0.0;
+                    }
+
+                    final double convertedBuyTransfer;
+                    if (targetBuyTransfer > 0) {
+                      final inputVnd = _inputAmount * inputBuyTransfer;
+                      convertedBuyTransfer = inputVnd / targetBuyTransfer;
+                    } else {
+                      convertedBuyTransfer = 0.0;
+                    }
+
+                    // Tên hiển thị của đồng tiền đích
+                    final targetName = currencyCode == 'VND' ? 'Việt Nam Đồng' : (targetRateItem?.currencyName ?? '');
+
+                    // Tính tỷ giá chéo (bao nhiêu đồng tiền đích đổi được 1 đồng tiền nguồn)
+                    String exchangeRateText = '';
+                    if (_selectedInputCurrency == 'VND') {
+                      exchangeRateText = 'Tỷ giá: ${NumberFormat('#,###.##').format(targetSell)} ₫';
+                    } else if (currencyCode == 'VND') {
+                      exchangeRateText = 'Tỷ giá: ${NumberFormat('#,###.##').format(inputSell)} ₫';
+                    } else {
+                      if (targetSell > 0) {
+                        final crossRate = inputSell / targetSell;
+                        exchangeRateText = '1 $_selectedInputCurrency ≈ ${NumberFormat('#,##0.####').format(crossRate)} $currencyCode';
+                      }
+                    }
 
                     return AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
@@ -361,10 +559,8 @@ class _VndToForeignConverterBottomSheetState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Hàng tiêu đề của thẻ ngoại tệ
                               Row(
                                 children: [
-                                  // Flag/Logo tròn
                                   Container(
                                     width: 44,
                                     height: 44,
@@ -379,12 +575,9 @@ class _VndToForeignConverterBottomSheetState
                                     ),
                                   ),
                                   const SizedBox(width: 14),
-
-                                  // Code & Tên
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           currencyCode,
@@ -396,7 +589,7 @@ class _VndToForeignConverterBottomSheetState
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
-                                          rateItem.currencyName,
+                                          targetName,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
@@ -407,14 +600,12 @@ class _VndToForeignConverterBottomSheetState
                                       ],
                                     ),
                                   ),
-
-                                  // Số tiền quy đổi chính
+                                  const SizedBox(width: 12),
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
                                       Text(
-                                        _formatForeignCurrency(
-                                            convertedSell, currencyCode),
+                                        _formatForeignCurrency(convertedSell, currencyCode),
                                         style: TextStyle(
                                           color: colors.primary,
                                           fontWeight: FontWeight.bold,
@@ -423,7 +614,7 @@ class _VndToForeignConverterBottomSheetState
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
-                                        'Tỷ giá: ${NumberFormat('#,###').format(sellRate)} ₫',
+                                        exchangeRateText,
                                         style: TextStyle(
                                           color: colors.textSecondary,
                                           fontSize: 11,
@@ -441,14 +632,12 @@ class _VndToForeignConverterBottomSheetState
                                   ),
                                 ],
                               ),
-
-                              // Chi tiết bảng so sánh khi bấm mở rộng card
                               if (isExpanded) ...[
                                 const Divider(height: 24),
                                 _buildDetailRateRow(
                                   label: 'Mua từ Bank (Tỷ giá Bán)',
-                                  desc: 'Dùng VND đổi lấy ngoại tệ chuyển khoản/tiền mặt',
-                                  rate: sellRate,
+                                  desc: 'Dùng $_selectedInputCurrency đổi lấy $currencyCode theo tỷ giá Bán ra của ngân hàng',
+                                  rate: targetSell,
                                   amount: convertedSell,
                                   code: currencyCode,
                                   color: colors.primary,
@@ -457,8 +646,8 @@ class _VndToForeignConverterBottomSheetState
                                 const SizedBox(height: 12),
                                 _buildDetailRateRow(
                                   label: 'Bán Tiền mặt cho Bank (Tỷ giá Mua mặt)',
-                                  desc: 'Đổi ngoại tệ tiền mặt của bạn lấy VND',
-                                  rate: buyCashRate,
+                                  desc: 'Đổi $currencyCode mặt lấy $_selectedInputCurrency theo tỷ giá Mua tiền mặt',
+                                  rate: targetBuyCash,
                                   amount: convertedBuyCash,
                                   code: currencyCode,
                                   color: colors.expenseRed,
@@ -467,8 +656,8 @@ class _VndToForeignConverterBottomSheetState
                                 const SizedBox(height: 12),
                                 _buildDetailRateRow(
                                   label: 'Bán CK cho Bank (Tỷ giá Mua CK)',
-                                  desc: 'Chuyển khoản ngoại tệ của bạn lấy VND',
-                                  rate: buyTransferRate,
+                                  desc: 'Đổi $currencyCode chuyển khoản lấy $_selectedInputCurrency theo tỷ giá Mua chuyển khoản',
+                                  rate: targetBuyTransfer,
                                   amount: convertedBuyTransfer,
                                   code: currencyCode,
                                   color: colors.incomeGreen,
@@ -499,27 +688,36 @@ class _VndToForeignConverterBottomSheetState
     required Color color,
     required AppColorsExtension colors,
   }) {
+    final showRateText = code == 'VND'
+        ? ''
+        : 'Tỷ giá: ${NumberFormat('#,###.##').format(rate)} ₫';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: colors.textPrimary,
-                fontWeight: FontWeight.bold,
-                fontSize: 12.5,
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12.5,
+                ),
               ),
             ),
-            Text(
-              'Tỷ giá: ${NumberFormat('#,###.##').format(rate)} ₫',
-              style: TextStyle(
-                color: colors.textSecondary,
-                fontSize: 12,
+            const SizedBox(width: 8),
+            if (showRateText.isNotEmpty)
+              Text(
+                showRateText,
+                style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: 12,
+                ),
               ),
-            ),
           ],
         ),
         const SizedBox(height: 1),
@@ -533,14 +731,18 @@ class _VndToForeignConverterBottomSheetState
         const SizedBox(height: 4),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text(
-              'Số tiền ngoại tệ nhận:',
-              style: TextStyle(
-                color: colors.textSecondary,
-                fontSize: 12,
+            Expanded(
+              child: Text(
+                'Số tiền nhận được:',
+                style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: 12,
+                ),
               ),
             ),
+            const SizedBox(width: 8),
             Text(
               '${_formatForeignCurrency(amount, code)} $code',
               style: TextStyle(
@@ -582,7 +784,7 @@ class _VndToForeignConverterBottomSheetState
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Lưu ý về tỷ giá Vietcombank áp dụng',
+                      'Lưu ý về tỷ giá quy đổi áp dụng',
                       style: TextStyle(
                         color: colors.primary,
                         fontSize: 13,
@@ -605,9 +807,9 @@ class _VndToForeignConverterBottomSheetState
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Text(
-                '• Quy đổi hiển thị ở danh sách chính được tính dựa trên Tỷ giá Bán (Sell Rate) của Vietcombank. Đây là tỷ giá bạn cần trả để mua ngoại tệ từ ngân hàng.\n'
-                '• Khi mở rộng từng mục, bạn sẽ thấy thêm Tỷ giá Mua tiền mặt và Mua chuyển khoản dùng để đối chiếu trong trường hợp bán ngoại tệ lấy VND.\n'
-                '• Dữ liệu tỷ giá được đồng bộ và cập nhật tự động từ hệ thống Vietcombank mới nhất.',
+                '• Quy đổi ở danh sách chính được tính dựa trên Tỷ giá Bán (Sell Rate) hoặc tỷ giá chéo quy đổi giữa các ngoại tệ qua đồng VND.\n'
+                '• Khi mở rộng từng mục, bạn sẽ thấy thêm chi tiết theo Tỷ giá Mua tiền mặt và Mua chuyển khoản để dễ dàng đối chiếu.\n'
+                '• Tỷ giá chéo được tính toán tự động dựa trên tỷ giá của ngân hàng Vietcombank cập nhật thời gian thực.',
                 style: TextStyle(
                   color: colors.textSecondary,
                   fontSize: 11.5,

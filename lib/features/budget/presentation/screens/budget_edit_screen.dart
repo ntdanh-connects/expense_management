@@ -295,7 +295,7 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final isReadOnly = _isPastMonth(widget.budget.month, widget.budget.year);
-    final userCurrency = ref.watch(currentUserProvider)?.currency ?? 'VND';
+    final userCurrency = ref.watch(currentUserProvider.select((u) => u?.currency)) ?? 'VND';
     final currencySymbol = AppConstant.getCurrencySymbol(userCurrency);
     final ratesData = ref.watch(exchangeRatesProvider).value;
 

@@ -34,6 +34,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final Ref ref;
 
   StreamSubscription<db.User?>? _userSubscription;
+  bool _isLoggingOut = false;
 
   AuthNotifier(
     this._loginUseCase,
@@ -225,53 +226,58 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
-    // Unregister FCM Device Token on Backend first
+    if (_isLoggingOut) return;
+    _isLoggingOut = true;
+
     try {
-      final token = await FirebaseMessaging.instance.getToken();
-      if (token != null) {
-        await ref.read(notificationApiServiceProvider).unregisterDeviceToken({
-          'device_token': token,
-        });
+      // Unregister FCM Device Token on Backend first
+      try {
+        final token = await FirebaseMessaging.instance.getToken();
+        if (token != null) {
+          await ref.read(notificationApiServiceProvider).unregisterDeviceToken({
+            'device_token': token,
+          });
+        }
+      } catch (_) {}
+
+      _stopWatchingUser();
+
+      try {
+        await ref.read(cacheStoreProvider).clean();
+      } catch (e) {
+        AppLogger.warning("Lỗi khi clear HTTP Cache on Logout: $e", tag: "Auth-Logout");
       }
-    } catch (_) {}
 
-    _stopWatchingUser();
+      // Gọi API Backend để thu hồi Token
+      try {
+        // Đọc provider của UserApiService
+        final userApiService = ref.read(userApiServiceProvider);
+        await userApiService.logout();
+      } catch (e) {
+        // Bỏ qua lỗi mạng để vẫn có thể ép UI đăng xuất local
+        AppLogger.warning("Lỗi khi gọi API Logout: $e", tag: "Auth-Logout");
+      }
 
-    try {
-      await ref.read(cacheStoreProvider).clean();
-    } catch (e) {
-      AppLogger.warning("Lỗi khi clear HTTP Cache on Logout: $e", tag: "Auth-Logout");
+      // Xóa sạch dữ liệu cục bộ dưới thiết bị
+      try {
+        final storage = ref.read(secureStorageServiceProvider);
+        await storage.clearAll();
+      } catch (_) {}
+
+      // Xóa sạch dữ liệu bảo mật cục bộ (mã PIN & cấu hình vân tay/Face ID)
+      try {
+        await ref.read(securityNotifierProvider.notifier).clearSecurityData();
+      } catch (_) {}
+
+      try {
+        final dbInstance = ref.read(db.appDatabaseProvider);
+        await dbInstance.clearAuthData();
+      } catch (_) {}
+
+      // Đẩy State về trạng thái Unauthenticated
+      state = const AuthState.unauthenticated();
+    } finally {
+      _isLoggingOut = false;
     }
-
-    // Gọi API Backend để thu hồi Token
-    try {
-      // Đọc provider của UserApiService
-      final userApiService = ref.read(userApiServiceProvider);
-      await userApiService.logout();
-    } catch (e) {
-      // Bỏ qua lỗi mạng để vẫn có thể ép UI đăng xuất local
-      AppLogger.warning("Lỗi khi gọi API Logout: $e", tag: "Auth-Logout");
-    }
-
-    // Xóa sạch dữ liệu cục bộ dưới thiết bị
-    try {
-      final storage = ref.read(secureStorageServiceProvider);
-      await storage.delete(key: AppConstant.accessToken);
-      await storage.delete(key: AppConstant.refreshToken);
-      await storage.delete(key: AppConstant.userId);
-    } catch (_) {}
-
-    // Xóa sạch dữ liệu bảo mật cục bộ (mã PIN & cấu hình vân tay/Face ID)
-    try {
-      await ref.read(securityNotifierProvider.notifier).clearSecurityData();
-    } catch (_) {}
-
-    try {
-      final dbInstance = ref.read(db.appDatabaseProvider);
-      await dbInstance.clearAuthData();
-    } catch (_) {}
-
-    // Đẩy State về trạng thái Unauthenticated
-    state = const AuthState.unauthenticated();
   }
 }

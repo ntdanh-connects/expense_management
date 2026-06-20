@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/storage/secure_storage_service.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -127,7 +128,8 @@ class SecurityNotifier extends StateNotifier<SecurityState> {
     if (!state.isPinEnabled || !state.isBiometricEnabled) return false;
     try {
       final translations = _ref.read(translationsProvider);
-      final localizedReason = translations['unlock_with_biometric'] ?? 'Quét vân tay hoặc FaceID để mở khóa ứng dụng';
+      final key = Platform.isIOS ? 'unlock_with_biometric_ios' : 'unlock_with_biometric_android';
+      final localizedReason = translations[key] ?? (Platform.isIOS ? 'Xác thực Face ID để mở khóa ứng dụng' : 'Quét vân tay để mở khóa ứng dụng');
       final authenticated = await _localAuth.authenticate(
         localizedReason: localizedReason,
         options: const AuthenticationOptions(

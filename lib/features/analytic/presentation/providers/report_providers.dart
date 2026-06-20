@@ -40,8 +40,7 @@ final selectedDateRangeProvider = Provider<DateTimeRange>((ref) {
   final filter = ref.watch(selectedTimeFilterProvider);
   final customRange = ref.watch(customDateRangeProvider);
   
-  final user = ref.watch(currentUserProvider);
-  final tzName = user?.timezone ?? 'Asia/Ho_Chi_Minh';
+  final tzName = ref.watch(currentUserProvider.select((u) => u?.timezone)) ?? 'Asia/Ho_Chi_Minh';
   final location = tz.getLocation(tzName);
   final now = tz.TZDateTime.now(location);
 

@@ -72,3 +72,5 @@ final authNotifierProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref
 
 final splashCompletedProvider = StateProvider<bool>((ref) => false);
 
+final sessionExpiredProvider = StateProvider<bool>((ref) => false);
+

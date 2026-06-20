@@ -22,7 +22,7 @@ class CollapsibleBudgetCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
     final double percent = totalAmount > 0 ? (spentAmount / totalAmount).clamp(0.0, 1.0) : 0.0;
-    final userCurrency = ref.watch(currentUserProvider)?.currency ?? 'VND';
+    final userCurrency = ref.watch(currentUserProvider.select((u) => u?.currency)) ?? 'VND';
     final currencySymbol = AppConstant.getCurrencySymbol(userCurrency);
 
     return InkWell(

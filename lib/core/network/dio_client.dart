@@ -9,6 +9,7 @@ import 'package:expense_management/core/utils/app_logger.dart';
 import '../storage/secure_storage_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/features/auth/auth_provider.dart';
+import 'package:expense_management/features/auth/domain/auth_state.dart';
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
@@ -137,12 +138,16 @@ class AuthInterceptor extends Interceptor {
     final currentLocale = ref.read(localeProvider);
     options.headers['Accept-Language'] = currentLocale;
 
-    // 3. Lấy và đính kèm Access Token nếu có
+    // 3. Lấy và đính kèm Access Token & User ID nếu có
     final storage = ref.read(secureStorageServiceProvider);
     final accessToken = await storage.get(key: AppConstant.accessToken);
+    final userId = await storage.get(key: AppConstant.userId);
 
-    if(accessToken != null){
+    if (accessToken != null) {
       options.headers['Authorization'] = 'Bearer $accessToken';
+    }
+    if (userId != null) {
+      options.extra['request_user_id'] = userId;
     }
     return handler.next(options);
   }
@@ -155,6 +160,22 @@ class RefreshTokenInterceptor extends Interceptor {
 
   bool _isRefreshing = false;
   Completer<String?>? _refreshCompleter;
+
+  void _triggerSessionExpired() {
+    final authState = ref.read(authNotifierProvider);
+    final isUnauthenticated = authState.maybeWhen(
+      unauthenticated: () => true,
+      orElse: () => false,
+    );
+    final sessionExpired = ref.read(sessionExpiredProvider);
+
+    if (!sessionExpired && !isUnauthenticated) {
+      ref.read(sessionExpiredProvider.notifier).state = true;
+      Future.microtask(() {
+        ref.read(authNotifierProvider.notifier).logout();
+      });
+    }
+  }
 
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
@@ -183,7 +204,53 @@ class RefreshTokenInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
-    if (err.response?.statusCode == 401) {
+    final path = err.requestOptions.path;
+    final isAuthOrTokenOrLogout = path.contains('login') || 
+                                  path.contains('register') || 
+                                  path.contains('refresh-token') || 
+                                  path.contains('logout');
+
+    if (err.response?.statusCode == 401 && !isAuthOrTokenOrLogout) {
+      final storage = ref.read(secureStorageServiceProvider);
+      final currentAccessToken = await storage.get(key: AppConstant.accessToken);
+      final currentUserId = await storage.get(key: AppConstant.userId);
+
+      // Lấy token và user_id của request bị lỗi 401 này
+      final requestTokenHeader = err.requestOptions.headers['Authorization']?.toString();
+      final requestToken = requestTokenHeader?.replaceAll('Bearer ', '').trim();
+      final requestUserId = err.requestOptions.extra['request_user_id']?.toString();
+
+      // Trường hợp 1: Nếu requestUserId khác currentUserId, nghĩa là user đã thay đổi (đã logout và đăng nhập nick khác).
+      // Chúng ta lập tức bỏ qua request cũ này để tránh gây đăng xuất nhầm tài khoản mới.
+      if (requestUserId != null && currentUserId != null && requestUserId != currentUserId) {
+        AppLogger.warning("⚠️ Request 401 thuộc về tài khoản cũ. Bỏ qua không gọi logout tài khoản hiện tại.");
+        return handler.next(err);
+      }
+
+      // Trường hợp 2: Nếu cùng user nhưng token của request này đã cũ hơn token hiện tại đang lưu ở storage
+      // (nghĩa là token đã được refresh thành công bởi một request song song khác từ trước).
+      if (requestToken != null && currentAccessToken != null && requestToken != currentAccessToken) {
+        final authState = ref.read(authNotifierProvider);
+        final isAuthenticated = authState.maybeWhen(
+          authenticated: (_) => true,
+          orElse: () => false,
+        );
+
+        if (isAuthenticated) {
+          AppLogger.info("🔄 Token đã được gia hạn bởi request khác. Tự động thử lại request này với token mới...");
+          try {
+            err.requestOptions.headers['Authorization'] = 'Bearer $currentAccessToken';
+            final retryRequest = await mainDio.fetch(err.requestOptions);
+            return handler.resolve(retryRequest);
+          } catch (e) {
+            return handler.next(err);
+          }
+        } else {
+          AppLogger.warning("⚠️ Request 401 thuộc về phiên đăng nhập đã bị hủy. Bỏ qua.");
+          return handler.next(err);
+        }
+      }
+
       // 1. Kiểm tra cờ đồng bộ ngay lập tức để chặn đứng các cuộc gọi đồng thời (Race Condition)
       if (_isRefreshing) {
         try {
@@ -203,8 +270,6 @@ class RefreshTokenInterceptor extends Interceptor {
       _isRefreshing = true;
       _refreshCompleter = Completer<String?>();
 
-      final storage = ref.read(secureStorageServiceProvider);
-      final userId = await storage.get(key: AppConstant.userId);
       final refreshToken = await storage.get(key: AppConstant.refreshToken);
       
       if (refreshToken != null) {
@@ -223,7 +288,7 @@ class RefreshTokenInterceptor extends Interceptor {
           final response = await refreshDio.post(
             ApiEndpoints.refreshToken,
             data: {
-              'user_id': userId,
+              'user_id': currentUserId,
               'refresh_token': refreshToken
             },
           );
@@ -245,10 +310,7 @@ class RefreshTokenInterceptor extends Interceptor {
           _isRefreshing = false;
           _refreshCompleter = null;
 
-          await storage.clearAll();
-          Future.microtask(() {
-            ref.read(authNotifierProvider.notifier).logout();
-          });
+          _triggerSessionExpired();
           return handler.next(err);
         }
 
@@ -275,14 +337,19 @@ class RefreshTokenInterceptor extends Interceptor {
           _refreshCompleter?.complete(null);
           _isRefreshing = false;
           _refreshCompleter = null;
+
+          // Khi gia hạn thất bại (API trả về 200 nhưng không đúng định dạng token) -> Tiến hành logout
+          _triggerSessionExpired();
         }
       } else {
-        // Không tìm thấy refresh token trong bộ nhớ tạm
+        // Không tìm thấy refresh token trong bộ nhớ tạm -> Đăng xuất người dùng luôn
         _isRefreshing = false;
         _refreshCompleter = null;
+
+        _triggerSessionExpired();
       }
     }
-    return handler.next(err); 
+    return handler.next(err);
   }
 }
 

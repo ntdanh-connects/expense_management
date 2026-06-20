@@ -16,7 +16,7 @@ class FinancialSettingsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
-    final userCurrency = ref.watch(currentUserProvider)?.currency ?? 'VND';
+    final userCurrency = ref.watch(currentUserProvider.select((u) => u?.currency)) ?? 'VND';
     final currencySymbol = AppConstant.getCurrencySymbol(userCurrency);
     
     final budgetsAsync = ref.watch(currentMonthBudgetsProvider);

@@ -1,7 +1,10 @@
+import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:expense_management/features/auth/auth_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_sficon/flutter_sficon.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/security/presentation/providers/security_provider.dart';
 import 'package:expense_management/core/language/app_language.dart';
@@ -285,12 +288,17 @@ class _PinLockScreenState extends ConsumerState<PinLockScreen> {
                   width: 75,
                   height: 75,
                   alignment: Alignment.center,
-                  child: Icon(
-                    // Hiển thị icon động tùy thuộc vào Face ID / Vân tay (như mockup)
-                    Icons.fingerprint_rounded, 
-                    color: colors.primary, 
-                    size: 32,
-                  ),
+                  child: Platform.isIOS
+                      ? SFIcon(
+                          SFIcons.sf_faceid,
+                          fontSize: 32,
+                          color: colors.primary,
+                        )
+                      : Icon(
+                          Icons.fingerprint_rounded,
+                          color: colors.primary,
+                          size: 32,
+                        ),
                 ),
               )
             else

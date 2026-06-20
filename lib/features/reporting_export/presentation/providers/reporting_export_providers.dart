@@ -64,8 +64,7 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
 
   @override
   Future<List<ExportHistoryItem>> build() async {
-    final user = ref.watch(currentUserProvider);
-    final userId = user?.id ?? '';
+    final userId = ref.watch(currentUserProvider.select((u) => u?.id)) ?? '';
 
     ref.onDispose(() {
       _pollingTimer?.cancel();

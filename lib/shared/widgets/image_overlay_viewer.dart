@@ -3,10 +3,12 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:dio/dio.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:expense_management/core/network/dio_client.dart';
+import 'package:expense_management/core/utils/app_logger.dart';
 
-class ImageOverlayViewer extends StatefulWidget {
+class ImageOverlayViewer extends ConsumerStatefulWidget {
   final String? imageUrl;
   final File? imageFile;
   final String heroTag;
@@ -43,10 +45,10 @@ class ImageOverlayViewer extends StatefulWidget {
   }
 
   @override
-  State<ImageOverlayViewer> createState() => _ImageOverlayViewerState();
+  ConsumerState<ImageOverlayViewer> createState() => _ImageOverlayViewerState();
 }
 
-class _ImageOverlayViewerState extends State<ImageOverlayViewer> {
+class _ImageOverlayViewerState extends ConsumerState<ImageOverlayViewer> {
   bool _isDownloading = false;
 
   Future<void> _shareAndSaveImage() async {
@@ -65,7 +67,8 @@ class _ImageOverlayViewerState extends State<ImageOverlayViewer> {
         String extension = 'jpg';
         try {
           final uri = Uri.parse(widget.imageUrl!);
-          final pathSegments = uri.pathSegments;
+          final path = uri.path;
+          final pathSegments = Uri.parse(path).pathSegments;
           if (pathSegments.isNotEmpty) {
             final lastSegment = pathSegments.last;
             if (lastSegment.contains('.')) {
@@ -75,13 +78,21 @@ class _ImageOverlayViewerState extends State<ImageOverlayViewer> {
         } catch (_) {}
         
         filePath = '${tempDir.path}/EM_image_${DateTime.now().millisecondsSinceEpoch}.$extension';
-        await Dio().download(widget.imageUrl!, filePath);
+        final dio = ref.read(dioClientProvider);
+        await dio.download(widget.imageUrl!, filePath);
       }
 
       if (filePath != null && mounted) {
-        await Share.shareXFiles([XFile(filePath)], text: 'EM App Image');
+        final box = context.findRenderObject() as RenderBox?;
+        final sharePositionOrigin = box != null ? box.localToGlobal(Offset.zero) & box.size : null;
+        await Share.shareXFiles(
+          [XFile(filePath)],
+          text: 'EM App Image',
+          sharePositionOrigin: sharePositionOrigin,
+        );
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error('Lỗi khi chia sẻ/lưu ảnh', details: e.toString(), stackTrace: stack);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -110,7 +121,7 @@ class _ImageOverlayViewerState extends State<ImageOverlayViewer> {
             child: GestureDetector(
               onTap: () => Navigator.of(context).pop(),
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
                 child: Container(
                   color: Colors.black.withOpacity(0.65),
                 ),
