@@ -19,6 +19,7 @@ abstract class TransactionRepository {
   });
 
   Future<TransactionEntity> createTransaction({
+    String? id,
     required String walletId,
     String? categoryId,
     required String type,

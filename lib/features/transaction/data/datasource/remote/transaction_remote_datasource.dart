@@ -28,6 +28,7 @@ abstract class TransactionApiService {
   @POST(ApiEndpoints.transactions)
   @MultiPart()
   Future<BaseResponseDto<TransactionDto>> createRemoteTransaction({
+    @Part(name: 'id') String? id,
     @Part(name: 'wallet_id') required String walletId,
     @Part(name: 'category_id') String? categoryId,
     @Part(name: 'type') required String type,

@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
+import 'package:expense_management/core/language/app_provider.dart';
 import 'package:expense_management/core/utils/currency_utils.dart';
 
 class SandboxSimulateTransferScreen extends ConsumerStatefulWidget {
@@ -114,6 +115,7 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final localeCode = ref.watch(localeProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final walletsAsync = ref.watch(walletNotifierProvider);
 
@@ -332,7 +334,7 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
                         if (amt == null || amt == 0) {
                           return const SizedBox.shrink();
                         }
-                        final wordRepresentation = numberToVietnameseWords(amt);
+                        final wordRepresentation = formatNumberToWords(amt, localeCode);
                         return Padding(
                           padding: const EdgeInsets.only(top: 8.0, left: 4.0),
                           child: Text(

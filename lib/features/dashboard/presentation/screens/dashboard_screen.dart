@@ -392,6 +392,11 @@ class DashboardScreen extends ConsumerWidget {
                             onTap: () => context.push(RoutePaths.addWallet),
                           ),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
                         Expanded(
                           child: _buildQuickActionItem(
                             context: context,
@@ -401,11 +406,6 @@ class DashboardScreen extends ConsumerWidget {
                             onTap: () => context.push(RoutePaths.categories),
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
                         Expanded(
                           child: _buildQuickActionItem(
                             context: context,
@@ -427,6 +427,11 @@ class DashboardScreen extends ConsumerWidget {
                             onTap: () => context.push(RoutePaths.export),
                           ),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
                         Expanded(
                           child: _buildQuickActionItem(
                             context: context,
@@ -448,6 +453,15 @@ class DashboardScreen extends ConsumerWidget {
                             label: 'Schedule'.tr(ref),
                             iconColor: const Color(0xFFF97316),
                             onTap: () => context.push(RoutePaths.recurringList),
+                          ),
+                        ),
+                        Expanded(
+                          child: _buildQuickActionItem(
+                            context: context,
+                            icon: Icons.savings_rounded,
+                            label: 'savings_wallet_title'.tr(ref),
+                            iconColor: const Color(0xFFEC4899),
+                            onTap: () => context.push(RoutePaths.savingsList),
                           ),
                         ),
                       ],

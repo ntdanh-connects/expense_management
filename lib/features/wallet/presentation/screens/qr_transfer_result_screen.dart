@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
+import 'package:expense_management/core/language/app_provider.dart';
 import 'package:expense_management/core/utils/app_logger.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
@@ -225,6 +226,7 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
   @override
   Widget build(BuildContext context) {
     final color = context.colors;
+    final localeCode = ref.watch(localeProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     // Parse result payload
@@ -388,7 +390,7 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
                                             if (_isSuccess && rawAmount > 0) ...[
                                               const SizedBox(height: 4),
                                               Text(
-                                                '(${numberToVietnameseWords(rawAmount)})',
+                                                '(${formatNumberToWords(rawAmount, localeCode)})',
                                                 textAlign: TextAlign.center,
                                                 style: TextStyle(
                                                   color: color.textSecondary,

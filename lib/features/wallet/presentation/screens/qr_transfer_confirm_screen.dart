@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
+import 'package:expense_management/core/language/app_provider.dart';
 import 'package:expense_management/features/profile/category_provider.dart';
 import 'package:expense_management/features/profile/data/models/category_dto.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
@@ -303,6 +304,7 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
   @override
   Widget build(BuildContext context) {
     final color = context.colors;
+    final localeCode = ref.watch(localeProvider);
     final wallets = ref.watch(walletNotifierProvider).value ?? [];
     final isInternal = widget.payeeData['type'] == 'internal';
     final categoriesAsync = ref.watch(categoriesNotifierProvider);
@@ -560,7 +562,7 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
                     if (amt == null || amt == 0) {
                       return const SizedBox.shrink();
                     }
-                    final wordRepresentation = numberToVietnameseWords(amt);
+                    final wordRepresentation = formatNumberToWords(amt, localeCode);
                     return Padding(
                       padding: const EdgeInsets.only(top: 8.0, left: 4.0),
                       child: Text(

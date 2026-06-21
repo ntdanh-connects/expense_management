@@ -42,6 +42,9 @@ import 'package:expense_management/features/ai_assistant/presentation/screens/ai
 import 'package:expense_management/features/security/presentation/screens/pin_setup_screen.dart';
 import 'package:expense_management/features/financial_month/presentation/screens/financial_month_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/sandbox_simulate_transfer_screen.dart';
+import 'package:expense_management/features/savings/presentation/screens/savings_list_screen.dart';
+import 'package:expense_management/features/savings/presentation/screens/create_savings_goal_screen.dart';
+import 'package:expense_management/features/savings/presentation/screens/savings_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -83,6 +86,9 @@ class RoutePaths {
   static const pinSetup = '/profile/pin-setup';
   static const financialMonth = '/profile/financial-month';
   static const sandboxSimulateTransfer = '/profile/sandbox-simulate-transfer';
+  static const savingsList = '/savings';
+  static const savingsCreate = '/savings/create';
+  static const savingsDetail = '/savings/:id';
 }
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -232,6 +238,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final initialMessage = state.extra as String?;
           return AIAssistantScreen(initialMessage: initialMessage);
+        },
+      ),
+      GoRoute(
+        path: RoutePaths.savingsList,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const SavingsListScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.savingsCreate,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const CreateSavingsGoalScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.savingsDetail,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return SavingsDetailScreen(goalId: id);
         },
       ),
 

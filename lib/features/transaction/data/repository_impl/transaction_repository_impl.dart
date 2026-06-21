@@ -135,6 +135,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
   @override
   Future<TransactionEntity> createTransaction({
+    String? id,
     required String walletId,
     String? categoryId,
     required String type,
@@ -151,6 +152,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }) async {
     try {
       final response = await _apiService.createRemoteTransaction(
+        id: id,
         walletId: walletId,
         categoryId: categoryId,
         type: type,

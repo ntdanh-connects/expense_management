@@ -15,6 +15,7 @@ import 'package:expense_management/features/wallet/presentation/provider/interna
 import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/core/language/app_language.dart';
+import 'package:expense_management/core/language/app_provider.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
 import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
@@ -84,6 +85,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final localeCode = ref.watch(localeProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final walletState = ref.watch(walletNotifierProvider);
     final transferState = ref.watch(internalTransferHistoryProvider);
@@ -350,7 +352,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                                   if (amt > 500000000) {
                                     amt = 500000000;
                                   }
-                                  final formatted = NumberFormat('#,###', 'vi_VN').format(amt);
+                                  final formatted = _formatMoney(amt, 'VND');
                                   _amountController.value = TextEditingValue(
                                     text: formatted,
                                     selection: TextSelection.fromPosition(TextPosition(offset: formatted.length)),
@@ -367,7 +369,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                               if (amt == null || amt == 0) {
                                 return const SizedBox.shrink();
                               }
-                              final wordRepresentation = numberToVietnameseWords(amt);
+                              final wordRepresentation = formatNumberToWords(amt, localeCode);
                               return Padding(
                                 padding: const EdgeInsets.only(top: 8.0, left: 4.0),
                                 child: Text(
@@ -745,7 +747,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                                     if (amt > 500000000) {
                                       amt = 500000000;
                                     }
-                                    final formatted = NumberFormat('#,###', 'vi_VN').format(amt);
+                                    final formatted = _formatMoney(amt, 'VND');
                                     _externalAmountController.value = TextEditingValue(
                                       text: formatted,
                                       selection: TextSelection.fromPosition(TextPosition(offset: formatted.length)),
@@ -762,7 +764,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                                 if (amt == null || amt == 0) {
                                   return const SizedBox.shrink();
                                 }
-                                final wordRepresentation = numberToVietnameseWords(amt);
+                                final wordRepresentation = formatNumberToWords(amt, localeCode);
                                 return Padding(
                                   padding: const EdgeInsets.only(top: 8.0, left: 4.0),
                                   child: Text(

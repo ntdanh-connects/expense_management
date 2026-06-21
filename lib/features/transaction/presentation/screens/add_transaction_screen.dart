@@ -17,6 +17,7 @@ import 'package:expense_management/features/wallet/domain/entities/wallet_entity
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:expense_management/features/wallet/presentation/provider/qr_transfer_provider.dart';
 import 'package:expense_management/core/language/app_language.dart';
+import 'package:expense_management/core/language/app_provider.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -954,6 +955,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final localeCode = ref.watch(localeProvider);
 
     final categoriesAsync = ref.watch(categoriesNotifierProvider);
     final walletsAsync = ref.watch(walletNotifierProvider);
@@ -1148,7 +1150,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                           if (amt == null || amt == 0) {
                             return const SizedBox.shrink();
                           }
-                          final wordRepresentation = numberToVietnameseWords(amt);
+                          final wordRepresentation = formatNumberToWords(amt, localeCode);
                           return Padding(
                             padding: const EdgeInsets.only(top: 8.0),
                             child: Text(

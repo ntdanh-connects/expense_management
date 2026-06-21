@@ -6,6 +6,7 @@ import 'package:expense_management/features/transaction/domain/entities/transact
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:expense_management/core/language/app_language.dart';
+import 'package:expense_management/core/language/app_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -231,6 +232,7 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    ref.watch(localeProvider);
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -266,6 +268,7 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
 
   Widget _buildSuccessView(BuildContext context) {
     final colors = context.colors;
+    final localeCode = ref.watch(localeProvider);
     final isIncome = widget.params.type == 'income';
 
     return SafeArea(
@@ -323,7 +326,7 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
                                 if (widget.params.currencyCode == 'VND' || widget.params.currencyCode == null) ...[
                                   const SizedBox(height: 4),
                                   Text(
-                                    '(${numberToVietnameseWords(widget.params.amount)})',
+                                    '(${formatNumberToWords(widget.params.amount, localeCode)})',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: colors.textSecondary,
@@ -566,6 +569,7 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
 
   Widget _buildOfflineSuccessView(BuildContext context) {
     final colors = context.colors;
+    final localeCode = ref.watch(localeProvider);
     final isIncome = widget.params.type == 'income';
 
     return SafeArea(
@@ -650,7 +654,7 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
                                 if (widget.params.currencyCode == 'VND' || widget.params.currencyCode == null) ...[
                                   const SizedBox(height: 4),
                                   Text(
-                                    '(${numberToVietnameseWords(widget.params.amount)})',
+                                    '(${formatNumberToWords(widget.params.amount, localeCode)})',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: colors.textSecondary,

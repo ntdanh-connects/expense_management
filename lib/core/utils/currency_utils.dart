@@ -11,6 +11,76 @@ String numberToVietnameseWords(double number) {
   return '${_convertPositiveNumberToWords(value)} đồng';
 }
 
+/// Chuyển đổi số tiền thành chữ tiếng Anh
+String numberToEnglishWords(double number) {
+  if (number == 0) return 'Zero';
+  
+  int value = number.round();
+  if (value < 0) {
+    return 'Minus ${_convertPositiveEnglishWords(-value)}';
+  }
+  return _convertPositiveEnglishWords(value);
+}
+
+final List<String> _englishOnes = [
+  '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+  'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'
+];
+
+final List<String> _englishTens = [
+  '', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'
+];
+
+String _convertPositiveEnglishWords(int number) {
+  if (number == 0) return '';
+  
+  if (number < 20) {
+    return _englishOnes[number];
+  }
+  
+  if (number < 100) {
+    final ones = number % 10;
+    return '${_englishTens[number ~/ 10]}${ones > 0 ? '-${_englishOnes[ones].toLowerCase()}' : ''}';
+  }
+  
+  if (number < 1000) {
+    final remaining = number % 100;
+    return '${_englishOnes[number ~/ 100]} Hundred${remaining > 0 ? ' and ${_convertPositiveEnglishWords(remaining).toLowerCase()}' : ''}';
+  }
+  
+  final List<String> units = ['', 'Thousand', 'Million', 'Billion'];
+  List<int> groups = [];
+  int temp = number;
+  while (temp > 0) {
+    groups.add(temp % 1000);
+    temp = temp ~/ 1000;
+  }
+  
+  List<String> groupWords = [];
+  for (int i = 0; i < groups.length; i++) {
+    int groupValue = groups[i];
+    if (groupValue == 0) continue;
+    
+    String groupText = _convertPositiveEnglishWords(groupValue);
+    String unit = units[i];
+    
+    groupWords.insert(0, '$groupText $unit'.trim());
+  }
+  
+  return groupWords.join(' ').trim();
+}
+
+/// Chuyển đổi số tiền thành chữ theo ngôn ngữ (vi hoặc en)
+String formatNumberToWords(double number, String localeCode) {
+  if (localeCode == 'vi') {
+    return numberToVietnameseWords(number);
+  } else {
+    final words = numberToEnglishWords(number);
+    if (words.isEmpty) return 'Zero';
+    return '${words[0].toUpperCase()}${words.substring(1)}';
+  }
+}
+
 final List<String> _vietnameseDigits = [
   'không', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'
 ];

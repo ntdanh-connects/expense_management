@@ -23,9 +23,6 @@ class TransactionCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
 
-    final isIncome = tx.type == 'income';
-    final isTransfer = tx.sourceType == 'transfer';
-
     // Tra cứu động (Direction A)
     final wallets = ref.watch(walletNotifierProvider).value ?? [];
     final categories = ref.watch(categoriesNotifierProvider).value ?? [];
@@ -37,9 +34,6 @@ class TransactionCard extends ConsumerWidget {
     final categoryName = localCategory?.name ?? tx.categoryName;
     final categoryIconStr = localCategory?.icon ?? tx.categoryIcon;
     final categoryColorStr = localCategory?.color ?? tx.categoryColor;
-
-    // ── Số tiền hiển thị với màu đúng
-    final amountText = _buildAmountText(isIncome, isTransfer, colors, localWallet);
     
     // ── Icon & màu danh mục (lấy từ SQLite local nếu có, fallback dữ liệu cũ)
     final categoryIcon = CategoryUIConstants.getIconData(categoryIconStr);
@@ -60,202 +54,218 @@ class TransactionCard extends ConsumerWidget {
           }
         });
       },
-      child:Container(
-        margin: const EdgeInsets.only(bottom: 10),
+      child: Container(
         decoration: BoxDecoration(
-          color: colors.surface.withOpacity(isPending ? 0.85 : 1.0),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isPending
-                ? Colors.orange.withOpacity(0.4)
-                : colors.textSecondary.withValues(alpha: 0.06),
-            width: isPending ? 1.2 : 1.0,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: isPending
-                  ? Colors.orange.withOpacity(0.04)
-                  : colors.textPrimary.withValues(alpha: 0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+          color: colors.surface.withValues(alpha: isPending ? 0.85 : 1.0),
+          border: Border(
+            bottom: BorderSide(
+              color: colors.textSecondary.withValues(alpha: 0.08),
+              width: 0.8,
             ),
-          ],
+          ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Row(
-            children: [
-              // ── Icon danh mục
-              Container(
-                padding: const EdgeInsets.all(11),
-                decoration: BoxDecoration(
-                  color: categoryColor.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Icon danh mục (vòng tròn viền mỏng, nền nhạt)
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: categoryColor.withValues(alpha: 0.05),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: categoryColor.withValues(alpha: 0.2),
+                  width: 1.0,
                 ),
-                child: Icon(categoryIcon, color: categoryColor, size: 22),
               ),
-              const SizedBox(width: 14),
+              child: Icon(categoryIcon, color: categoryColor, size: 20),
+            ),
+            const SizedBox(width: 12),
 
-              // ── Thông tin giao dịch
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Tiêu đề
+            // ── Thông tin giao dịch
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Tiêu đề: Cho phép hiển thị tối đa 2 dòng không bị cắt ngang
+                  Text(
+                    tx.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+
+                  // Ngày giờ (UTC+X) và Ví
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        size: 12,
+                        color: colors.textSecondary.withValues(alpha: 0.6),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          '${_formatDateTime(tx.transactionDate, ref)}  •  $walletName',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.textSecondary,
+                            fontSize: 11.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Tag danh mục dạng chip nhỏ bên dưới
+                  if (categoryName != null && categoryName.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: categoryColor.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: categoryColor.withValues(alpha: 0.15),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(categoryIcon, size: 11, color: categoryColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            categoryName.tr(ref),
+                            style: TextStyle(
+                              color: categoryColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Ghi chú (nếu có)
+                  if (tx.notes != null && tx.notes!.isNotEmpty) ...[
+                    const SizedBox(height: 6),
                     Text(
-                      tx.title,
-                      maxLines: 1,
+                      tx.notes!,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: colors.textPrimary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
+                        color: colors.textSecondary.withValues(alpha: 0.65),
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
                       ),
                     ),
-                    const SizedBox(height: 4),
-
-                    // Ví • Giờ
-                    Row(
-                      children: [
-                        Icon(Icons.account_balance_wallet_outlined,
-                            size: 11, color: colors.textSecondary),
-                        const SizedBox(width: 3),
-                        Flexible(
-                          child: Text(
-                            walletName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                                color: colors.textSecondary, fontSize: 12),
-                          ),
-                        ),
-                        Flexible(
-                          child: Text(
-                            '  •  ${_formatTime(tx.transactionDate, ref)}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                                color: colors.textSecondary, fontSize: 12),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    if (isPending) ...[
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const SizedBox(
-                            width: 10,
-                            height: 10,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 1.5,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
-                            ),
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            'transaction_status_pending'.tr(ref),
-                            style: const TextStyle(
-                              color: Colors.orange,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-
-                    // Danh mục (nếu có)
-                    if (categoryName != null) ...[
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Icon(categoryIcon,
-                              size: 11, color: categoryColor),
-                          const SizedBox(width: 3),
-                          Expanded(
-                            child: Text(
-                              categoryName.tr(ref),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  color: colors.textSecondary, fontSize: 12),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-
-                    // Ghi chú (nếu có)
-                    if (tx.notes != null && tx.notes!.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        tx.notes!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: colors.textSecondary.withValues(alpha: 0.65),
-                          fontSize: 11.5,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
                   ],
-                ),
+                ],
               ),
-              const SizedBox(width: 10),
+            ),
+            const SizedBox(width: 12),
 
-              // ── Số tiền (màu theo loại)
-              amountText,
-            ],
-          ),
+            // ── Số tiền & Trạng thái (Thất bại / Đang xử lý)
+            _buildAmountWidget(colors, localWallet, ref),
+          ],
         ),
-      )
+      ),
     );
   }
 
-  Widget _buildAmountText(
-      bool isIncome, bool isTransfer, AppColorsExtension colors, dynamic localWallet) {
-        final String currencySymbol = (localWallet != null && 
-            localWallet.currencyCode != null && 
-            localWallet.currencyCode.toString().isNotEmpty)
-        ? localWallet.currencyCode.toString()
-        : 'đ';
+  Widget _buildAmountWidget(AppColorsExtension colors, dynamic localWallet, WidgetRef ref) {
+    final isIncome = tx.type == 'income';
+    final isTransfer = tx.sourceType == 'transfer';
+    final isFailed = tx.status == 'failed' || tx.status == 'failure';
+    final isPending = tx.status == 'pending';
 
-    if (isTransfer) {
-      final sign = isIncome ? '+' : '-';
-      final color = isIncome ? colors.incomeGreen : colors.expenseRed;
-      return Text(
-        '$sign${_fmtAmount(tx.amount, currencySymbol)}',
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.bold,
-          fontSize: 15.5,
-        ),
-      );
+    final String currencySymbol = (localWallet != null && 
+        localWallet.currencyCode != null && 
+        localWallet.currencyCode.toString().isNotEmpty)
+    ? localWallet.currencyCode.toString()
+    : 'đ';
+
+    final formattedAmount = _fmtAmount(tx.amount, currencySymbol);
+
+    // Xác định tiền tố dấu và màu sắc
+    String sign = '';
+    Color amountColor;
+
+    if (isFailed) {
+      amountColor = colors.textSecondary; // Số tiền màu xám cho giao dịch thất bại
+      sign = isIncome ? '+' : '-';
+    } else {
+      if (isTransfer) {
+        sign = isIncome ? '+' : '-';
+        amountColor = isIncome ? colors.incomeGreen : colors.textPrimary; // Chi tiêu/Chuyển đi màu tối
+      } else if (isIncome) {
+        sign = '+';
+        amountColor = colors.incomeGreen;
+      } else {
+        sign = '-';
+        amountColor = colors.textPrimary; // Chi tiêu màu tối
+      }
     }
 
-    if (isIncome) {
-      return Text(
-        '+${_fmtAmount(tx.amount, currencySymbol)}',
-        style: TextStyle(
-          color: colors.incomeGreen, // Màu xanh thu nhập
-          fontWeight: FontWeight.bold,
-          fontSize: 15.5,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '$sign$formattedAmount',
+          style: TextStyle(
+            color: amountColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 15.5,
+          ),
         ),
-      );
-    }
-
-    // Chi tiêu → đỏ
-    return Text(
-    '-${_fmtAmount(tx.amount, currencySymbol)}',
-    style: TextStyle(
-      color: colors.expenseRed, // Màu đỏ chi tiêu
-      fontWeight: FontWeight.bold,
-      fontSize: 15.5,
-    ),
-  );
+        if (isFailed) ...[
+          const SizedBox(height: 4),
+          Text(
+            'failed_status'.tr(ref).toUpperCase(),
+            style: const TextStyle(
+              color: Colors.red,
+              fontSize: 10.5,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ] else if (isPending) ...[
+          const SizedBox(height: 4),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(
+                width: 10,
+                height: 10,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
+                ),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                'transaction_status_pending'.tr(ref),
+                style: const TextStyle(
+                  color: Colors.orange,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
   }
 
   String _fmtAmount(double value, String symbol) {
@@ -263,7 +273,7 @@ class TransactionCard extends ConsumerWidget {
     return '$formattedNumber $symbol';
   }
 
-  String _formatTime(DateTime date, WidgetRef ref) {
+  String _formatDateTime(DateTime date, WidgetRef ref) {
     final user = ref.read(currentUserProvider);
     final tzName = tx.timezone ?? user?.timezone ?? 'Asia/Ho_Chi_Minh';
     try {
@@ -273,9 +283,21 @@ class TransactionCard extends ConsumerWidget {
       final offsetStr = offset.inMinutes == 0
           ? 'UTC'
           : 'UTC${offset.isNegative ? '-' : '+'}${offset.inHours.abs()}';
-      return '${tzDateTime.hour.toString().padLeft(2, '0')}:${tzDateTime.minute.toString().padLeft(2, '0')} ($offsetStr)';
+      
+      final hour = tzDateTime.hour.toString().padLeft(2, '0');
+      final minute = tzDateTime.minute.toString().padLeft(2, '0');
+      final day = tzDateTime.day.toString().padLeft(2, '0');
+      final month = tzDateTime.month.toString().padLeft(2, '0');
+      final year = tzDateTime.year.toString();
+      
+      return '$hour:$minute - $day/$month/$year ($offsetStr)';
     } catch (_) {
-      return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+      final hour = date.hour.toString().padLeft(2, '0');
+      final minute = date.minute.toString().padLeft(2, '0');
+      final day = date.day.toString().padLeft(2, '0');
+      final month = date.month.toString().padLeft(2, '0');
+      final year = date.year.toString();
+      return '$hour:$minute - $day/$month/$year';
     }
   }
 }

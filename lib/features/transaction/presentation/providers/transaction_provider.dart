@@ -169,6 +169,34 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     return false;
   }
 
+  String _deterministicUuid(String input) {
+    int h1 = 0x811c9dc5;
+    int h2 = 0xcbf29ce4;
+    int h3 = 0x5831307b;
+    int h4 = 0x12c5b34a;
+
+    for (int i = 0; i < input.length; i++) {
+      int char = input.codeUnitAt(i);
+      h1 = ((h1 ^ char) * 16777619) & 0xffffffff;
+      h2 = ((h2 ^ char) * 0x01000193) & 0xffffffff;
+      h3 = ((h3 ^ char) * 19) & 0xffffffff;
+      h4 = ((h4 ^ char) * 31) & 0xffffffff;
+    }
+
+    final hex = h1.toRadixString(16).padLeft(8, '0') +
+        h2.toRadixString(16).padLeft(8, '0') +
+        h3.toRadixString(16).padLeft(8, '0') +
+        h4.toRadixString(16).padLeft(8, '0');
+
+    final part1 = hex.substring(0, 8);
+    final part2 = hex.substring(8, 12);
+    final part3 = '4${hex.substring(13, 16)}';
+    final part4 = '8${hex.substring(17, 20)}';
+    final part5 = hex.substring(20, 32);
+
+    return '$part1-$part2-$part3-$part4-$part5';
+  }
+
   Future<void> _syncPendingTransactions() async {
     if (_isSyncing) return;
     _isSyncing = true;
@@ -202,50 +230,98 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
             }
           }
 
-          AppLogger.info("🔄 [Sync] Bắt đầu đồng bộ transaction: title='${tx.title}', sourceType='${tx.sourceType}', walletId='${tx.walletId}', payeeId='${tx.payeeId}'");
+          final isNewTransaction = tx.id.startsWith('temp_');
 
-          final newTx = await addTxUseCase.execute(
-            walletId: tx.walletId,
-            categoryId: tx.categoryId,
-            type: tx.type,
-            amount: tx.amount,
-            title: tx.title,
-            notes: tx.notes,
-            transactionDate: tx.transactionDate.toUtc().toIso8601String(),
-            currencyCode: tx.currencyCode,
-            exchangeRate: tx.exchangeRate,
-            timezone: tx.timezone,
-            attachment: attachmentFile,
-            payeeId: tx.payeeId,
-            sourceType: tx.sourceType,
-          );
+          if (isNewTransaction) {
+            final deterministicId = _deterministicUuid(tx.id);
+            AppLogger.info("🔄 [Sync] Bắt đầu đồng bộ transaction (Tạo mới): tempId='${tx.id}', deterministicId='$deterministicId', title='${tx.title}', sourceType='${tx.sourceType}'");
 
-          // Xóa dòng pending cũ khỏi DB và lưu lại transaction mới từ BE trả về
-          await database.deleteTransaction(tx.id);
-          
-          final localTx = LocalTransaction(
-            id: newTx.id,
-            userId: userId,
-            walletId: newTx.walletId,
-            categoryId: newTx.categoryId,
-            amount: newTx.amount,
-            amountInUserCurrency: newTx.amount * (newTx.exchangeRate ?? 1.0),
-            type: newTx.type,
-            title: newTx.title,
-            notes: newTx.notes,
-            transactionDate: newTx.transactionDate,
-            sourceType: newTx.sourceType,
-            sourceId: newTx.sourceId,
-            createdAt: newTx.createdAt ?? DateTime.now(),
-            updatedAt: DateTime.now(),
-            isSynced: true,
-            payeeId: newTx.payeeId,
-            payeeName: newTx.payeeName,
-            payeeAccountNumber: newTx.payeeAccountNumber,
-            payeeBankName: newTx.payeeBankName,
-          );
-          await database.saveTransaction(localTx);
-          anySuccess = true;
+            final newTx = await addTxUseCase.execute(
+              id: deterministicId,
+              walletId: tx.walletId,
+              categoryId: tx.categoryId,
+              type: tx.type,
+              amount: tx.amount,
+              title: tx.title,
+              notes: tx.notes,
+              transactionDate: tx.transactionDate.toUtc().toIso8601String(),
+              currencyCode: tx.currencyCode,
+              exchangeRate: tx.exchangeRate,
+              timezone: tx.timezone,
+              attachment: attachmentFile,
+              payeeId: tx.payeeId,
+              sourceType: tx.sourceType,
+            );
+
+            // Xóa dòng pending cũ khỏi DB và lưu lại transaction mới từ BE trả về
+            await database.deleteTransaction(tx.id);
+            
+            final localTx = LocalTransaction(
+              id: newTx.id,
+              userId: userId,
+              walletId: newTx.walletId,
+              categoryId: newTx.categoryId,
+              amount: newTx.amount,
+              amountInUserCurrency: newTx.amount * (newTx.exchangeRate ?? 1.0),
+              type: newTx.type,
+              title: newTx.title,
+              notes: newTx.notes,
+              transactionDate: newTx.transactionDate,
+              sourceType: newTx.sourceType,
+              sourceId: newTx.sourceId,
+              createdAt: newTx.createdAt ?? DateTime.now(),
+              updatedAt: DateTime.now(),
+              isSynced: true,
+              payeeId: newTx.payeeId,
+              payeeName: newTx.payeeName,
+              payeeAccountNumber: newTx.payeeAccountNumber,
+              payeeBankName: newTx.payeeBankName,
+            );
+            await database.saveTransaction(localTx);
+            anySuccess = true;
+          } else {
+            AppLogger.info("🔄 [Sync] Bắt đầu đồng bộ transaction (Cập nhật): id='${tx.id}', title='${tx.title}', categoryId='${tx.categoryId}'");
+
+            final dio = ref.read(dioClientProvider);
+            final Map<String, dynamic> data = {
+              'title': tx.title,
+              if (tx.categoryId != null) 'category_id': tx.categoryId,
+              if (tx.notes != null) 'notes': tx.notes,
+            };
+            final formData = FormData.fromMap(data);
+            final url = ApiEndpoints.updateTransaction.replaceAll('{id}', tx.id);
+            final response = await dio.post(url, data: formData);
+
+            final responseData = response.data;
+            if (responseData != null && responseData['data'] != null) {
+              final dto = TransactionDto.fromJson(responseData['data'] as Map<String, dynamic>);
+              final entity = TransactionMapper.toEntity(dto);
+              
+              final localTx = LocalTransaction(
+                id: entity.id,
+                userId: userId,
+                walletId: entity.walletId,
+                categoryId: entity.categoryId,
+                amount: entity.amount,
+                amountInUserCurrency: entity.amount * (entity.exchangeRate ?? 1.0),
+                type: entity.type,
+                title: entity.title,
+                notes: entity.notes,
+                transactionDate: entity.transactionDate,
+                sourceType: entity.sourceType,
+                sourceId: entity.sourceId,
+                createdAt: entity.createdAt ?? DateTime.now(),
+                updatedAt: DateTime.now(),
+                isSynced: true,
+                payeeId: entity.payeeId,
+                payeeName: entity.payeeName,
+                payeeAccountNumber: entity.payeeAccountNumber,
+                payeeBankName: entity.payeeBankName,
+              );
+              await database.saveTransaction(localTx);
+              anySuccess = true;
+            }
+          }
 
           final context = rootNavigatorKey.currentContext;
           if (context != null && context.mounted) {
@@ -350,6 +426,10 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
         items = items.where((tx) => tx.categoryId == null || tx.categoryName == null).toList();
       }
 
+      // Loại bỏ các giao dịch trùng lặp đã tồn tại ở local pending
+      final pendingIds = filteredPending.map((p) => p.id).toSet();
+      items = items.where((item) => !pendingIds.contains(item.id)).toList();
+
       return [...filteredPending, ...items];
     });
     
@@ -394,6 +474,10 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
       if (isUncategorized) {
         items = items.where((tx) => tx.categoryId == null || tx.categoryName == null).toList();
       }
+
+      // Loại bỏ các giao dịch đã có trong state hiện tại để tránh duplicate
+      final existingIds = (state.value ?? []).map((tx) => tx.id).toSet();
+      items = items.where((item) => !existingIds.contains(item.id)).toList();
 
       state = AsyncValue.data([
         ...(state.value ?? []),
@@ -538,7 +622,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     final currentList = state.value ?? [];
     final tx = currentList.where((t) => t.id == transactionId).firstOrNull;
 
-    if (tx != null && tx.status != 'pending') {
+    if (tx != null && (tx.status != 'pending' || !transactionId.startsWith('temp_'))) {
       final url = ApiEndpoints.deleteTransaction.replaceAll('{id}', transactionId);
       await dio.delete(url);
     }
@@ -615,6 +699,155 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     ref.invalidate(filteredTransactionListProvider);
     await ref.read(walletNotifierProvider.notifier).refreshWallets();
     _invalidateBudgets();
+  }
+
+  Future<void> updateTransactionCategoryOptimistic({
+    required String transactionId,
+    required String categoryId,
+  }) async {
+    // 1. Cập nhật local DB ngay lập tức
+    final database = ref.read(appDatabaseProvider);
+    final userId = ref.read(currentUserProvider)?.id ?? '';
+    
+    // Tìm transaction hiện tại từ DB hoặc state để lấy thông tin đầy đủ
+    final currentList = state.value ?? [];
+    final index = currentList.indexWhere((tx) => tx.id == transactionId);
+    
+    TransactionEntity? targetTx;
+    if (index != -1) {
+      targetTx = currentList[index];
+    } else {
+      // Fallback từ database nếu không có trong state
+      try {
+        targetTx = await getTransactionById(transactionId);
+      } catch (_) {}
+    }
+
+    if (targetTx == null) return;
+
+    // Lấy thông tin chi tiết danh mục mới từ local DB để cập nhật UI
+    final allCategories = await database.getAllCategories();
+    final newCat = allCategories.where((c) => c.id == categoryId).firstOrNull;
+
+    final updatedEntity = TransactionEntity(
+      id: targetTx.id,
+      walletId: targetTx.walletId,
+      categoryId: categoryId,
+      type: targetTx.type,
+      status: targetTx.status,
+      amount: targetTx.amount,
+      currencyCode: targetTx.currencyCode,
+      exchangeRate: targetTx.exchangeRate,
+      title: targetTx.title,
+      notes: targetTx.notes,
+      timezone: targetTx.timezone,
+      sourceType: targetTx.sourceType,
+      sourceId: targetTx.sourceId,
+      isTransferLocked: targetTx.isTransferLocked,
+      transactionDate: targetTx.transactionDate,
+      createdAt: targetTx.createdAt,
+      categoryName: newCat?.name,
+      categoryIcon: newCat?.icon,
+      categoryColor: newCat?.color,
+      walletName: targetTx.walletName,
+      walletIcon: targetTx.walletIcon,
+      walletColor: targetTx.walletColor,
+      attachmentUrls: targetTx.attachmentUrls,
+      payeeId: targetTx.payeeId,
+      payeeName: targetTx.payeeName,
+      payeeAccountNumber: targetTx.payeeAccountNumber,
+      payeeBankName: targetTx.payeeBankName,
+      senderName: targetTx.senderName,
+      senderWalletName: targetTx.senderWalletName,
+      senderIdentifier: targetTx.senderIdentifier,
+    );
+
+    // Cập nhật state list lập tức để UI render thay đổi ngay
+    if (index != -1) {
+      final newList = List<TransactionEntity>.from(currentList);
+      newList[index] = updatedEntity;
+      state = AsyncValue.data(newList);
+    }
+
+    // Lưu DB local với isSynced = false
+    final localTx = LocalTransaction(
+      id: targetTx.id,
+      userId: userId,
+      walletId: targetTx.walletId,
+      categoryId: categoryId,
+      amount: targetTx.amount,
+      amountInUserCurrency: targetTx.amount * (targetTx.exchangeRate ?? 1.0),
+      type: targetTx.type,
+      title: targetTx.title,
+      notes: targetTx.notes,
+      transactionDate: targetTx.transactionDate,
+      sourceType: targetTx.sourceType,
+      sourceId: targetTx.sourceId,
+      createdAt: targetTx.createdAt ?? DateTime.now(),
+      updatedAt: DateTime.now(),
+      isSynced: false,
+    );
+    await database.saveTransaction(localTx);
+
+    // Kích hoạt làm mới các notifier liên quan
+    ref.invalidate(filteredTransactionListProvider);
+    _invalidateBudgets();
+
+    // Chạy ngầm việc đồng bộ lên server
+    _syncUpdateInBackground(targetTx.id, targetTx.title, categoryId, targetTx.notes);
+  }
+
+  Future<void> _syncUpdateInBackground(
+    String transactionId,
+    String title,
+    String categoryId,
+    String? notes,
+  ) async {
+    try {
+      final dio = ref.read(dioClientProvider);
+      final Map<String, dynamic> data = {
+        'title': title,
+        'category_id': categoryId,
+        if (notes != null) 'notes': notes,
+      };
+      final formData = FormData.fromMap(data);
+      final url = ApiEndpoints.updateTransaction.replaceAll('{id}', transactionId);
+      final response = await dio.post(url, data: formData);
+
+      final responseData = response.data;
+      if (responseData != null && responseData['data'] != null) {
+        final dto = TransactionDto.fromJson(responseData['data'] as Map<String, dynamic>);
+        final entity = TransactionMapper.toEntity(dto);
+        final database = ref.read(appDatabaseProvider);
+        final userId = ref.read(currentUserProvider)?.id ?? '';
+        
+        final localTx = LocalTransaction(
+          id: entity.id,
+          userId: userId,
+          walletId: entity.walletId,
+          categoryId: entity.categoryId,
+          amount: entity.amount,
+          amountInUserCurrency: entity.amount * (entity.exchangeRate ?? 1.0),
+          type: entity.type,
+          title: entity.title,
+          notes: entity.notes,
+          transactionDate: entity.transactionDate,
+          sourceType: entity.sourceType,
+          sourceId: entity.sourceId,
+          createdAt: entity.createdAt ?? DateTime.now(),
+          updatedAt: DateTime.now(),
+          isSynced: true, // Đồng bộ thành công
+        );
+        await database.saveTransaction(localTx);
+      }
+      
+      await ref.read(cacheStoreProvider).clean();
+      await ref.read(walletNotifierProvider.notifier).refreshWallets();
+      _invalidateBudgets();
+      await refreshTransactions(silent: true);
+    } catch (e) {
+      AppLogger.error('🚨 [_syncUpdateInBackground] Lỗi đồng bộ ngầm: $e');
+    }
   }
 
   void _notifyTransaction({

@@ -8,6 +8,7 @@ class AddTransactionUseCase {
   AddTransactionUseCase(this._repository);
 
   Future<TransactionEntity> execute({
+    String? id,
     required String walletId,
     String? categoryId,
     required String type,
@@ -23,6 +24,7 @@ class AddTransactionUseCase {
     String? sourceType,
   }) {
     return _repository.createTransaction(
+      id: id,
       walletId: walletId,
       categoryId: categoryId,
       type: type,

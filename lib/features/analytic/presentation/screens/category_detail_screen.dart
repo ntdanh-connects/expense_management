@@ -11,6 +11,10 @@ import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:timezone/timezone.dart' as tz;
+import 'package:expense_management/features/transaction/presentation/widgets/category_picker_bottom_sheet.dart';
+import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
+import 'package:expense_management/features/profile/data/models/category_dto.dart';
+import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 
 class CategoryDetailScreen extends ConsumerStatefulWidget {
   final String categoryId;
@@ -875,73 +879,153 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
     }
   }
 
-  Widget _buildTransactionItemRow(TransactionEntity tx, AppColorsExtension colors) {
-    final catColor = CategoryUIConstants.getColorFromHex(tx.categoryColor ?? _currentCategoryColor);
-    final catIcon = CategoryUIConstants.getIconData(tx.categoryIcon ?? _currentCategoryIcon);
+  Widget _buildCategoryDropdownChip(BuildContext context, TransactionEntity tx, Color catColor, IconData catIcon, AppColorsExtension colors) {
+    final hasCategory = tx.categoryId != null && tx.categoryId!.isNotEmpty;
 
-    final showCategoryName = tx.categoryName != null && tx.categoryName!.isNotEmpty;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: catColor.withOpacity(0.12),
-            radius: 20,
-            child: Icon(catIcon, color: catColor, size: 20),
+    return GestureDetector(
+      onTap: () {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => CategoryPickerBottomSheet(
+            transactionType: tx.type,
+            selectedCategory: hasCategory
+                ? CategoryDto(
+                    id: tx.categoryId!,
+                    name: tx.categoryName ?? '',
+                    type: tx.type,
+                    icon: tx.categoryIcon,
+                    color: tx.categoryColor,
+                    sortOrder: 0,
+                    isDefault: false,
+                  )
+                : null,
+            onCategorySelected: (newCat) async {
+              try {
+                await ref.read(transactionListProvider.notifier).updateTransactionCategoryOptimistic(
+                  transactionId: tx.id,
+                  categoryId: newCat.id,
+                );
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Lỗi cập nhật danh mục: $e')),
+                  );
+                }
+              }
+            },
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tx.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: colors.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  children: [
-                    if (showCategoryName) ...[
-                      Text(
-                        tx.categoryName!.tr(ref),
-                        style: TextStyle(color: colors.primary, fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: catColor.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: catColor.withValues(alpha: 0.2), width: 0.8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(catIcon, color: catColor, size: 12),
+            const SizedBox(width: 4),
+            Text(
+              hasCategory ? (tx.categoryName?.tr(ref) ?? 'uncategorized'.tr(ref)) : 'uncategorized'.tr(ref),
+              style: TextStyle(
+                color: catColor,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(Icons.keyboard_arrow_down_rounded, color: catColor, size: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTransactionItemRow(TransactionEntity tx, AppColorsExtension colors) {
+    final hasCategory = tx.categoryId != null && tx.categoryId!.isNotEmpty;
+    final catColor = hasCategory
+        ? CategoryUIConstants.getColorFromHex(tx.categoryColor ?? _currentCategoryColor, categoryName: tx.categoryName)
+        : colors.textSecondary;
+    final catIcon = hasCategory
+        ? CategoryUIConstants.getIconData(tx.categoryIcon ?? _currentCategoryIcon, categoryName: tx.categoryName)
+        : Icons.help_outline_rounded;
+
+    return InkWell(
+      onTap: () {
+        context.push(
+          RoutePaths.transactionDetail,
+          extra: tx,
+        ).then((shouldRefresh) {
+          if (shouldRefresh == true) {
+            ref.invalidate(transactionListProvider);
+            ref.invalidate(filteredTransactionListProvider);
+            ref.invalidate(walletNotifierProvider);
+          }
+        });
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: catColor.withValues(alpha: 0.12),
+              radius: 20,
+              child: Icon(catIcon, color: catColor, size: 20),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tx.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: colors.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      _buildCategoryDropdownChip(context, tx, catColor, catIcon, colors),
                       if (tx.notes != null && tx.notes!.isNotEmpty) ...[
                         const SizedBox(width: 6),
                         Text(
                           '•',
-                          style: TextStyle(color: colors.textSecondary.withOpacity(0.5), fontSize: 11),
+                          style: TextStyle(color: colors.textSecondary.withValues(alpha: 0.5), fontSize: 11),
                         ),
                         const SizedBox(width: 6),
                       ],
-                    ],
-                    if (tx.notes != null && tx.notes!.isNotEmpty)
-                      Expanded(
-                        child: Text(
-                          tx.notes!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: colors.textSecondary, fontSize: 11),
+                      if (tx.notes != null && tx.notes!.isNotEmpty)
+                        Expanded(
+                          child: Text(
+                            tx.notes!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: colors.textSecondary, fontSize: 11),
+                          ),
                         ),
-                      ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            (tx.type == 'expense' ? '-' : '+') + _formatCurrency(tx.amount * (tx.exchangeRate ?? 1.0)),
-            style: TextStyle(
-              color: tx.type == 'expense' ? colors.expenseRed : colors.incomeGreen,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
+            const SizedBox(width: 8),
+            Text(
+              (tx.type == 'expense' ? '-' : '+') + _formatCurrency(tx.amount * (tx.exchangeRate ?? 1.0)),
+              style: TextStyle(
+                color: tx.type == 'expense' ? colors.expenseRed : colors.incomeGreen,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

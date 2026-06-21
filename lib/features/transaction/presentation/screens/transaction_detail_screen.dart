@@ -10,12 +10,13 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
+import 'package:expense_management/core/language/app_provider.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/features/profile/category_provider.dart';
 import 'package:expense_management/features/profile/data/models/category_dto.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
-import 'package:expense_management/features/transaction/presentation/screens/sub_category_selection_screen.dart';
+import 'package:expense_management/features/transaction/presentation/widgets/category_picker_bottom_sheet.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/core/utils/currency_utils.dart';
 
@@ -166,142 +167,58 @@ class _TransactionDetailScreenState
     }
   }
 
-  // ── Chỉnh sửa: Hạ thấp chiều cao xuống 0.6 và bổ sung hiển thị Icon cha ──
-  void _showCategorySelection() {
-    final categories = ref.read(categoriesNotifierProvider).value ?? [];
-    final filteredCategories = categories
-        .where((c) => c.type == _liveTransaction?.type)
-        .toList();
+  Future<void> _updateCategoryImmediately(CategoryDto newCategory) async {
+    setState(() {
+      _selectedCategory = newCategory;
+      if (_liveTransaction != null) {
+        _liveTransaction = _liveTransaction!.copyWith(
+          categoryId: newCategory.id,
+          categoryName: newCategory.name,
+          categoryIcon: newCategory.icon,
+          categoryColor: newCategory.color,
+        );
+      }
+    });
 
+    try {
+      await ref
+          .read(transactionListProvider.notifier)
+          .updateTransactionCategoryOptimistic(
+            transactionId: widget.transaction.id,
+            categoryId: newCategory.id,
+          );
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('update_transaction_success'.trRead(ref))),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'update_transaction_failed'
+                  .trRead(ref)
+                  .replaceAll('{error}', e.toString()),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showCategorySelection() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        // Hạ tỷ lệ chiều cao từ 0.75 xuống thành 0.60 giúp giao diện gọn và thấp xuống
-        height: MediaQuery.of(context).size.height * 0.60,
-        decoration: BoxDecoration(
-          color: context.colors.background,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 38,
-              height: 4.5,
-              decoration: BoxDecoration(
-                color: Colors.grey[400],
-                borderRadius: BorderRadius.circular(2.5),
-              ),
-            ),
-
-            // Phần Header tiêu đề bọc Icon danh mục cha hiện tại bên cạnh chữ giống Add Screen
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (_selectedCategory != null) ...[
-                    Icon(
-                      CategoryUIConstants.getIconData(
-                        _selectedCategory!.icon,
-                        categoryName: _selectedCategory!.name,
-                      ),
-                      color: CategoryUIConstants.getColorFromHex(
-                        _selectedCategory!.color,
-                        categoryName: _selectedCategory!.name,
-                      ),
-                      size: 22,
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  Text(
-                    'select_category'.tr(ref),
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1, thickness: 0.5),
-
-            Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.all(16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  mainAxisSpacing: 18,
-                  crossAxisSpacing: 14,
-                  childAspectRatio: 0.88,
-                ),
-                itemCount: filteredCategories.length,
-                itemBuilder: (context, index) {
-                  // Giữ nguyên logic map IconData và Color từ dữ liệu động hệ thống
-                  final cat = filteredCategories[index];
-                  final iconData = CategoryUIConstants.getIconData(
-                    cat.icon,
-                    categoryName: cat.name,
-                  );
-                  final color = CategoryUIConstants.getColorFromHex(
-                    cat.color,
-                    categoryName: cat.name,
-                  );
-
-                  return InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () {
-                      Navigator.pop(this.context);
-                      if (cat.children != null && cat.children!.isNotEmpty) {
-                        Navigator.push(
-                          this.context,
-                          MaterialPageRoute(
-                            builder: (ctx) => SubCategorySelectionScreen(
-                              parentCategory: cat,
-                              selectedSubCategory: _selectedCategory,
-                            ),
-                          ),
-                        ).then((selectedSub) {
-                          if (selectedSub != null && mounted) {
-                            setState(
-                              () => _selectedCategory =
-                                  selectedSub as CategoryDto,
-                            );
-                          }
-                        });
-                      } else {
-                        setState(() => _selectedCategory = cat);
-                      }
-                    },
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircleAvatar(
-                          radius: 26,
-                          backgroundColor: color.withOpacity(0.12),
-                          child: Icon(iconData, color: color, size: 24),
-                        ),
-                        const SizedBox(height: 7),
-                        Text(
-                          cat.name.tr(ref),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+      builder: (context) => CategoryPickerBottomSheet(
+        transactionType: _liveTransaction?.type ?? 'expense',
+        selectedCategory: _selectedCategory,
+        onCategorySelected: (newCat) {
+          _updateCategoryImmediately(newCat);
+        },
       ),
     );
   }
@@ -402,8 +319,8 @@ class _TransactionDetailScreenState
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final localeCode = ref.watch(localeProvider);
     final tx = _liveTransaction ?? widget.transaction;
-    final isTransfer = tx.sourceType == 'transfer';
 
     final currencySymbol = tx.currencyCode ?? 'đ';
     final formattedAmount = AppConstant.formatMoney(tx.amount, tx.currencyCode);
@@ -460,7 +377,7 @@ class _TransactionDetailScreenState
                               if (tx.currencyCode == 'VND' || tx.currencyCode == null) ...[
                                 const SizedBox(height: 4),
                                 Text(
-                                  '(${numberToVietnameseWords(tx.amount)})',
+                                  '(${formatNumberToWords(tx.amount, localeCode)})',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     color: colors.textSecondary,
