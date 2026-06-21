@@ -20,6 +20,7 @@ import 'package:expense_management/features/notification/data/datasource/local/l
 import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
+import 'package:expense_management/core/utils/currency_utils.dart';
 
 enum TransactionStatus { processing, success, failure, offlineSuccess }
 
@@ -319,6 +320,19 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
+                                if (widget.params.currencyCode == 'VND' || widget.params.currencyCode == null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '(${numberToVietnameseWords(widget.params.amount)})',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: colors.textSecondary,
+                                      fontSize: 13,
+                                      fontStyle: FontStyle.italic,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
                                 const SizedBox(height: 8),
                                 Text(
                                   (_finalTitle != null && _finalTitle!.isNotEmpty)
@@ -633,6 +647,19 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
+                                if (widget.params.currencyCode == 'VND' || widget.params.currencyCode == null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '(${numberToVietnameseWords(widget.params.amount)})',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: colors.textSecondary,
+                                      fontSize: 13,
+                                      fontStyle: FontStyle.italic,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
                                 const SizedBox(height: 8),
                                 Text(
                                   widget.params.title.isNotEmpty

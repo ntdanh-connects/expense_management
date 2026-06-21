@@ -24,6 +24,7 @@ import 'package:expense_management/features/wallet/presentation/provider/qr_tran
 import 'package:intl/intl.dart';
 import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
+import 'package:expense_management/core/utils/currency_utils.dart';
 
 
 final showHiddenWalletsProvider = StateProvider<bool>((ref) => false);
@@ -341,7 +342,45 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                                   ),
                                 ),
                               ),
+                              onChanged: (val) {
+                                if (val.isEmpty) return;
+                                final cleanString = val.replaceAll(RegExp(r'[^0-9]'), '');
+                                double? amt = double.tryParse(cleanString);
+                                if (amt != null) {
+                                  if (amt > 500000000) {
+                                    amt = 500000000;
+                                  }
+                                  final formatted = NumberFormat('#,###', 'vi_VN').format(amt);
+                                  _amountController.value = TextEditingValue(
+                                    text: formatted,
+                                    selection: TextSelection.fromPosition(TextPosition(offset: formatted.length)),
+                                  );
+                                }
+                              },
                             ),
+                          ),
+                          ValueListenableBuilder<TextEditingValue>(
+                            valueListenable: _amountController,
+                            builder: (context, value, child) {
+                              final cleanString = value.text.replaceAll(RegExp(r'[^0-9]'), '');
+                              final double? amt = double.tryParse(cleanString);
+                              if (amt == null || amt == 0) {
+                                return const SizedBox.shrink();
+                              }
+                              final wordRepresentation = numberToVietnameseWords(amt);
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8.0, left: 4.0),
+                                child: Text(
+                                  '($wordRepresentation)',
+                                  style: TextStyle(
+                                    color: colors.textSecondary,
+                                    fontSize: 13,
+                                    fontStyle: FontStyle.italic,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                           const SizedBox(height: 20),
 
@@ -684,20 +723,29 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                                   fontWeight: FontWeight.bold,
                                 ),
                                 decoration: InputDecoration(
-                                  hintText: 'Nhập số tiền (đ)',
+                                  hintText: 'Nhập số tiền',
                                   hintStyle: TextStyle(
                                     color: colors.textSecondary.withOpacity(0.6),
                                     fontSize: 15,
                                     fontWeight: FontWeight.normal,
+                                  ),
+                                  suffixText: 'đ',
+                                  suffixStyle: TextStyle(
+                                    color: colors.textPrimary,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                   border: InputBorder.none,
                                 ),
                                 onChanged: (val) {
                                   if (val.isEmpty) return;
                                   final cleanString = val.replaceAll(RegExp(r'[^0-9]'), '');
-                                  final double? amt = double.tryParse(cleanString);
+                                  double? amt = double.tryParse(cleanString);
                                   if (amt != null) {
-                                    final formatted = NumberFormat('#,###').format(amt);
+                                    if (amt > 500000000) {
+                                      amt = 500000000;
+                                    }
+                                    final formatted = NumberFormat('#,###', 'vi_VN').format(amt);
                                     _externalAmountController.value = TextEditingValue(
                                       text: formatted,
                                       selection: TextSelection.fromPosition(TextPosition(offset: formatted.length)),
@@ -705,6 +753,29 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                                   }
                                 },
                               ),
+                            ),
+                            ValueListenableBuilder<TextEditingValue>(
+                              valueListenable: _externalAmountController,
+                              builder: (context, value, child) {
+                                final cleanString = value.text.replaceAll(RegExp(r'[^0-9]'), '');
+                                final double? amt = double.tryParse(cleanString);
+                                if (amt == null || amt == 0) {
+                                  return const SizedBox.shrink();
+                                }
+                                final wordRepresentation = numberToVietnameseWords(amt);
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 8.0, left: 4.0),
+                                  child: Text(
+                                    '($wordRepresentation)',
+                                    style: TextStyle(
+                                      color: colors.textSecondary,
+                                      fontSize: 13,
+                                      fontStyle: FontStyle.italic,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                             const SizedBox(height: 20),
 
@@ -1197,7 +1268,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
   // Thực hiện giao dịch chuyển khoản thông qua Provider nghiệp vụ
   void _executeTransfer(AppColorsExtension colors) async {
-    final amountStr = _amountController.text.trim();
+    final amountStr = _amountController.text.replaceAll(RegExp(r'[^0-9]'), '');
     
     setState(() {
       _isTransferring = true;

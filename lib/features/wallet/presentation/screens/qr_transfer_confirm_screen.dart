@@ -11,6 +11,7 @@ import 'package:expense_management/features/profile/presentation/widgets/categor
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:elegant_notification/elegant_notification.dart';
+import 'package:expense_management/core/utils/currency_utils.dart';
 
 class QrTransferConfirmScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> payeeData;
@@ -36,7 +37,8 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
     if (widget.payeeData['amount'] != null) {
       final double amt = double.tryParse(widget.payeeData['amount'].toString()) ?? 0.0;
       if (amt > 0) {
-        _amountController.text = NumberFormat('#,###').format(amt);
+        final cappedAmt = amt > 500000000.0 ? 500000000.0 : amt;
+        _amountController.text = NumberFormat('#,###', 'vi_VN').format(cappedAmt);
       }
     }
     if (widget.payeeData['description'] != null) {
@@ -409,7 +411,7 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
                               style: TextStyle(color: color.textSecondary, fontSize: 13),
                             ),
                             Text(
-                              "${NumberFormat('#,###').format(_selectedWallet!.balance)}đ",
+                              "${NumberFormat('#,###', 'vi_VN').format(_selectedWallet!.balance)}đ",
                               style: TextStyle(color: color.incomeGreen, fontWeight: FontWeight.bold, fontSize: 15),
                             ),
                           ],
@@ -537,14 +539,40 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
                   onChanged: (val) {
                     if (val.isEmpty) return;
                     final cleanString = val.replaceAll(RegExp(r'[^0-9]'), '');
-                    final double? amt = double.tryParse(cleanString);
+                    double? amt = double.tryParse(cleanString);
                     if (amt != null) {
-                      final formatted = NumberFormat('#,###').format(amt);
+                      if (amt > 500000000) {
+                        amt = 500000000;
+                      }
+                      final formatted = NumberFormat('#,###', 'vi_VN').format(amt);
                       _amountController.value = TextEditingValue(
                         text: formatted,
                         selection: TextSelection.fromPosition(TextPosition(offset: formatted.length)),
                       );
                     }
+                  },
+                ),
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _amountController,
+                  builder: (context, value, child) {
+                    final cleanString = value.text.replaceAll(RegExp(r'[^0-9]'), '');
+                    final double? amt = double.tryParse(cleanString);
+                    if (amt == null || amt == 0) {
+                      return const SizedBox.shrink();
+                    }
+                    final wordRepresentation = numberToVietnameseWords(amt);
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 8.0, left: 4.0),
+                      child: Text(
+                        '($wordRepresentation)',
+                        style: TextStyle(
+                          color: color.textSecondary,
+                          fontSize: 13,
+                          fontStyle: FontStyle.italic,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    );
                   },
                 ),
                 const SizedBox(height: 16),

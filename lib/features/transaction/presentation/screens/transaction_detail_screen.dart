@@ -17,6 +17,7 @@ import 'package:expense_management/features/profile/data/models/category_dto.dar
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
 import 'package:expense_management/features/transaction/presentation/screens/sub_category_selection_screen.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
+import 'package:expense_management/core/utils/currency_utils.dart';
 
 class TransactionDetailScreen extends ConsumerStatefulWidget {
   final TransactionEntity transaction;
@@ -456,6 +457,19 @@ class _TransactionDetailScreenState
                                   letterSpacing: 0.5,
                                 ),
                               ),
+                              if (tx.currencyCode == 'VND' || tx.currencyCode == null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  '(${numberToVietnameseWords(tx.amount)})',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: colors.textSecondary,
+                                    fontSize: 13,
+                                    fontStyle: FontStyle.italic,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
                               const SizedBox(height: 6),
                               Container(
                                 padding: const EdgeInsets.symmetric(

@@ -11,6 +11,7 @@ import 'package:expense_management/features/wallet/presentation/provider/wallet_
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/features/wallet/presentation/provider/qr_transfer_provider.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/core/utils/currency_utils.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
 import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
@@ -194,7 +195,7 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
   }
 
   String _formatAmount(double amount) {
-    return '${NumberFormat('#,###').format(amount)} đ';
+    return '${NumberFormat('#,###', 'vi_VN').format(amount)} đ';
   }
 
   Widget _buildShimmerBlock({required double width, required double height, double borderRadius = 6}) {
@@ -384,6 +385,19 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
+                                            if (_isSuccess && rawAmount > 0) ...[
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                '(${numberToVietnameseWords(rawAmount)})',
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  color: color.textSecondary,
+                                                  fontSize: 13,
+                                                  fontStyle: FontStyle.italic,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
                                             const SizedBox(height: 8),
                                             Text(
                                               isInternal ? 'qr_transfer_p2p_internal'.tr(ref) : 'qr_transfer_vietqr'.tr(ref),

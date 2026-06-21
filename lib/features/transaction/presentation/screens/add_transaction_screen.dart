@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:async';
 import 'package:currency_text_input_formatter/currency_text_input_formatter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:expense_management/core/utils/currency_utils.dart';
 
 import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
@@ -82,7 +83,8 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       if (qr['amount'] != null) {
         final double amt = double.tryParse(qr['amount'].toString()) ?? 0.0;
         if (amt > 0) {
-          _amountController.text = _formatter.formatDouble(amt);
+          final cappedAmt = amt > 500000000.0 ? 500000000.0 : amt;
+          _amountController.text = _formatter.formatDouble(cappedAmt);
         }
       }
       if (qr['description'] != null) {
@@ -1122,6 +1124,45 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                           ),
                         ),
                         inputFormatters: [_formatter],
+                        onChanged: (val) {
+                          final cleanString = val.replaceAll(RegExp(r'[^0-9]'), '');
+                          final double? amt = double.tryParse(cleanString);
+                          if (amt != null && amt > 500000000) {
+                            final formatted = _formatter.formatDouble(500000000);
+                            _amountController.value = TextEditingValue(
+                              text: formatted,
+                              selection: TextSelection.fromPosition(TextPosition(offset: formatted.length)),
+                            );
+                          }
+                        },
+                      ),
+                      ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _amountController,
+                        builder: (context, value, child) {
+                          final currency = _selectedWallet?.currencyCode ?? 'VND';
+                          if (currency != 'VND') {
+                            return const SizedBox.shrink();
+                          }
+                          final cleanString = value.text.replaceAll(RegExp(r'[^0-9]'), '');
+                          final double? amt = double.tryParse(cleanString);
+                          if (amt == null || amt == 0) {
+                            return const SizedBox.shrink();
+                          }
+                          final wordRepresentation = numberToVietnameseWords(amt);
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: Text(
+                              '($wordRepresentation)',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: colors.textSecondary,
+                                fontSize: 13,
+                                fontStyle: FontStyle.italic,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),

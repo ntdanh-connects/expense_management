@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
+import 'package:expense_management/core/utils/currency_utils.dart';
 
 class SandboxSimulateTransferScreen extends ConsumerStatefulWidget {
   const SandboxSimulateTransferScreen({super.key});
@@ -20,7 +21,7 @@ class SandboxSimulateTransferScreen extends ConsumerStatefulWidget {
 }
 
 class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateTransferScreen> {
-  final _amountController = TextEditingController(text: '500,000');
+  final _amountController = TextEditingController(text: '500.000');
   final _senderNameController = TextEditingController(text: 'NGUYEN VAN B');
   final _notesController = TextEditingController(text: 'Chuyển tiền ăn trưa');
 
@@ -261,7 +262,7 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
                                     ),
                                   ),
                                   const SizedBox(width: 12),
-                                  Text('${wallet.name} (${AppConstant.formatMoney(wallet.balance)} đ)'),
+                                  Text('${wallet.name} (${AppConstant.formatMoney(wallet.balance, wallet.currencyCode)} đ)'),
                                 ],
                               ),
                             );
@@ -309,9 +310,12 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
                         onChanged: (val) {
                           if (val.isEmpty) return;
                           final cleanString = val.replaceAll(RegExp(r'[^0-9]'), '');
-                          final double? amt = double.tryParse(cleanString);
+                          double? amt = double.tryParse(cleanString);
                           if (amt != null) {
-                            final formatted = NumberFormat('#,###').format(amt);
+                            if (amt > 500000000) {
+                              amt = 500000000;
+                            }
+                            final formatted = NumberFormat('#,###', 'vi_VN').format(amt);
                             _amountController.value = TextEditingValue(
                               text: formatted,
                               selection: TextSelection.fromPosition(TextPosition(offset: formatted.length)),
@@ -319,6 +323,29 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
                           }
                         },
                       ),
+                    ),
+                    ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _amountController,
+                      builder: (context, value, child) {
+                        final cleanString = value.text.replaceAll(RegExp(r'[^0-9]'), '');
+                        final double? amt = double.tryParse(cleanString);
+                        if (amt == null || amt == 0) {
+                          return const SizedBox.shrink();
+                        }
+                        final wordRepresentation = numberToVietnameseWords(amt);
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8.0, left: 4.0),
+                          child: Text(
+                            '($wordRepresentation)',
+                            style: TextStyle(
+                              color: colors.textSecondary,
+                              fontSize: 13,
+                              fontStyle: FontStyle.italic,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 20),
 
