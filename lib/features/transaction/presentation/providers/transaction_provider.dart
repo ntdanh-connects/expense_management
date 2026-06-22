@@ -59,44 +59,46 @@ final getTransactionsUseCaseProvider = Provider<GetTransactionsUseCase>((ref) {
 });
 
 TransactionEntity _mapLocalTransactionToEntity(
-    LocalTransaction row,
-    List<Category> categories,
-    List<Wallet> wallets,
-  ) {
-    final categoryList = categories.where((c) => c.id == row.categoryId);
-    final category = categoryList.isNotEmpty ? categoryList.first : null;
+  LocalTransaction row,
+  List<Category> categories,
+  List<Wallet> wallets,
+) {
+  final categoryList = categories.where((c) => c.id == row.categoryId);
+  final category = categoryList.isNotEmpty ? categoryList.first : null;
 
-    final walletList = wallets.where((w) => w.id == row.walletId);
-    final wallet = walletList.isNotEmpty ? walletList.first : null;
+  final walletList = wallets.where((w) => w.id == row.walletId);
+  final wallet = walletList.isNotEmpty ? walletList.first : null;
 
-    return TransactionEntity(
-      id: row.id,
-      walletId: row.walletId,
-      categoryId: row.categoryId,
-      type: row.type,
-      status: row.isSynced ? 'success' : 'pending',
-      amount: row.amount,
-      currencyCode: wallet?.currencyCode,
-      exchangeRate: row.amount > 0 ? (row.amountInUserCurrency / row.amount) : 1.0,
-      title: row.title,
-      notes: row.notes,
-      sourceType: row.sourceType,
-      sourceId: row.sourceId,
-      transactionDate: row.transactionDate,
-      createdAt: row.createdAt,
-      categoryName: category?.name,
-      categoryIcon: category?.icon,
-      categoryColor: category?.color,
-      walletName: wallet?.name,
-      walletIcon: wallet?.icon,
-      walletColor: wallet?.color,
-      attachmentUrls: const [],
-      payeeId: row.payeeId,
-      payeeName: row.payeeName,
-      payeeAccountNumber: row.payeeAccountNumber,
-      payeeBankName: row.payeeBankName,
-    );
-  }
+  return TransactionEntity(
+    id: row.id,
+    walletId: row.walletId,
+    categoryId: row.categoryId,
+    type: row.type,
+    status: row.isSynced ? 'success' : 'pending',
+    amount: row.amount,
+    currencyCode: wallet?.currencyCode,
+    exchangeRate: row.amount > 0
+        ? (row.amountInUserCurrency / row.amount)
+        : 1.0,
+    title: row.title,
+    notes: row.notes,
+    sourceType: row.sourceType,
+    sourceId: row.sourceId,
+    transactionDate: row.transactionDate,
+    createdAt: row.createdAt,
+    categoryName: category?.name,
+    categoryIcon: category?.icon,
+    categoryColor: category?.color,
+    walletName: wallet?.name,
+    walletIcon: wallet?.icon,
+    walletColor: wallet?.color,
+    attachmentUrls: const [],
+    payeeId: row.payeeId,
+    payeeName: row.payeeName,
+    payeeAccountNumber: row.payeeAccountNumber,
+    payeeBankName: row.payeeBankName,
+  );
+}
 
 class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
   Timer? _syncTimer;
@@ -108,7 +110,9 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     ref.invalidate(budgetListProvider);
     ref.invalidate(currentMonthBudgetsProvider);
     // Force rebuild to trigger budget threshold checks
-    ref.read(currentMonthBudgetsProvider.future).catchError((_) => <BudgetDto>[]);
+    ref
+        .read(currentMonthBudgetsProvider.future)
+        .catchError((_) => <BudgetDto>[]);
   }
 
   @override
@@ -117,14 +121,18 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     if (userId.isEmpty) return [];
 
     final database = ref.read(appDatabaseProvider);
-    
+
     final cachedRows = await database.getCachedTransactions(userId);
     final pendingRows = await database.getPendingTransactions(userId);
     final categories = await database.getAllCategories();
     final wallets = await database.select(database.wallets).get();
 
-    final cachedData = cachedRows.map((r) => _mapLocalTransactionToEntity(r, categories, wallets)).toList();
-    final pendingData = pendingRows.map((r) => _mapLocalTransactionToEntity(r, categories, wallets)).toList();
+    final cachedData = cachedRows
+        .map((r) => _mapLocalTransactionToEntity(r, categories, wallets))
+        .toList();
+    final pendingData = pendingRows
+        .map((r) => _mapLocalTransactionToEntity(r, categories, wallets))
+        .toList();
 
     final initialList = [...pendingData, ...cachedData];
 
@@ -134,7 +142,9 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     _startSyncTimer();
 
     if (userId.isNotEmpty) {
-      Future.microtask(() => refreshTransactions(silent: initialList.isNotEmpty));
+      Future.microtask(
+        () => refreshTransactions(silent: initialList.isNotEmpty),
+      );
     }
 
     return initialList;
@@ -183,7 +193,8 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
       h4 = ((h4 ^ char) * 31) & 0xffffffff;
     }
 
-    final hex = h1.toRadixString(16).padLeft(8, '0') +
+    final hex =
+        h1.toRadixString(16).padLeft(8, '0') +
         h2.toRadixString(16).padLeft(8, '0') +
         h3.toRadixString(16).padLeft(8, '0') +
         h4.toRadixString(16).padLeft(8, '0');
@@ -205,13 +216,15 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
       final userId = ref.read(currentUserProvider)?.id ?? '';
       if (userId.isEmpty) return;
       final database = ref.read(appDatabaseProvider);
-      
+
       final pendingRows = await database.getPendingTransactions(userId);
       if (pendingRows.isEmpty) return;
 
       final categories = await database.getAllCategories();
       final wallets = await database.select(database.wallets).get();
-      final pendingList = pendingRows.map((r) => _mapLocalTransactionToEntity(r, categories, wallets)).toList();
+      final pendingList = pendingRows
+          .map((r) => _mapLocalTransactionToEntity(r, categories, wallets))
+          .toList();
 
       final addTxUseCase = ref.read(addTransactionUseCaseProvider);
       bool anySuccess = false;
@@ -234,7 +247,16 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
 
           if (isNewTransaction) {
             final deterministicId = _deterministicUuid(tx.id);
-            AppLogger.info("🔄 [Sync] Bắt đầu đồng bộ transaction (Tạo mới): tempId='${tx.id}', deterministicId='$deterministicId', title='${tx.title}', sourceType='${tx.sourceType}'");
+            AppLogger.info(
+              "🔄 [Sync] Bắt đầu đồng bộ transaction (Tạo mới): tempId='${tx.id}', deterministicId='$deterministicId', title='${tx.title}', sourceType='${tx.sourceType}'",
+            );
+
+            String? activePayeeId = tx.payeeId;
+            String? activeSourceType = tx.sourceType;
+            if (tx.type == 'income') {
+              activePayeeId = null;
+              activeSourceType = 'transfer';
+            }
 
             final newTx = await addTxUseCase.execute(
               id: deterministicId,
@@ -249,13 +271,13 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
               exchangeRate: tx.exchangeRate,
               timezone: tx.timezone,
               attachment: attachmentFile,
-              payeeId: tx.payeeId,
-              sourceType: tx.sourceType,
+              payeeId: activePayeeId,
+              sourceType: activeSourceType,
             );
 
             // Xóa dòng pending cũ khỏi DB và lưu lại transaction mới từ BE trả về
             await database.deleteTransaction(tx.id);
-            
+
             final localTx = LocalTransaction(
               id: newTx.id,
               userId: userId,
@@ -276,34 +298,53 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
               payeeName: newTx.payeeName,
               payeeAccountNumber: newTx.payeeAccountNumber,
               payeeBankName: newTx.payeeBankName,
+              isTransferLocked: newTx.isTransferLocked,
             );
             await database.saveTransaction(localTx);
             anySuccess = true;
           } else {
-            AppLogger.info("🔄 [Sync] Bắt đầu đồng bộ transaction (Cập nhật): id='${tx.id}', title='${tx.title}', categoryId='${tx.categoryId}'");
+            AppLogger.info(
+              "🔄 [Sync] Bắt đầu đồng bộ transaction (Cập nhật): id='${tx.id}', title='${tx.title}', categoryId='${tx.categoryId}'",
+            );
+
+            String? activePayeeId = tx.payeeId;
+            String? activeSourceType = tx.sourceType;
+            if (tx.type == 'income') {
+              activePayeeId = null;
+              activeSourceType = 'transfer';
+            }
 
             final dio = ref.read(dioClientProvider);
             final Map<String, dynamic> data = {
               'title': tx.title,
               if (tx.categoryId != null) 'category_id': tx.categoryId,
               if (tx.notes != null) 'notes': tx.notes,
+              if (activePayeeId != null) 'payee_id': activePayeeId,
+              if (activeSourceType != null) 'source_type': activeSourceType,
+              'type': tx.type,
             };
             final formData = FormData.fromMap(data);
-            final url = ApiEndpoints.updateTransaction.replaceAll('{id}', tx.id);
+            final url = ApiEndpoints.updateTransaction.replaceAll(
+              '{id}',
+              tx.id,
+            );
             final response = await dio.post(url, data: formData);
 
             final responseData = response.data;
             if (responseData != null && responseData['data'] != null) {
-              final dto = TransactionDto.fromJson(responseData['data'] as Map<String, dynamic>);
+              final dto = TransactionDto.fromJson(
+                responseData['data'] as Map<String, dynamic>,
+              );
               final entity = TransactionMapper.toEntity(dto);
-              
+
               final localTx = LocalTransaction(
                 id: entity.id,
                 userId: userId,
                 walletId: entity.walletId,
                 categoryId: entity.categoryId,
                 amount: entity.amount,
-                amountInUserCurrency: entity.amount * (entity.exchangeRate ?? 1.0),
+                amountInUserCurrency:
+                    entity.amount * (entity.exchangeRate ?? 1.0),
                 type: entity.type,
                 title: entity.title,
                 notes: entity.notes,
@@ -317,6 +358,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
                 payeeName: entity.payeeName,
                 payeeAccountNumber: entity.payeeAccountNumber,
                 payeeBankName: entity.payeeBankName,
+                isTransferLocked: entity.isTransferLocked,
               );
               await database.saveTransaction(localTx);
               anySuccess = true;
@@ -336,6 +378,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
               animation: AnimationType.fromTop,
             ).show(context);
           }
+          _notifySyncResult(tx.title, true);
         } catch (e) {
           if (_isNetworkError(e)) {
             break;
@@ -356,6 +399,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
               animation: AnimationType.fromTop,
             ).show(context);
           }
+          _notifySyncResult(tx.title, false);
         }
       }
 
@@ -363,6 +407,11 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
         await ref.read(walletNotifierProvider.notifier).refreshWallets();
         await refreshTransactions();
         _invalidateBudgets();
+        try {
+          await ref
+              .read(filteredTransactionListProvider.notifier)
+              .refreshTransactions(silent: true);
+        } catch (_) {}
       }
     } finally {
       _isSyncing = false;
@@ -384,7 +433,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
       final useCase = ref.read(getTransactionsUseCaseProvider);
       final filter = currentFilter;
       final isUncategorized = filter.categoryId == 'uncategorized';
-      
+
       final result = await useCase.execute(
         search: filter.search,
         startDate: filter.startDate,
@@ -413,17 +462,30 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
       final user = ref.read(currentUserProvider);
       final tzName = user?.timezone ?? 'Asia/Ho_Chi_Minh';
       final pendingRows = await database.getPendingTransactions(userId);
-      final pendingData = pendingRows.map((r) => _mapLocalTransactionToEntity(r, categories, wallets)).toList();
-      
-      final filteredPending = _filterLocalList(pendingData, filter, tzName, categories);
-      
+      final pendingData = pendingRows
+          .map((r) => _mapLocalTransactionToEntity(r, categories, wallets))
+          .toList();
+
+      final filteredPending = _filterLocalList(
+        pendingData,
+        filter,
+        tzName,
+        categories,
+      );
+
       if (pendingData.isNotEmpty) {
         _syncPendingTransactions();
       }
 
       var items = result.items;
       if (isUncategorized) {
-        items = items.where((tx) => tx.categoryId == null || tx.categoryName == null).toList();
+        items = items
+            .where(
+              (tx) =>
+                  (tx.categoryId == null || tx.categoryName == null) &&
+                  tx.sourceType?.toLowerCase() != 'transfer',
+            )
+            .toList();
       }
 
       // Loại bỏ các giao dịch trùng lặp đã tồn tại ở local pending
@@ -432,7 +494,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
 
       return [...filteredPending, ...items];
     });
-    
+
     // Nếu chạy silent và gặp lỗi, giữ nguyên danh sách hiện tại thay vì hiện màn hình lỗi
     if (silent && newState.hasError && state.hasValue) {
       return;
@@ -447,14 +509,14 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     final pagination = ref.read(transactionPaginationProvider);
     if (pagination.isLoadingMore || !pagination.hasMore) return;
 
-    ref.read(transactionPaginationProvider.notifier).state =
-        pagination.copyWith(isLoadingMore: true);
+    ref.read(transactionPaginationProvider.notifier).state = pagination
+        .copyWith(isLoadingMore: true);
 
     try {
       final useCase = ref.read(getTransactionsUseCaseProvider);
       final filter = currentFilter;
       final isUncategorized = filter.categoryId == 'uncategorized';
-      
+
       final result = await useCase.execute(
         search: filter.search,
         startDate: filter.startDate,
@@ -472,17 +534,20 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
 
       var items = result.items;
       if (isUncategorized) {
-        items = items.where((tx) => tx.categoryId == null || tx.categoryName == null).toList();
+        items = items
+            .where(
+              (tx) =>
+                  (tx.categoryId == null || tx.categoryName == null) &&
+                  tx.sourceType?.toLowerCase() != 'transfer',
+            )
+            .toList();
       }
 
       // Loại bỏ các giao dịch đã có trong state hiện tại để tránh duplicate
       final existingIds = (state.value ?? []).map((tx) => tx.id).toSet();
       items = items.where((item) => !existingIds.contains(item.id)).toList();
 
-      state = AsyncValue.data([
-        ...(state.value ?? []),
-        ...items,
-      ]);
+      state = AsyncValue.data([...(state.value ?? []), ...items]);
 
       ref.read(transactionPaginationProvider.notifier).state = PaginationState(
         nextCursor: result.nextCursor,
@@ -490,8 +555,8 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
         isLoadingMore: false,
       );
     } catch (e) {
-      ref.read(transactionPaginationProvider.notifier).state =
-          pagination.copyWith(isLoadingMore: false);
+      ref.read(transactionPaginationProvider.notifier).state = pagination
+          .copyWith(isLoadingMore: false);
     }
   }
 
@@ -507,7 +572,8 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
         walletId: transaction.walletId,
         categoryId: transaction.categoryId,
         amount: transaction.amount,
-        amountInUserCurrency: transaction.amount * (transaction.exchangeRate ?? 1.0),
+        amountInUserCurrency:
+            transaction.amount * (transaction.exchangeRate ?? 1.0),
         type: transaction.type,
         title: transaction.title,
         notes: transaction.notes,
@@ -521,6 +587,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
         payeeName: transaction.payeeName,
         payeeAccountNumber: transaction.payeeAccountNumber,
         payeeBankName: transaction.payeeBankName,
+        isTransferLocked: transaction.isTransferLocked,
       );
       await database.saveTransaction(localTx);
 
@@ -547,25 +614,42 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     final database = ref.read(appDatabaseProvider);
     final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
 
+    String? activeSourceType = params.sourceType ?? 'manual';
+    String? activePayeeId = params.payeeId;
+    String? activePayeeName = params.payeeName;
+    String? activePayeeAccountNumber = params.payeeAccountNumber;
+    String? activePayeeBankName = params.payeeBankName;
+
+    if (params.type == 'income') {
+      activePayeeId = null;
+      activePayeeName = null;
+      activePayeeAccountNumber = null;
+      activePayeeBankName = null;
+      activeSourceType = 'transfer';
+    }
+
     final localTx = LocalTransaction(
       id: tempId,
       userId: userId,
       walletId: params.walletId,
-      categoryId: params.categoryId == null || params.categoryId!.isEmpty ? null : params.categoryId,
+      categoryId: params.categoryId == null || params.categoryId!.isEmpty
+          ? null
+          : params.categoryId,
       amount: params.amount,
       amountInUserCurrency: params.amount * (params.exchangeRate ?? 1.0),
       type: params.type,
       title: params.title,
       notes: params.notes,
       transactionDate: DateTime.parse(params.transactionDate),
-      sourceType: params.sourceType ?? 'manual',
+      sourceType: activeSourceType,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
       isSynced: false,
-      payeeId: params.payeeId,
-      payeeName: params.payeeName,
-      payeeAccountNumber: params.payeeAccountNumber,
-      payeeBankName: params.payeeBankName,
+      payeeId: activePayeeId,
+      payeeName: activePayeeName,
+      payeeAccountNumber: activePayeeAccountNumber,
+      payeeBankName: activePayeeBankName,
+      isTransferLocked: false,
     );
     await database.saveTransaction(localTx);
 
@@ -598,9 +682,11 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     try {
       final response = await dio.get(url);
       final responseData = response.data;
-      
+
       if (responseData != null && responseData['data'] != null) {
-        final dto = TransactionDto.fromJson(responseData['data'] as Map<String, dynamic>);
+        final dto = TransactionDto.fromJson(
+          responseData['data'] as Map<String, dynamic>,
+        );
         return TransactionMapper.toEntity(dto);
       } else {
         throw Exception('Không tìm thấy dữ liệu giao dịch hợp lệ');
@@ -622,8 +708,12 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     final currentList = state.value ?? [];
     final tx = currentList.where((t) => t.id == transactionId).firstOrNull;
 
-    if (tx != null && (tx.status != 'pending' || !transactionId.startsWith('temp_'))) {
-      final url = ApiEndpoints.deleteTransaction.replaceAll('{id}', transactionId);
+    if (tx != null &&
+        (tx.status != 'pending' || !transactionId.startsWith('temp_'))) {
+      final url = ApiEndpoints.deleteTransaction.replaceAll(
+        '{id}',
+        transactionId,
+      );
       await dio.delete(url);
     }
 
@@ -647,31 +737,77 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     String? categoryId,
     String? notes,
     List<MultipartFile>? attachments,
+    String? payeeId,
+    String? sourceType,
+    String? type,
   }) async {
     await ref.read(cacheStoreProvider).clean();
     final dio = ref.read(dioClientProvider);
+    final database = ref.read(appDatabaseProvider);
+
+    String? activePayeeId = payeeId;
+    String? activeSourceType = sourceType;
+    String? activeType = type;
+
+    if (categoryId != null) {
+      try {
+        final allCategories = await database.getAllCategories();
+        final cat = allCategories.where((c) => c.id == categoryId).firstOrNull;
+        if (cat != null) {
+          activeType = cat.type;
+        }
+      } catch (_) {}
+    }
+
+    if (activePayeeId == null ||
+        activeSourceType == null ||
+        activeType == null) {
+      try {
+        final serverTx = await getTransactionById(transactionId);
+        activePayeeId ??= serverTx.payeeId;
+        activeSourceType ??= serverTx.sourceType;
+        activeType ??= serverTx.type;
+      } catch (_) {}
+    }
+
+    final wallets = await database.select(database.wallets).get();
+    final tx = await getTransactionById(transactionId);
+    final wallet = wallets.where((w) => w.id == tx.walletId).firstOrNull;
+    final isCash = wallet?.type.toLowerCase() == 'cash';
+
+    if (activeType == 'income' && !isCash) {
+      activeSourceType = 'transfer';
+    }
 
     final Map<String, dynamic> data = {
       'title': title,
       if (categoryId != null) 'category_id': categoryId,
       if (notes != null) 'notes': notes,
+      if (activePayeeId != null) 'payee_id': activePayeeId,
+      if (activeSourceType != null) 'source_type': activeSourceType,
+      if (activeType != null) 'type': activeType,
       if (attachments != null && attachments.isNotEmpty) ...{
         'attachment': attachments.first.clone(),
         'attachments[]': attachments.map((e) => e.clone()).toList(),
       },
     };
     final formData = FormData.fromMap(data);
-    final url = ApiEndpoints.updateTransaction.replaceAll('{id}', transactionId);
+    final url = ApiEndpoints.updateTransaction.replaceAll(
+      '{id}',
+      transactionId,
+    );
     final response = await dio.post(url, data: formData);
 
     try {
       final responseData = response.data;
       if (responseData != null && responseData['data'] != null) {
-        final dto = TransactionDto.fromJson(responseData['data'] as Map<String, dynamic>);
+        final dto = TransactionDto.fromJson(
+          responseData['data'] as Map<String, dynamic>,
+        );
         final entity = TransactionMapper.toEntity(dto);
         final database = ref.read(appDatabaseProvider);
         final userId = ref.read(currentUserProvider)?.id ?? '';
-        
+
         final localTx = LocalTransaction(
           id: entity.id,
           userId: userId,
@@ -688,6 +824,11 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
           createdAt: entity.createdAt ?? DateTime.now(),
           updatedAt: DateTime.now(),
           isSynced: true,
+          payeeId: entity.payeeId,
+          payeeName: entity.payeeName,
+          payeeAccountNumber: entity.payeeAccountNumber,
+          payeeBankName: entity.payeeBankName,
+          isTransferLocked: entity.isTransferLocked,
         );
         await database.saveTransaction(localTx);
       }
@@ -708,11 +849,11 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     // 1. Cập nhật local DB ngay lập tức
     final database = ref.read(appDatabaseProvider);
     final userId = ref.read(currentUserProvider)?.id ?? '';
-    
+
     // Tìm transaction hiện tại từ DB hoặc state để lấy thông tin đầy đủ
     final currentList = state.value ?? [];
     final index = currentList.indexWhere((tx) => tx.id == transactionId);
-    
+
     TransactionEntity? targetTx;
     if (index != -1) {
       targetTx = currentList[index];
@@ -725,129 +866,146 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
 
     if (targetTx == null) return;
 
+    // Nếu thông tin người thụ hưởng hoặc nguồn giao dịch bị thiếu do lỗi đồng bộ trước đó, khôi phục từ server
+    if (targetTx.payeeId == null || targetTx.sourceType == null) {
+      try {
+        final serverTx = await getTransactionById(transactionId);
+        targetTx = targetTx.copyWith(
+          payeeId: serverTx.payeeId,
+          payeeName: serverTx.payeeName,
+          payeeAccountNumber: serverTx.payeeAccountNumber,
+          payeeBankName: serverTx.payeeBankName,
+          sourceType: serverTx.sourceType,
+        );
+      } catch (_) {}
+    }
+
+    final tx = targetTx;
+    if (tx == null) return;
+
     // Lấy thông tin chi tiết danh mục mới từ local DB để cập nhật UI
     final allCategories = await database.getAllCategories();
     final newCat = allCategories.where((c) => c.id == categoryId).firstOrNull;
+    final newType = newCat?.type ?? tx.type;
+
+    // Determine the source type
+    String? resolvedSourceType = tx.sourceType;
+    if (newType == 'income') {
+      resolvedSourceType = 'transfer';
+    }
 
     final updatedEntity = TransactionEntity(
-      id: targetTx.id,
-      walletId: targetTx.walletId,
+      id: tx.id,
+      walletId: tx.walletId,
       categoryId: categoryId,
-      type: targetTx.type,
-      status: targetTx.status,
-      amount: targetTx.amount,
-      currencyCode: targetTx.currencyCode,
-      exchangeRate: targetTx.exchangeRate,
-      title: targetTx.title,
-      notes: targetTx.notes,
-      timezone: targetTx.timezone,
-      sourceType: targetTx.sourceType,
-      sourceId: targetTx.sourceId,
-      isTransferLocked: targetTx.isTransferLocked,
-      transactionDate: targetTx.transactionDate,
-      createdAt: targetTx.createdAt,
+      type: newType,
+      status: 'pending',
+      amount: tx.amount,
+      currencyCode: tx.currencyCode,
+      exchangeRate: tx.exchangeRate,
+      title: tx.title,
+      notes: tx.notes,
+      timezone: tx.timezone,
+      sourceType: resolvedSourceType,
+      sourceId: tx.sourceId,
+      isTransferLocked: tx.isTransferLocked,
+      transactionDate: tx.transactionDate,
+      createdAt: tx.createdAt,
       categoryName: newCat?.name,
       categoryIcon: newCat?.icon,
       categoryColor: newCat?.color,
-      walletName: targetTx.walletName,
-      walletIcon: targetTx.walletIcon,
-      walletColor: targetTx.walletColor,
-      attachmentUrls: targetTx.attachmentUrls,
-      payeeId: targetTx.payeeId,
-      payeeName: targetTx.payeeName,
-      payeeAccountNumber: targetTx.payeeAccountNumber,
-      payeeBankName: targetTx.payeeBankName,
-      senderName: targetTx.senderName,
-      senderWalletName: targetTx.senderWalletName,
-      senderIdentifier: targetTx.senderIdentifier,
+      walletName: tx.walletName,
+      walletIcon: tx.walletIcon,
+      walletColor: tx.walletColor,
+      attachmentUrls: tx.attachmentUrls,
+      payeeId: newType == 'income' ? null : tx.payeeId,
+      payeeName: newType == 'income' ? null : tx.payeeName,
+      payeeAccountNumber: newType == 'income' ? null : tx.payeeAccountNumber,
+      payeeBankName: newType == 'income' ? null : tx.payeeBankName,
+      senderName: tx.senderName,
+      senderWalletName: tx.senderWalletName,
+      senderIdentifier: tx.senderIdentifier,
     );
 
-    // Cập nhật state list lập tức để UI render thay đổi ngay
-    if (index != -1) {
-      final newList = List<TransactionEntity>.from(currentList);
-      newList[index] = updatedEntity;
-      state = AsyncValue.data(newList);
+    // Cập nhật state list lập tức để UI render thay đổi ngay (kể cả khi index == -1)
+    if (state.hasValue) {
+      if (index != -1) {
+        final newList = List<TransactionEntity>.from(currentList);
+        newList[index] = updatedEntity;
+        state = AsyncValue.data(newList);
+      } else {
+        final newList = [updatedEntity, ...currentList];
+        state = AsyncValue.data(newList);
+      }
     }
 
     // Lưu DB local với isSynced = false
     final localTx = LocalTransaction(
-      id: targetTx.id,
+      id: tx.id,
       userId: userId,
-      walletId: targetTx.walletId,
+      walletId: tx.walletId,
       categoryId: categoryId,
-      amount: targetTx.amount,
-      amountInUserCurrency: targetTx.amount * (targetTx.exchangeRate ?? 1.0),
-      type: targetTx.type,
-      title: targetTx.title,
-      notes: targetTx.notes,
-      transactionDate: targetTx.transactionDate,
-      sourceType: targetTx.sourceType,
-      sourceId: targetTx.sourceId,
-      createdAt: targetTx.createdAt ?? DateTime.now(),
+      amount: tx.amount,
+      amountInUserCurrency: tx.amount * (tx.exchangeRate ?? 1.0),
+      type: newType,
+      title: tx.title,
+      notes: tx.notes,
+      transactionDate: tx.transactionDate,
+      sourceType: resolvedSourceType,
+      sourceId: tx.sourceId,
+      createdAt: tx.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
       isSynced: false,
+      payeeId: newType == 'income' ? null : tx.payeeId,
+      payeeName: newType == 'income' ? null : tx.payeeName,
+      payeeAccountNumber: newType == 'income' ? null : tx.payeeAccountNumber,
+      payeeBankName: newType == 'income' ? null : tx.payeeBankName,
+      isTransferLocked: tx.isTransferLocked,
     );
     await database.saveTransaction(localTx);
+
+    // Cập nhật in-memory state của filteredTransactionListProvider ngay lập tức
+    try {
+      final filteredNotifier = ref.read(
+        filteredTransactionListProvider.notifier,
+      );
+      if (filteredNotifier.state.hasValue) {
+        final filteredList = filteredNotifier.state.value ?? [];
+        final filteredIndex = filteredList.indexWhere(
+          (tx) => tx.id == transactionId,
+        );
+
+        final filter = ref.read(transactionFilterProvider);
+        final tzName =
+            ref.read(currentUserProvider)?.timezone ?? 'Asia/Ho_Chi_Minh';
+        final match = _filterLocalList(
+          [updatedEntity],
+          filter,
+          tzName,
+          allCategories,
+        );
+
+        final newFilteredList = List<TransactionEntity>.from(filteredList);
+        if (filteredIndex != -1) {
+          if (match.isNotEmpty) {
+            newFilteredList[filteredIndex] = updatedEntity;
+          } else {
+            newFilteredList.removeAt(filteredIndex);
+          }
+          filteredNotifier.state = AsyncValue.data(newFilteredList);
+        } else if (match.isNotEmpty) {
+          newFilteredList.insert(0, updatedEntity);
+          filteredNotifier.state = AsyncValue.data(newFilteredList);
+        }
+      }
+    } catch (_) {}
 
     // Kích hoạt làm mới các notifier liên quan
     ref.invalidate(filteredTransactionListProvider);
     _invalidateBudgets();
 
-    // Chạy ngầm việc đồng bộ lên server
-    _syncUpdateInBackground(targetTx.id, targetTx.title, categoryId, targetTx.notes);
-  }
-
-  Future<void> _syncUpdateInBackground(
-    String transactionId,
-    String title,
-    String categoryId,
-    String? notes,
-  ) async {
-    try {
-      final dio = ref.read(dioClientProvider);
-      final Map<String, dynamic> data = {
-        'title': title,
-        'category_id': categoryId,
-        if (notes != null) 'notes': notes,
-      };
-      final formData = FormData.fromMap(data);
-      final url = ApiEndpoints.updateTransaction.replaceAll('{id}', transactionId);
-      final response = await dio.post(url, data: formData);
-
-      final responseData = response.data;
-      if (responseData != null && responseData['data'] != null) {
-        final dto = TransactionDto.fromJson(responseData['data'] as Map<String, dynamic>);
-        final entity = TransactionMapper.toEntity(dto);
-        final database = ref.read(appDatabaseProvider);
-        final userId = ref.read(currentUserProvider)?.id ?? '';
-        
-        final localTx = LocalTransaction(
-          id: entity.id,
-          userId: userId,
-          walletId: entity.walletId,
-          categoryId: entity.categoryId,
-          amount: entity.amount,
-          amountInUserCurrency: entity.amount * (entity.exchangeRate ?? 1.0),
-          type: entity.type,
-          title: entity.title,
-          notes: entity.notes,
-          transactionDate: entity.transactionDate,
-          sourceType: entity.sourceType,
-          sourceId: entity.sourceId,
-          createdAt: entity.createdAt ?? DateTime.now(),
-          updatedAt: DateTime.now(),
-          isSynced: true, // Đồng bộ thành công
-        );
-        await database.saveTransaction(localTx);
-      }
-      
-      await ref.read(cacheStoreProvider).clean();
-      await ref.read(walletNotifierProvider.notifier).refreshWallets();
-      _invalidateBudgets();
-      await refreshTransactions(silent: true);
-    } catch (e) {
-      AppLogger.error('🚨 [_syncUpdateInBackground] Lỗi đồng bộ ngầm: $e');
-    }
+    // Chạy ngầm việc đồng bộ lên server bằng cách sử dụng hàng đợi đồng bộ chung
+    _syncPendingTransactions();
   }
 
   void _notifyTransaction({
@@ -866,12 +1024,15 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
       String notifBody = '';
 
       if (type.toLowerCase() == 'income') {
-        notifBody = '+$formattedAmount $currencySymbol vào$walletPart. Nội dung: $title';
+        notifBody =
+            '+$formattedAmount $currencySymbol vào$walletPart. Nội dung: $title';
       } else if (type.toLowerCase() == 'expense') {
-        notifBody = '-$formattedAmount $currencySymbol từ$walletPart. Nội dung: $title';
+        notifBody =
+            '-$formattedAmount $currencySymbol từ$walletPart. Nội dung: $title';
       } else if (type.toLowerCase() == 'transfer') {
         notifTitle = 'Chuyển tiền';
-        notifBody = 'Chuyển $formattedAmount $currencySymbol từ$walletPart. Nội dung: $title';
+        notifBody =
+            'Chuyển $formattedAmount $currencySymbol từ$walletPart. Nội dung: $title';
       } else {
         notifBody = 'Giao dịch mới: $formattedAmount $currencySymbol - $title';
       }
@@ -891,7 +1052,39 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
           body: notifBody,
         );
         if (localNotif != null) {
-          ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
+          ref
+              .read(notificationNotifierProvider.notifier)
+              .addLocalNotification(localNotif);
+        }
+      }
+    } catch (_) {}
+  }
+
+  void _notifySyncResult(String title, bool isSuccess) async {
+    try {
+      final notifTitle = isSuccess ? 'Đồng bộ thành công' : 'Đồng bộ thất bại';
+      final notifBody = isSuccess
+          ? 'Giao dịch "$title" đã được đồng bộ lên máy chủ.'
+          : 'Không thể đồng bộ giao dịch "$title" lên máy chủ.';
+
+      await LocalNotificationService.showNotification(
+        id: DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF,
+        title: notifTitle,
+        body: notifBody,
+      );
+
+      final userId = ref.read(currentUserProvider)?.id ?? '';
+      if (userId.isNotEmpty) {
+        final localNotif = await LocalNotificationStorage.createAndSave(
+          userId: userId,
+          type: 'sync',
+          title: notifTitle,
+          body: notifBody,
+        );
+        if (localNotif != null) {
+          ref
+              .read(notificationNotifierProvider.notifier)
+              .addLocalNotification(localNotif);
         }
       }
     } catch (_) {}
@@ -922,7 +1115,9 @@ class PaginationState {
   }
 }
 
-final transactionPaginationProvider = StateProvider<PaginationState>((ref) => PaginationState());
+final transactionPaginationProvider = StateProvider<PaginationState>(
+  (ref) => PaginationState(),
+);
 
 class TransactionFilter {
   final String? search;
@@ -1010,19 +1205,18 @@ class TransactionFilter {
           sortOrder == other.sortOrder;
 
   @override
-  int get hashCode =>
-      Object.hash(
-        search,
-        startDate,
-        endDate,
-        categoryId,
-        type,
-        walletId,
-        minAmount,
-        maxAmount,
-        sortBy,
-        sortOrder,
-      );
+  int get hashCode => Object.hash(
+    search,
+    startDate,
+    endDate,
+    categoryId,
+    type,
+    walletId,
+    minAmount,
+    maxAmount,
+    sortBy,
+    sortOrder,
+  );
 }
 
 List<TransactionEntity> _filterLocalList(
@@ -1036,9 +1230,13 @@ List<TransactionEntity> _filterLocalList(
   // 1. Tìm kiếm theo tiêu đề hoặc ghi chú (không phân biệt hoa thường)
   if (filter.search != null && filter.search!.isNotEmpty) {
     final query = filter.search!.toLowerCase();
-    result = result.where((tx) =>
-        tx.title.toLowerCase().contains(query) ||
-        (tx.notes?.toLowerCase().contains(query) ?? false)).toList();
+    result = result
+        .where(
+          (tx) =>
+              tx.title.toLowerCase().contains(query) ||
+              (tx.notes?.toLowerCase().contains(query) ?? false),
+        )
+        .toList();
   }
 
   // 2. Lọc theo khoảng ngày
@@ -1057,7 +1255,10 @@ List<TransactionEntity> _filterLocalList(
           startPart.day,
         );
         result = result.where((tx) {
-          final txTime = tz.TZDateTime.from(tx.transactionDate.toUtc(), location);
+          final txTime = tz.TZDateTime.from(
+            tx.transactionDate.toUtc(),
+            location,
+          );
           return txTime.isAfter(start) || txTime.isAtSameMomentAs(start);
         }).toList();
       }
@@ -1077,7 +1278,10 @@ List<TransactionEntity> _filterLocalList(
           999,
         );
         result = result.where((tx) {
-          final txTime = tz.TZDateTime.from(tx.transactionDate.toUtc(), location);
+          final txTime = tz.TZDateTime.from(
+            tx.transactionDate.toUtc(),
+            location,
+          );
           return txTime.isBefore(end) || txTime.isAtSameMomentAs(end);
         }).toList();
       }
@@ -1090,7 +1294,9 @@ List<TransactionEntity> _filterLocalList(
         }).toList();
       }
       if (filter.endDate != null) {
-        final end = DateTime.parse(filter.endDate!).add(const Duration(days: 1)).subtract(const Duration(microseconds: 1));
+        final end = DateTime.parse(filter.endDate!)
+            .add(const Duration(days: 1))
+            .subtract(const Duration(microseconds: 1));
         result = result.where((tx) {
           final txLocal = tx.transactionDate.toLocal();
           return txLocal.isBefore(end) || txLocal.isAtSameMomentAs(end);
@@ -1102,15 +1308,25 @@ List<TransactionEntity> _filterLocalList(
   // 3. Lọc theo danh mục (bao gồm cả danh mục con trực thuộc danh mục được chọn)
   if (filter.categoryId != null) {
     if (filter.categoryId == 'uncategorized') {
-      result = result.where((tx) => tx.categoryId == null || tx.categoryName == null).toList();
+      result = result
+          .where(
+            (tx) =>
+                (tx.categoryId == null || tx.categoryName == null) &&
+                tx.sourceType?.toLowerCase() != 'transfer',
+          )
+          .toList();
     } else {
       final childCategoryIds = categories
           .where((c) => c.parentId == filter.categoryId)
           .map((c) => c.id)
           .toList();
-      result = result.where((tx) =>
-          tx.categoryId == filter.categoryId ||
-          childCategoryIds.contains(tx.categoryId)).toList();
+      result = result
+          .where(
+            (tx) =>
+                tx.categoryId == filter.categoryId ||
+                childCategoryIds.contains(tx.categoryId),
+          )
+          .toList();
     }
   }
 
@@ -1118,9 +1334,21 @@ List<TransactionEntity> _filterLocalList(
   if (filter.type != null) {
     final typeQuery = filter.type!.toLowerCase();
     if (typeQuery == 'transfer') {
-      result = result.where((tx) => tx.type.toLowerCase() == 'transfer' || tx.sourceType?.toLowerCase() == 'transfer').toList();
+      result = result
+          .where(
+            (tx) =>
+                tx.type.toLowerCase() == 'transfer' ||
+                tx.sourceType?.toLowerCase() == 'transfer',
+          )
+          .toList();
     } else {
-      result = result.where((tx) => tx.type.toLowerCase() == typeQuery && tx.sourceType?.toLowerCase() != 'transfer').toList();
+      result = result
+          .where(
+            (tx) =>
+                tx.type.toLowerCase() == typeQuery &&
+                tx.sourceType?.toLowerCase() != 'transfer',
+          )
+          .toList();
     }
   }
 
@@ -1171,18 +1399,34 @@ class FilteredTransactionListNotifier extends TransactionListNotifier {
     final filter = ref.watch(transactionFilterProvider);
 
     final database = ref.read(appDatabaseProvider);
-    
+
     final cachedRows = await database.getCachedTransactions(userId);
     final pendingRows = await database.getPendingTransactions(userId);
     final categories = await database.getAllCategories();
     final wallets = await database.select(database.wallets).get();
 
-    final cachedData = cachedRows.map((r) => _mapLocalTransactionToEntity(r, categories, wallets)).toList();
-    final pendingData = pendingRows.map((r) => _mapLocalTransactionToEntity(r, categories, wallets)).toList();
+    final cachedData = cachedRows
+        .map((r) => _mapLocalTransactionToEntity(r, categories, wallets))
+        .toList();
+    final pendingData = pendingRows
+        .map((r) => _mapLocalTransactionToEntity(r, categories, wallets))
+        .toList();
 
-    final tzName = ref.watch(currentUserProvider.select((u) => u?.timezone)) ?? 'Asia/Ho_Chi_Minh';
-    final filteredCached = _filterLocalList(cachedData, filter, tzName, categories);
-    final filteredPending = _filterLocalList(pendingData, filter, tzName, categories);
+    final tzName =
+        ref.watch(currentUserProvider.select((u) => u?.timezone)) ??
+        'Asia/Ho_Chi_Minh';
+    final filteredCached = _filterLocalList(
+      cachedData,
+      filter,
+      tzName,
+      categories,
+    );
+    final filteredPending = _filterLocalList(
+      pendingData,
+      filter,
+      tzName,
+      categories,
+    );
 
     final initialList = [...filteredPending, ...filteredCached];
 
@@ -1192,21 +1436,28 @@ class FilteredTransactionListNotifier extends TransactionListNotifier {
     _startSyncTimer();
 
     if (userId.isNotEmpty) {
-      Future.microtask(() => refreshTransactions(silent: initialList.isNotEmpty));
+      Future.microtask(
+        () => refreshTransactions(silent: initialList.isNotEmpty),
+      );
     }
 
     return initialList;
   }
 }
 
-final transactionFilterProvider = StateProvider<TransactionFilter>((ref) => TransactionFilter());
+final transactionFilterProvider = StateProvider<TransactionFilter>(
+  (ref) => TransactionFilter(),
+);
 
 final transactionListProvider =
     AsyncNotifierProvider<TransactionListNotifier, List<TransactionEntity>>(() {
-  return TransactionListNotifier();
-});
+      return TransactionListNotifier();
+    });
 
 final filteredTransactionListProvider =
-    AsyncNotifierProvider<FilteredTransactionListNotifier, List<TransactionEntity>>(() {
-  return FilteredTransactionListNotifier();
-});
+    AsyncNotifierProvider<
+      FilteredTransactionListNotifier,
+      List<TransactionEntity>
+    >(() {
+      return FilteredTransactionListNotifier();
+    });

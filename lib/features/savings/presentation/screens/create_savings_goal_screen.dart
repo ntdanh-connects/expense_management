@@ -76,10 +76,9 @@ class _CreateSavingsGoalScreenState extends ConsumerState<CreateSavingsGoalScree
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: context.colors.primary,
-              onPrimary: Colors.white,
-              onSurface: context.colors.textPrimary,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: context.colors.primary,
+              brightness: Theme.of(context).brightness,
             ),
           ),
           child: child!,

@@ -111,6 +111,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
             payeeName: tx.payeeName,
             payeeAccountNumber: tx.payeeAccountNumber,
             payeeBankName: tx.payeeBankName,
+            isTransferLocked: tx.isTransferLocked,
           );
         }).toList();
         
