@@ -99,24 +99,29 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
           final title = 'Xuất dữ liệu thành công';
           final body = 'Báo cáo PDF "${file.path.split('/').last.split('\\').last}" đã được xuất thành công.';
 
-          LocalNotificationService.showNotification(
-            id: file.path.hashCode,
-            title: title,
-            body: body,
-          );
+          final pref = ref.read(notificationPreferencesProvider).value;
+          final pushEnabled = pref?.pushEnabled ?? true;
 
-          final userId = ref.read(currentUserProvider)?.id ?? '';
-          if (userId.isNotEmpty) {
-            LocalNotificationStorage.createAndSave(
-              userId: userId,
-              type: 'transaction',
+          if (pushEnabled) {
+            LocalNotificationService.showNotification(
+              id: file.path.hashCode,
               title: title,
               body: body,
-            ).then((localNotif) {
-              if (localNotif != null) {
-                ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
-              }
-            });
+            );
+
+            final userId = ref.read(currentUserProvider)?.id ?? '';
+            if (userId.isNotEmpty) {
+              LocalNotificationStorage.createAndSave(
+                userId: userId,
+                type: 'export_completed',
+                title: title,
+                body: body,
+              ).then((localNotif) {
+                if (localNotif != null) {
+                  ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
+                }
+              });
+            }
           }
 
           ElegantNotification.success(
@@ -147,24 +152,29 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
               ? 'Tệp CSV thô "${file.path.split('/').last.split('\\').last}" đã được xuất thành công.'
               : 'Báo cáo CSV "${file.path.split('/').last.split('\\').last}" đã được xuất thành công.';
 
-          LocalNotificationService.showNotification(
-            id: file.path.hashCode,
-            title: title,
-            body: body,
-          );
+          final pref = ref.read(notificationPreferencesProvider).value;
+          final pushEnabled = pref?.pushEnabled ?? true;
 
-          final userId = ref.read(currentUserProvider)?.id ?? '';
-          if (userId.isNotEmpty) {
-            LocalNotificationStorage.createAndSave(
-              userId: userId,
-              type: 'transaction',
+          if (pushEnabled) {
+            LocalNotificationService.showNotification(
+              id: file.path.hashCode,
               title: title,
               body: body,
-            ).then((localNotif) {
-              if (localNotif != null) {
-                ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
-              }
-            });
+            );
+
+            final userId = ref.read(currentUserProvider)?.id ?? '';
+            if (userId.isNotEmpty) {
+              LocalNotificationStorage.createAndSave(
+                userId: userId,
+                type: 'export_completed',
+                title: title,
+                body: body,
+              ).then((localNotif) {
+                if (localNotif != null) {
+                  ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
+                }
+              });
+            }
           }
 
           ElegantNotification.success(

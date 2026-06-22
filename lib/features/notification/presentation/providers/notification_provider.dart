@@ -23,7 +23,7 @@ final notificationApiServiceProvider = Provider<NotificationApiService>((ref) {
 
 final fcmServiceProvider = Provider<FcmService>((ref) {
   final apiService = ref.watch(notificationApiServiceProvider);
-  final fcmService = FcmService(apiService);
+  final fcmService = FcmService(apiService, ref);
   fcmService.onDataChanged = () {
     try {
       ref.invalidate(fetchDashboardSummaryProvider);

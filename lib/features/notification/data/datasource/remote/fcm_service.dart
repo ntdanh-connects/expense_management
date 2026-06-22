@@ -3,13 +3,16 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
 import 'package:expense_management/features/notification/data/datasource/remote/notification_api_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
 
 class FcmService {
   final NotificationApiService _apiService;
+  final Ref _ref;
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   VoidCallback? onDataChanged;
 
-  FcmService(this._apiService);
+  FcmService(this._apiService, this._ref);
 
   Future<void> initialize() async {
     // 1. Xin quyền thông báo (iOS & Android 13+)
@@ -42,12 +45,16 @@ class FcmService {
 
         if (title != null && body != null) {
           // Hiển thị notification dạng banner sử dụng LocalNotificationService hiện tại của bạn
-          LocalNotificationService.showNotification(
-            id: message.hashCode,
-            title: title,
-            body: body,
-            payload: message.data.toString(),
-          );
+          final pref = _ref.read(notificationPreferencesProvider).value;
+          final pushEnabled = pref?.pushEnabled ?? true;
+          if (pushEnabled) {
+            LocalNotificationService.showNotification(
+              id: message.hashCode,
+              title: title,
+              body: body,
+              payload: message.data.toString(),
+            );
+          }
         }
         // Tự động tải lại dữ liệu khi nhận thông báo trong foreground
         onDataChanged?.call();

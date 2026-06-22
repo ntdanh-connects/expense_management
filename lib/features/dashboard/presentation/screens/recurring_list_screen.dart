@@ -14,6 +14,9 @@ import 'package:expense_management/features/transaction/presentation/providers/t
 import 'package:expense_management/features/transaction/domain/entities/transaction_params.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:timezone/timezone.dart' as tz;
+import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
+import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
+import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
 
 class RecurringListScreen extends ConsumerStatefulWidget {
   const RecurringListScreen({super.key});
@@ -949,9 +952,86 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
     );
 
     try {
-      await ref
+      final transactionId = await ref
           .read(transactionListProvider.notifier)
-          .addPendingTransaction(params);
+          .addPendingTransaction(params, notify: false);
+
+      // Handle custom notifications for recurring transactions
+      final pref = ref.read(notificationPreferencesProvider).value;
+      final showPush = pref?.pushEnabled ?? true;
+
+      if (showPush) {
+        final currentUserName = ref.read(currentUserProvider)?.fullName ?? 'Người dùng';
+        final currencySymbol = AppConstant.getCurrencySymbol(currencyCode);
+        final formattedAmount = AppConstant.formatMoney(rule.amount, currencyCode);
+        final walletPart = walletName.isNotEmpty ? ' ví "$walletName"' : '';
+        final categoryPart = categoryName.isNotEmpty ? ' danh mục "$categoryName"' : '';
+
+        // 1. Creator Notification (Minus/Deduction or Plus/Receipt)
+        final isExpense = rule.type == 'expense';
+        final creatorPrefix = isExpense ? '-' : '+';
+        final creatorAction = isExpense ? 'từ' : 'vào';
+        final creatorTitle = 'Giao dịch định kỳ';
+        final creatorBody = '$creatorPrefix$formattedAmount $currencySymbol $creatorAction$walletPart. Nội dung: ${rule.title}';
+
+        // Local Push Notification
+        await LocalNotificationService.showNotification(
+          id: DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF,
+          title: creatorTitle,
+          body: creatorBody,
+          payload: transactionId,
+        );
+
+        // In-app Notification for Creator
+        final userId = ref.read(currentUserProvider)?.id ?? '';
+        if (userId.isNotEmpty) {
+          final localNotif = await LocalNotificationStorage.createAndSave(
+            userId: userId,
+            type: 'transaction',
+            title: creatorTitle,
+            body: creatorBody,
+            metadata: {
+              'transaction_id': transactionId,
+              'amount': rule.amount,
+              'wallet_name': walletName,
+              'category_name': categoryName,
+            },
+          );
+          if (localNotif != null) {
+            ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
+          }
+        }
+
+        // 2. Payee Notification (Plus/Receipt) - if payee exists
+        if (rule.payeeId != null && rule.payeeId!.isNotEmpty) {
+          final payeeTitle = 'Nhận tiền định kỳ';
+          final payeeBody = '+$formattedAmount $currencySymbol vào ví của bạn từ $currentUserName cho danh mục "$categoryName". Nội dung: ${rule.title}';
+
+          // Local Push Notification for Payee (only show if current user is the payee)
+          if (userId == rule.payeeId) {
+            await LocalNotificationService.showNotification(
+              id: (DateTime.now().millisecondsSinceEpoch + 1) & 0x7FFFFFFF,
+              title: payeeTitle,
+              body: payeeBody,
+              payload: transactionId,
+            );
+          }
+
+          // Save local in-app notification under payee's userId
+          await LocalNotificationStorage.createAndSave(
+            userId: rule.payeeId!,
+            type: 'p2p_transfer',
+            title: payeeTitle,
+            body: payeeBody,
+            metadata: {
+              'transaction_id': transactionId,
+              'amount': rule.amount,
+              'sender_name': currentUserName,
+              'category_name': categoryName,
+            },
+          );
+        }
+      }
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).clearSnackBars();

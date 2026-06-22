@@ -73,29 +73,21 @@ class NotificationDto {
   Map<String, dynamic> toJson() => _$NotificationDtoToJson(this);
 }
 
-@JsonSerializable()
 class NotificationPreferenceDto {
   final String id;
 
-  @JsonKey(name: 'user_id')
   final String userId;
 
-  @JsonKey(name: 'email_enabled')
   final bool emailEnabled;
 
-  @JsonKey(name: 'push_enabled')
   final bool pushEnabled;
 
-  @JsonKey(name: 'weekly_summary_enabled')
   final bool weeklySummaryEnabled;
 
-  @JsonKey(name: 'daily_reminder_enabled')
   final bool dailyReminderEnabled;
 
-  @JsonKey(name: 'created_at')
   final String? createdAt;
 
-  @JsonKey(name: 'updated_at')
   final String? updatedAt;
 
   NotificationPreferenceDto({
@@ -127,8 +119,38 @@ class NotificationPreferenceDto {
     );
   }
 
-  factory NotificationPreferenceDto.fromJson(Map<String, dynamic> json) =>
-      _$NotificationPreferenceDtoFromJson(json);
+  factory NotificationPreferenceDto.fromJson(Map<String, dynamic> json) {
+    bool parseBool(dynamic val, {bool defaultValue = false}) {
+      if (val == null) return defaultValue;
+      if (val is bool) return val;
+      if (val is num) return val != 0;
+      if (val is String) {
+        final lower = val.toLowerCase();
+        return lower == 'true' || lower == '1';
+      }
+      return defaultValue;
+    }
 
-  Map<String, dynamic> toJson() => _$NotificationPreferenceDtoToJson(this);
+    return NotificationPreferenceDto(
+      id: json['id']?.toString() ?? json['user_id']?.toString() ?? '',
+      userId: json['user_id']?.toString() ?? '',
+      emailEnabled: parseBool(json['email_enabled'], defaultValue: true),
+      pushEnabled: parseBool(json['push_enabled'], defaultValue: true),
+      weeklySummaryEnabled: parseBool(json['weekly_summary_enabled'], defaultValue: false),
+      dailyReminderEnabled: parseBool(json['daily_reminder_enabled'], defaultValue: true),
+      createdAt: json['created_at']?.toString(),
+      updatedAt: json['updated_at']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'id': id,
+        'user_id': userId,
+        'email_enabled': emailEnabled,
+        'push_enabled': pushEnabled,
+        'weekly_summary_enabled': weeklySummaryEnabled,
+        'daily_reminder_enabled': dailyReminderEnabled,
+        'created_at': createdAt,
+        'updated_at': updatedAt,
+      };
 }

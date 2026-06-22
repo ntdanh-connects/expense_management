@@ -10,6 +10,7 @@ import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/core/database/app_database.dart';
+import 'package:drift/drift.dart';
 import 'package:expense_management/features/transaction/data/datasource/remote/transaction_remote_datasource.dart';
 import 'package:expense_management/features/transaction/data/repository_impl/transaction_repository_impl.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
@@ -253,7 +254,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
 
             String? activePayeeId = tx.payeeId;
             String? activeSourceType = tx.sourceType;
-            if (tx.type == 'income') {
+            if (tx.type == 'income' && (activeSourceType == 'manual' || activeSourceType == null)) {
               activePayeeId = null;
               activeSourceType = 'transfer';
             }
@@ -309,7 +310,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
 
             String? activePayeeId = tx.payeeId;
             String? activeSourceType = tx.sourceType;
-            if (tx.type == 'income') {
+            if (tx.type == 'income' && (activeSourceType == 'manual' || activeSourceType == null)) {
               activePayeeId = null;
               activeSourceType = 'transfer';
             }
@@ -608,7 +609,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     ref.invalidate(filteredTransactionListProvider);
   }
 
-  Future<void> addPendingTransaction(TransactionParams params) async {
+  Future<String> addPendingTransaction(TransactionParams params, {bool notify = true}) async {
     await ref.read(cacheStoreProvider).clean();
     final userId = ref.read(currentUserProvider)?.id ?? '';
     final database = ref.read(appDatabaseProvider);
@@ -620,7 +621,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     String? activePayeeAccountNumber = params.payeeAccountNumber;
     String? activePayeeBankName = params.payeeBankName;
 
-    if (params.type == 'income') {
+    if (params.type == 'income' && (activeSourceType == 'manual' || activeSourceType == null)) {
       activePayeeId = null;
       activePayeeName = null;
       activePayeeAccountNumber = null;
@@ -662,20 +663,56 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
       return [tempTx, ...currentList];
     });
 
-    _notifyTransaction(
-      type: params.type,
-      amount: params.amount,
-      currencyCode: params.currencyCode ?? 'VND',
-      walletName: params.walletName,
-      title: params.title,
-    );
+    if (notify) {
+      _notifyTransaction(
+        type: params.type,
+        amount: params.amount,
+        currencyCode: params.currencyCode ?? 'VND',
+        walletName: params.walletName,
+        title: params.title,
+      );
+    }
 
     _invalidateBudgets();
     ref.invalidate(filteredTransactionListProvider);
     _syncPendingTransactions();
+    return tempId;
   }
 
   Future<TransactionEntity> getTransactionById(String transactionId) async {
+    if (transactionId.isEmpty) {
+      throw Exception('ID giao dịch trống');
+    }
+
+    // 1. Check local loaded list (state.value) first
+    if (state.value != null) {
+      final tx = state.value!.where((t) => t.id == transactionId).firstOrNull;
+      if (tx != null) {
+        return tx;
+      }
+    }
+
+    // 2. Check local database (especially for temp_ / pending or offline transactions)
+    final database = ref.read(appDatabaseProvider);
+    try {
+      final localTxRow = await (database.select(database.localTransactions)
+            ..where((t) => t.id.equals(transactionId)))
+          .getSingleOrNull();
+      if (localTxRow != null) {
+        final categories = await database.getAllCategories();
+        final wallets = await database.select(database.wallets).get();
+        return _mapLocalTransactionToEntity(localTxRow, categories, wallets);
+      }
+    } catch (e) {
+      debugPrint('[TransactionNotifier] Local database lookup failed: $e');
+    }
+
+    // If it's a temp ID and not found locally, do not query backend
+    if (transactionId.startsWith('temp_')) {
+      throw Exception('Không tìm thấy giao dịch tạm thời: $transactionId');
+    }
+
+    // 3. Fallback to API call
     final dio = ref.read(dioClientProvider);
     final url = ApiEndpoints.showTransaction.replaceAll('{id}', transactionId);
 
@@ -700,6 +737,45 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
       rethrow;
     }
   }
+
+  Future<TransactionEntity?> findTransactionByNotificationMetadata({
+    required String type,
+    required double amount,
+    required String? senderName,
+  }) async {
+    // 1. Scan in current loaded list (state.value)
+    final localList = state.value ?? [];
+    for (final tx in localList) {
+      if (tx.type == type && (tx.amount - amount).abs() < 0.01) {
+        if (senderName != null && tx.title.toLowerCase().contains(senderName.toLowerCase())) {
+          return tx;
+        }
+      }
+    }
+
+    // 2. Fetch/Query from remote API
+    try {
+      final api = ref.read(transactionApiServiceProvider);
+      final response = await api.getRemoteTransactions(
+        type: type,
+        minAmount: amount - 0.01,
+        maxAmount: amount + 0.01,
+        search: senderName,
+      );
+      if (response.data != null && response.data!.isNotEmpty) {
+        final dto = response.data!.first;
+        return TransactionMapper.toEntity(dto);
+      }
+    } catch (e, stackTrace) {
+      AppLogger.error(
+        '[TransactionNotifier] findTransactionByNotificationMetadata error: $e',
+        tag: 'TransactionNotifier',
+        stackTrace: stackTrace,
+      );
+    }
+    return null;
+  }
+
 
   Future<void> deleteTransaction(String transactionId) async {
     await ref.read(cacheStoreProvider).clean();
@@ -775,7 +851,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     final wallet = wallets.where((w) => w.id == tx.walletId).firstOrNull;
     final isCash = wallet?.type.toLowerCase() == 'cash';
 
-    if (activeType == 'income' && !isCash) {
+    if (activeType == 'income' && !isCash && (activeSourceType == 'manual' || activeSourceType == null)) {
       activeSourceType = 'transfer';
     }
 
@@ -890,7 +966,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
 
     // Determine the source type
     String? resolvedSourceType = tx.sourceType;
-    if (newType == 'income') {
+    if (newType == 'income' && (resolvedSourceType == 'manual' || resolvedSourceType == null)) {
       resolvedSourceType = 'transfer';
     }
 

@@ -139,6 +139,10 @@ Future<List<BudgetDto>> _overrideBudgetUsages(Ref ref, List<BudgetDto> budgets, 
 
 void _checkBudgetThresholds(Ref ref, List<BudgetDto> budgets) async {
   try {
+    final pref = ref.read(notificationPreferencesProvider).value;
+    final isBudgetEnabled = pref?.emailEnabled ?? true;
+    if (!isBudgetEnabled) return;
+
     final prefs = await SharedPreferences.getInstance();
     for (final b in budgets) {
       if (b.limitAmount <= 0) continue;
@@ -171,6 +175,13 @@ void _checkBudgetThresholds(Ref ref, List<BudgetDto> budgets) async {
               type: 'budget_warning',
               title: title,
               body: body,
+              metadata: {
+                'budget_id': b.id,
+                'category_id': b.categoryId,
+                'category_name': categoryName,
+                'month': b.month,
+                'year': b.year,
+              },
             );
             if (localNotif != null) {
               ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
@@ -197,6 +208,13 @@ void _checkBudgetThresholds(Ref ref, List<BudgetDto> budgets) async {
               type: 'budget_warning',
               title: title,
               body: body,
+              metadata: {
+                'budget_id': b.id,
+                'category_id': b.categoryId,
+                'category_name': categoryName,
+                'month': b.month,
+                'year': b.year,
+              },
             );
             if (localNotif != null) {
               ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
