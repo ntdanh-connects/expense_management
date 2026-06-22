@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/ai_chat_provider.dart';
 
 class AIAssistantScreen extends ConsumerStatefulWidget {
@@ -75,6 +76,14 @@ class _AIAssistantScreenState extends ConsumerState<AIAssistantScreen> {
       _scrollToBottom();
     });
 
+    // Lấy câu hỏi gợi ý từ tin nhắn cuối cùng của AI (nếu có)
+    final lastAiMessage = chatState.messages.isNotEmpty
+        ? chatState.messages.lastWhere((m) => !m.isUser, orElse: () => chatState.messages.first)
+        : null;
+    final List<String> displaySuggestions = (lastAiMessage != null && lastAiMessage.suggestedQuestions.isNotEmpty)
+        ? lastAiMessage.suggestedQuestions
+        : _suggestions;
+
     return Scaffold(
       backgroundColor: colors.background,
       appBar: AppBar(
@@ -86,43 +95,58 @@ class _AIAssistantScreenState extends ConsumerState<AIAssistantScreen> {
         ),
         title: Row(
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'EM AI Assistant',
-                      style: TextStyle(
-                        color: colors.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          chatState.conversationTitle ?? 'EM AI Assistant',
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      width: 7,
-                      height: 7,
-                      decoration: const BoxDecoration(
-                        color: Colors.blueAccent,
-                        shape: BoxShape.circle,
+                      const SizedBox(width: 6),
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: const BoxDecoration(
+                          color: Colors.blueAccent,
+                          shape: BoxShape.circle,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Active now',
-                  style: TextStyle(
-                    color: colors.textSecondary,
-                    fontSize: 11,
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 2),
+                  Text(
+                    chatState.conversationTitle != null ? 'EM AI Assistant' : 'Active now',
+                    style: TextStyle(
+                      color: colors.textSecondary,
+                      fontSize: 10.5,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
         actions: [
+          IconButton(
+            icon: Icon(Icons.history_rounded, color: colors.textPrimary),
+            tooltip: 'Lịch sử trò chuyện',
+            onPressed: () async {
+              final changed = await context.push<bool>('/ai-assistant/history');
+              if (changed == true) {
+                _scrollToBottom();
+              }
+            },
+          ),
           IconButton(
             icon: Icon(Icons.more_vert_rounded, color: colors.textPrimary),
             onPressed: () {
@@ -139,8 +163,27 @@ class _AIAssistantScreenState extends ConsumerState<AIAssistantScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       ListTile(
+                        leading: Icon(Icons.chat_bubble_outline_rounded, color: colors.primary),
+                        title: Text('Cuộc trò chuyện mới', style: TextStyle(color: colors.textPrimary)),
+                        onTap: () {
+                          ref.read(aiChatProvider.notifier).startNewChat();
+                          Navigator.pop(context);
+                        },
+                      ),
+                      ListTile(
+                        leading: Icon(Icons.history_rounded, color: colors.textPrimary),
+                        title: Text('Lịch sử trò chuyện', style: TextStyle(color: colors.textPrimary)),
+                        onTap: () async {
+                          Navigator.pop(context);
+                          final changed = await context.push<bool>('/ai-assistant/history');
+                          if (changed == true) {
+                            _scrollToBottom();
+                          }
+                        },
+                      ),
+                      ListTile(
                         leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-                        title: const Text('Xóa lịch sử hội thoại', style: TextStyle(color: Colors.redAccent)),
+                        title: const Text('Reset cuộc hội thoại này', style: TextStyle(color: Colors.redAccent)),
                         onTap: () {
                           ref.read(aiChatProvider.notifier).clearChat();
                           Navigator.pop(context);
@@ -191,9 +234,9 @@ class _AIAssistantScreenState extends ConsumerState<AIAssistantScreen> {
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: _suggestions.length,
+                  itemCount: displaySuggestions.length,
                   itemBuilder: (context, index) {
-                    final suggestion = _suggestions[index];
+                    final suggestion = displaySuggestions[index];
                     return Padding(
                       padding: const EdgeInsets.only(right: 8.0),
                       child: ActionChip(
@@ -409,33 +452,72 @@ class _AIAssistantScreenState extends ConsumerState<AIAssistantScreen> {
             ),
             const SizedBox(width: 8),
             Flexible(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: isDark ? colors.surface : Colors.white,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
-                    bottomLeft: Radius.circular(4),
-                    bottomRight: Radius.circular(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isDark ? colors.surface : Colors.white,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        topRight: Radius.circular(16),
+                        bottomLeft: Radius.circular(4),
+                        bottomRight: Radius.circular(16),
+                      ),
+                      border: Border.all(color: colors.textSecondary.withOpacity(0.08)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(isDark ? 0.03 : 0.01),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        )
+                      ],
+                    ),
+                    child: Text(
+                      message.text,
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
+                    ),
                   ),
-                  border: Border.all(color: colors.textSecondary.withOpacity(0.08)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(isDark ? 0.03 : 0.01),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    )
-                  ],
-                ),
-                child: Text(
-                  message.text,
-                  style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 14,
-                    height: 1.4,
-                  ),
-                ),
+                  if (message.insight != null && message.insight!.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF2C2415) : const Color(0xFFFFF9E6),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF5C4E35) : const Color(0xFFFFE0B2),
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.lightbulb_outline_rounded,
+                            color: Colors.orangeAccent,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              message.insight!,
+                              style: TextStyle(
+                                color: isDark ? const Color(0xFFFFD180) : const Color(0xFFE65100),
+                                fontSize: 12.5,
+                                height: 1.35,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ),
             ),
           ],

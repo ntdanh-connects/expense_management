@@ -39,6 +39,7 @@ import 'package:expense_management/features/notification/presentation/screens/no
 import 'package:expense_management/features/notification/presentation/screens/notification_detail_screen.dart';
 import 'package:expense_management/features/notification/data/models/notification_dto.dart';
 import 'package:expense_management/features/ai_assistant/presentation/screens/ai_assistant_screen.dart';
+import 'package:expense_management/features/ai_assistant/presentation/screens/ai_chat_history_screen.dart';
 import 'package:expense_management/features/security/presentation/screens/pin_setup_screen.dart';
 import 'package:expense_management/features/financial_month/presentation/screens/financial_month_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/sandbox_simulate_transfer_screen.dart';
@@ -83,6 +84,7 @@ class RoutePaths {
   static const notificationSettings = '/profile/notifications';
   static const notificationDetail = '/notification-detail';
   static const aiAssistant = '/ai-assistant';
+  static const aiAssistantHistory = '/ai-assistant/history';
   static const pinSetup = '/profile/pin-setup';
   static const financialMonth = '/profile/financial-month';
   static const sandboxSimulateTransfer = '/profile/sandbox-simulate-transfer';
@@ -239,6 +241,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final initialMessage = state.extra as String?;
           return AIAssistantScreen(initialMessage: initialMessage);
         },
+      ),
+      GoRoute(
+        path: RoutePaths.aiAssistantHistory,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AIChatHistoryScreen(),
       ),
       GoRoute(
         path: RoutePaths.savingsList,
