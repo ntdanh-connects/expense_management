@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p; 
+import 'package:path/path.dart' as p;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'app_database.g.dart';
@@ -15,8 +15,10 @@ class Users extends Table {
   TextColumn get currency => text()();
   TextColumn get language => text()();
   TextColumn get theme => text()();
-  TextColumn get timezone => text().withDefault(const Constant('Asia/Ho_Chi_Minh'))();
-  IntColumn get financialStartDay => integer().nullable().withDefault(const Constant(1))();
+  TextColumn get timezone =>
+      text().withDefault(const Constant('Asia/Ho_Chi_Minh'))();
+  IntColumn get financialStartDay =>
+      integer().nullable().withDefault(const Constant(1))();
 
   @override
   Set<Column> get primaryKey => {id}; // Đóng chặt khóa chính
@@ -31,7 +33,8 @@ class Wallets extends Table {
   TextColumn get icon => text()();
   TextColumn get color => text()();
   BoolColumn get isHidden => boolean().withDefault(const Constant(false))();
-  BoolColumn get isDefaultReceiving => boolean().withDefault(const Constant(false))();
+  BoolColumn get isDefaultReceiving =>
+      boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -63,7 +66,8 @@ class LocalTransactions extends Table {
   TextColumn get title => text()();
   TextColumn get notes => text().nullable()();
   DateTimeColumn get transactionDate => dateTime()();
-  TextColumn get sourceType => text().nullable()(); // manual / recurring / transfer
+  TextColumn get sourceType =>
+      text().nullable()(); // manual / recurring / transfer
   TextColumn get sourceId => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
@@ -75,6 +79,7 @@ class LocalTransactions extends Table {
   TextColumn get payeeName => text().nullable()();
   TextColumn get payeeAccountNumber => text().nullable()();
   TextColumn get payeeBankName => text().nullable()();
+  BoolColumn get isTransferLocked => boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -101,12 +106,20 @@ class LocalRecurringTransactions extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Users, Wallets, Categories, LocalTransactions, LocalRecurringTransactions])
+@DriftDatabase(
+  tables: [
+    Users,
+    Wallets,
+    Categories,
+    LocalTransactions,
+    LocalRecurringTransactions,
+  ],
+)
 class AppDatabase extends _$AppDatabase {
-  AppDatabase(): super(_openConnection());
+  AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -158,7 +171,10 @@ class AppDatabase extends _$AppDatabase {
         try {
           await m.addColumn(localTransactions, localTransactions.payeeId);
           await m.addColumn(localTransactions, localTransactions.payeeName);
-          await m.addColumn(localTransactions, localTransactions.payeeAccountNumber);
+          await m.addColumn(
+            localTransactions,
+            localTransactions.payeeAccountNumber,
+          );
           await m.addColumn(localTransactions, localTransactions.payeeBankName);
         } catch (e) {
           // Bỏ qua nếu cột đã tồn tại
@@ -192,20 +208,32 @@ class AppDatabase extends _$AppDatabase {
           // Bỏ qua nếu cột đã tồn tại
         }
       }
+      if (from < 13) {
+        try {
+          await m.addColumn(localTransactions, localTransactions.isTransferLocked);
+        } catch (e) {
+          // Bỏ qua nếu cột đã tồn tại
+        }
+      }
     },
   );
 
-  Future<void> saveUserProfile(User userRow) async{
+  Future<void> saveUserProfile(User userRow) async {
     await into(users).insertOnConflictUpdate(userRow);
   }
 
   Future<User?> getUserProfile(String userId) async {
-    return await (select(users)..where((t) => t.id.equals(userId))).getSingleOrNull();
+    return await (select(
+      users,
+    )..where((t) => t.id.equals(userId))).getSingleOrNull();
   }
 
   Stream<User?> watchUserProfile(String userId) {
-    return (select(users)..where((t) => t.id.equals(userId))).watchSingleOrNull();
+    return (select(
+      users,
+    )..where((t) => t.id.equals(userId))).watchSingleOrNull();
   }
+
   Future<void> saveAllWallets(List<Wallet> walletRows) async {
     await batch((batch) {
       batch.insertAllOnConflictUpdate(wallets, walletRows);
@@ -235,7 +263,9 @@ class AppDatabase extends _$AppDatabase {
   }
 
   // Helper cho Transactions
-  Future<void> saveAllTransactions(List<LocalTransaction> transactionRows) async {
+  Future<void> saveAllTransactions(
+    List<LocalTransaction> transactionRows,
+  ) async {
     await batch((batch) {
       batch.insertAllOnConflictUpdate(localTransactions, transactionRows);
     });
@@ -247,22 +277,42 @@ class AppDatabase extends _$AppDatabase {
 
   Future<List<LocalTransaction>> getCachedTransactions(String userId) async {
     return await (select(localTransactions)
-          ..where((t) => t.userId.equals(userId) & t.deletedAt.isNull() & t.isSynced.equals(true))
-          ..orderBy([(t) => OrderingTerm(expression: t.transactionDate, mode: OrderingMode.desc)]))
+          ..where(
+            (t) =>
+                t.userId.equals(userId) &
+                t.deletedAt.isNull() &
+                t.isSynced.equals(true),
+          )
+          ..orderBy([
+            (t) => OrderingTerm(
+              expression: t.transactionDate,
+              mode: OrderingMode.desc,
+            ),
+          ]))
         .get();
   }
 
   Future<List<LocalTransaction>> getPendingTransactions(String userId) async {
     return await (select(localTransactions)
           ..where((t) => t.userId.equals(userId) & t.isSynced.equals(false))
-          ..orderBy([(t) => OrderingTerm(expression: t.transactionDate, mode: OrderingMode.desc)]))
+          ..orderBy([
+            (t) => OrderingTerm(
+              expression: t.transactionDate,
+              mode: OrderingMode.desc,
+            ),
+          ]))
         .get();
   }
 
   Stream<List<LocalTransaction>> watchAllTransactions(String userId) {
     return (select(localTransactions)
           ..where((t) => t.userId.equals(userId) & t.deletedAt.isNull())
-          ..orderBy([(t) => OrderingTerm(expression: t.transactionDate, mode: OrderingMode.desc)]))
+          ..orderBy([
+            (t) => OrderingTerm(
+              expression: t.transactionDate,
+              mode: OrderingMode.desc,
+            ),
+          ]))
         .watch();
   }
 
@@ -283,7 +333,9 @@ QueryExecutor _openConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
     final file = File(p.join(dbFolder.path, 'exp_mgmt.sqlite'));
-    return NativeDatabase.createInBackground(file); // Chạy ngầm Isolate tối ưu RAM
+    return NativeDatabase.createInBackground(
+      file,
+    ); // Chạy ngầm Isolate tối ưu RAM
   });
 }
 

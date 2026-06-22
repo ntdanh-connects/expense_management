@@ -192,26 +192,109 @@ final previousPeriodSummaryProvider = FutureProvider<ReportSummaryDto>((ref) asy
   );
 });
 
+Future<ReportCategoryDto> _adjustReportCategories(
+    Ref ref, ReportCategoryDto dto, String type, DateTime startDate, DateTime endDate) async {
+  try {
+    final useCase = ref.read(getTransactionsUseCaseProvider);
+    final result = await useCase.execute(
+      startDate: DateFormat('yyyy-MM-dd').format(startDate),
+      endDate: DateFormat('yyyy-MM-dd').format(endDate.add(const Duration(days: 1))),
+      type: type,
+      sortBy: 'date',
+      sortOrder: 'desc',
+      perPage: 200,
+    );
+
+    final transfers = result.items.where((tx) => tx.isTransferLocked);
+    double transferTotal = 0.0;
+    for (final tx in transfers) {
+      transferTotal += tx.amount * (tx.exchangeRate ?? 1.0);
+    }
+
+    if (transferTotal == 0.0) return dto;
+
+    final categories = <ReportCategoryEntryDto>[];
+    double newTotalAmount = dto.totalAmount - transferTotal;
+    if (newTotalAmount < 0) newTotalAmount = 0.0;
+
+    for (final cat in dto.categories) {
+      final isUncat = cat.categoryId == 'uncategorized' ||
+          cat.categoryId.isEmpty ||
+          cat.categoryId == 'null' ||
+          cat.categoryName == 'Chưa phân loại' ||
+          cat.categoryName == 'Uncategorized';
+      if (isUncat) {
+        double newAmt = cat.amount - transferTotal;
+        if (newAmt < 0) newAmt = 0.0;
+        
+        if (newAmt > 0) {
+          categories.add(ReportCategoryEntryDto(
+            categoryId: cat.categoryId,
+            categoryName: cat.categoryName,
+            categoryColor: cat.categoryColor,
+            categoryIcon: cat.categoryIcon,
+            parentId: cat.parentId,
+            parentName: cat.parentName,
+            amount: newAmt,
+            percentage: newTotalAmount > 0 ? (newAmt / newTotalAmount) * 100 : 0.0,
+          ));
+        }
+      } else {
+        categories.add(ReportCategoryEntryDto(
+          categoryId: cat.categoryId,
+          categoryName: cat.categoryName,
+          categoryColor: cat.categoryColor,
+          categoryIcon: cat.categoryIcon,
+          parentId: cat.parentId,
+          parentName: cat.parentName,
+          amount: cat.amount,
+          percentage: newTotalAmount > 0 ? (cat.amount / newTotalAmount) * 100 : 0.0,
+        ));
+      }
+    }
+
+    final finalCategories = categories.map((cat) => ReportCategoryEntryDto(
+      categoryId: cat.categoryId,
+      categoryName: cat.categoryName,
+      categoryColor: cat.categoryColor,
+      categoryIcon: cat.categoryIcon,
+      parentId: cat.parentId,
+      parentName: cat.parentName,
+      amount: cat.amount,
+      percentage: newTotalAmount > 0 ? (cat.amount / newTotalAmount) * 100 : 0.0,
+    )).toList()..sort((a, b) => b.amount.compareTo(a.amount));
+
+    return ReportCategoryDto(
+      totalAmount: newTotalAmount,
+      categories: finalCategories,
+    );
+  } catch (_) {
+    return dto;
+  }
+}
+
 final reportCategoriesProvider = FutureProvider<ReportCategoryDto>((ref) async {
   ref.watch(transactionListProvider);
   final repository = ref.watch(reportRepositoryProvider);
   final range = ref.watch(selectedDateRangeProvider);
   final filter = ref.watch(selectedTimeFilterProvider);
 
+  final ReportCategoryDto rawReport;
   if (filter == TimeFilter.thisMonth) {
     final now = DateTime.now();
-    return repository.getCategories(
+    rawReport = await repository.getCategories(
       month: now.month,
       year: now.year,
       type: 'expense',
     );
   } else {
-    return repository.getCategories(
+    rawReport = await repository.getCategories(
       startDate: range.start,
       endDate: range.end,
       type: 'expense',
     );
   }
+  return _adjustReportCategories(ref, rawReport, 'expense', range.start, range.end);
 });
 
 final reportIncomeCategoriesProvider = FutureProvider<ReportCategoryDto>((ref) async {
@@ -220,20 +303,22 @@ final reportIncomeCategoriesProvider = FutureProvider<ReportCategoryDto>((ref) a
   final range = ref.watch(selectedDateRangeProvider);
   final filter = ref.watch(selectedTimeFilterProvider);
 
+  final ReportCategoryDto rawReport;
   if (filter == TimeFilter.thisMonth) {
     final now = DateTime.now();
-    return repository.getCategories(
+    rawReport = await repository.getCategories(
       month: now.month,
       year: now.year,
       type: 'income',
     );
   } else {
-    return repository.getCategories(
+    rawReport = await repository.getCategories(
       startDate: range.start,
       endDate: range.end,
       type: 'income',
     );
   }
+  return _adjustReportCategories(ref, rawReport, 'income', range.start, range.end);
 });
 
 final trendsDailyProvider = FutureProvider<List<ReportTrendEntryDto>>((ref) async {
@@ -267,7 +352,9 @@ final trendsDailyProvider = FutureProvider<List<ReportTrendEntryDto>>((ref) asyn
 
   var allTransactions = resultTransactions.items;
   if (isUncategorized) {
-    allTransactions = allTransactions.where((tx) => tx.categoryId == null || tx.categoryName == null).toList();
+    allTransactions = allTransactions.where((tx) =>
+        (tx.categoryId == null || tx.categoryName == null) &&
+        !tx.isTransferLocked).toList();
   }
 
   // Deduplicate transactions by ID defensively
@@ -474,13 +561,15 @@ typedef CategoryPeriodArg = ({DateTime startDate, DateTime endDate, String type}
 final categoriesByPeriodProvider = FutureProvider.family<ReportCategoryDto, CategoryPeriodArg>((ref, arg) async {
   ref.watch(transactionListProvider);
   final repository = ref.watch(reportRepositoryProvider);
-  return repository.getCategories(
+  final rawReport = await repository.getCategories(
     startDate: arg.startDate,
     endDate: arg.endDate,
     type: arg.type,
   );
+  return _adjustReportCategories(ref, rawReport, arg.type, arg.startDate, arg.endDate);
 });
 
+// Transaction list provider for the Category Detail Screen
 // Transaction list provider for the Category Detail Screen
 typedef CategoryDetailTransArg = ({String categoryId, DateTime startDate, DateTime endDate, String type});
 final categoryDetailTransactionsProvider = FutureProvider.family<List<TransactionEntity>, CategoryDetailTransArg>((ref, arg) async {
@@ -488,6 +577,11 @@ final categoryDetailTransactionsProvider = FutureProvider.family<List<Transactio
   final useCase = ref.read(getTransactionsUseCaseProvider);
 
   final isUncategorized = arg.categoryId == 'uncategorized';
+  final database = ref.read(appDatabaseProvider);
+  final allCategories = await database.getAllCategories();
+  
+  List<TransactionEntity> baseTransactions = [];
+
   if (isUncategorized) {
     final result = await useCase.execute(
       categoryId: null,
@@ -498,37 +592,74 @@ final categoryDetailTransactionsProvider = FutureProvider.family<List<Transactio
       sortOrder: 'desc',
       perPage: 100,
     );
-    return result.items
-        .where((tx) => (tx.categoryId == null || tx.categoryName == null) && tx.type == arg.type)
+    baseTransactions = result.items
+        .where((tx) => (tx.categoryId == null || tx.categoryName == null) &&
+                       tx.type == arg.type &&
+                       !tx.isTransferLocked)
         .toList();
+  } else {
+    // Lấy các danh mục con nếu đây là danh mục cha
+    final childIds = allCategories
+        .where((c) => c.parentId == arg.categoryId)
+        .map((c) => c.id)
+        .toList();
+
+    final idsToFetch = [arg.categoryId, ...childIds];
+
+    // Fetch transactions song song cho tất cả các ID danh mục liên quan
+    final results = await Future.wait(idsToFetch.map((id) => useCase.execute(
+          categoryId: id,
+          startDate: DateFormat('yyyy-MM-dd').format(arg.startDate),
+          endDate: DateFormat('yyyy-MM-dd').format(arg.endDate.add(const Duration(days: 1))),
+          type: arg.type,
+          sortBy: 'date',
+          sortOrder: 'desc',
+          perPage: 100,
+        )));
+
+    // Gộp tất cả kết quả
+    baseTransactions = results.expand((r) => r.items).toList();
   }
 
-  // Lấy các danh mục con nếu đây là danh mục cha
-  final database = ref.read(appDatabaseProvider);
-  final allCategories = await database.getAllCategories();
-  final childIds = allCategories
+  // 1. Tạo Map chứa các giao dịch từ API để tránh trùng lặp
+  final Map<String, TransactionEntity> mergedMap = {for (var tx in baseTransactions) tx.id: tx};
+
+  // 2. Đồng bộ các thay đổi optimistic từ local state (transactionListProvider)
+  final localList = ref.read(transactionListProvider).value ?? [];
+  final childIds = isUncategorized ? <String>[] : allCategories
       .where((c) => c.parentId == arg.categoryId)
       .map((c) => c.id)
       .toList();
+  final idsToFetch = isUncategorized ? <String>[] : [arg.categoryId, ...childIds];
 
-  final idsToFetch = [arg.categoryId, ...childIds];
+  for (final localTx in localList) {
+    // Only merge pending (unsynced) optimistic transactions
+    if (localTx.status != 'pending') {
+      continue;
+    }
 
-  // Fetch transactions song song cho tất cả các ID danh mục liên quan
-  final results = await Future.wait(idsToFetch.map((id) => useCase.execute(
-        categoryId: id,
-        startDate: DateFormat('yyyy-MM-dd').format(arg.startDate),
-        endDate: DateFormat('yyyy-MM-dd').format(arg.endDate.add(const Duration(days: 1))),
-        type: arg.type,
-        sortBy: 'date',
-        sortOrder: 'desc',
-        perPage: 100,
-      )));
+    // Kiểm tra xem giao dịch có thuộc phạm vi của chi tiết này không (ngày và loại)
+    final txDate = localTx.transactionDate;
+    final isWithinDateRange = txDate.isAfter(arg.startDate.subtract(const Duration(seconds: 1))) &&
+                              txDate.isBefore(arg.endDate.add(const Duration(days: 1)));
+    final isMatchingType = localTx.type == arg.type;
 
-  // Gộp tất cả kết quả, đảm bảo tính duy nhất theo ID giao dịch và sắp xếp theo ngày giảm dần
-  final allTransactions = results.expand((r) => r.items).toList();
-  final uniqueMap = {for (var tx in allTransactions) tx.id: tx};
-  
-  final enrichedList = uniqueMap.values.map((tx) {
+    if (isWithinDateRange && isMatchingType) {
+      final isTxInThisCategory = isUncategorized
+          ? (localTx.categoryId == null || localTx.categoryName == null) && !localTx.isTransferLocked
+          : idsToFetch.contains(localTx.categoryId);
+
+      if (isTxInThisCategory) {
+        mergedMap[localTx.id] = localTx;
+      } else {
+        // Nếu giao dịch cũ thuộc danh mục này nhưng vừa được chuyển sang danh mục khác
+        mergedMap.remove(localTx.id);
+      }
+    }
+  }
+
+  // 3. Enrich thông tin danh mục cho danh sách kết quả cuối cùng từ local Categories DB
+  final enrichedList = mergedMap.values.map((tx) {
     if (tx.categoryId != null) {
       final match = allCategories.where((c) => c.id == tx.categoryId);
       if (match.isNotEmpty) {

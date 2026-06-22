@@ -52,6 +52,7 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
   int _selectedChartIndex = 5; // defaults to the latest period
   String _activeFilterTab = 'all'; // 'all', 'top_spend', 'top_recipient'
   bool _isAmountVisible = true;
+  String? _selectedSubcategoryFilter;
 
   @override
   void initState() {
@@ -175,6 +176,21 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
             return txDate.isAfter(currentPeriod.start.subtract(const Duration(seconds: 1))) &&
                 txDate.isBefore(currentPeriod.end.add(const Duration(seconds: 1)));
           }).toList();
+
+          // Compute percentage change compared to the previous period
+          double? percentageChange;
+          if (_selectedChartIndex > 0) {
+            final prevPeriodAmount = periodAmounts[_selectedChartIndex - 1];
+            if (prevPeriodAmount > 0) {
+              percentageChange = ((currentPeriodAmount - prevPeriodAmount) / prevPeriodAmount) * 100;
+            } else if (currentPeriodAmount > 0) {
+              percentageChange = 100.0;
+            }
+          }
+
+          final displayTxs = _selectedSubcategoryFilter == null
+              ? selectedPeriodTxs
+              : selectedPeriodTxs.where((tx) => (tx.categoryName ?? 'Chưa phân loại') == _selectedSubcategoryFilter).toList();
 
           return SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
@@ -394,6 +410,7 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                                                           onTap: () {
                                                             setState(() {
                                                               _selectedChartIndex = index;
+                                                              _selectedSubcategoryFilter = null;
                                                             });
                                                           },
                                                           behavior: HitTestBehavior.opaque,
@@ -445,6 +462,12 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                   ),
                 ),
 
+                // 📊 Detailed Statistics Section (Grid)
+                _buildDetailedStatsCard(colors, currentPeriodAmount, selectedPeriodTxs, percentageChange),
+
+                // 🍕 Subcategory Breakdown Section
+                _buildSubcategoryBreakdownCard(colors, selectedPeriodTxs, currentPeriodAmount),
+
                 // 💸 Suggestion Card Section (if it's expense type)
                 if (widget.type == 'expense')
                   _buildSuggestionCard(colors, averageAmount),
@@ -475,7 +498,7 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                       // Filter tabs row
                       Row(
                         children: [
-                          _buildTabButton('all', 'Tất cả', Icons.list_alt_rounded, selectedPeriodTxs.length),
+                          _buildTabButton('all', 'Tất cả', Icons.list_alt_rounded, displayTxs.length),
                           const SizedBox(width: 8),
                           _buildTabButton(
                             'top_spend',
@@ -492,9 +515,27 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                           ),
                         ],
                       ),
+                      if (_selectedSubcategoryFilter != null) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Chip(
+                              label: Text('Lọc theo: $_selectedSubcategoryFilter', style: TextStyle(fontSize: 11, color: colors.primary, fontWeight: FontWeight.bold)),
+                              backgroundColor: colors.primary.withValues(alpha: 0.1),
+                              deleteIcon: Icon(Icons.close, size: 14, color: colors.primary),
+                              onDeleted: () {
+                                setState(() {
+                                  _selectedSubcategoryFilter = null;
+                                });
+                              },
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide.none),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       // Render transactions based on active filter tab
-                      _buildTransactionListContent(selectedPeriodTxs, colors),
+                      _buildTransactionListContent(displayTxs, colors),
                     ],
                   ),
                 ),
@@ -673,6 +714,7 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
         onTap: () {
           setState(() {
             _activeFilterTab = key;
+            _selectedSubcategoryFilter = null; // Clear subcategory filter when changing filter tabs
           });
         },
         child: AnimatedContainer(
@@ -955,76 +997,220 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
         ? CategoryUIConstants.getIconData(tx.categoryIcon ?? _currentCategoryIcon, categoryName: tx.categoryName)
         : Icons.help_outline_rounded;
 
-    return InkWell(
-      onTap: () {
-        context.push(
-          RoutePaths.transactionDetail,
-          extra: tx,
-        ).then((shouldRefresh) {
-          if (shouldRefresh == true) {
-            ref.invalidate(transactionListProvider);
-            ref.invalidate(filteredTransactionListProvider);
-            ref.invalidate(walletNotifierProvider);
-          }
-        });
-      },
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-        child: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: catColor.withValues(alpha: 0.12),
-              radius: 20,
-              child: Icon(catIcon, color: catColor, size: 20),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    tx.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: colors.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      _buildCategoryDropdownChip(context, tx, catColor, catIcon, colors),
-                      if (tx.notes != null && tx.notes!.isNotEmpty) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          '•',
-                          style: TextStyle(color: colors.textSecondary.withValues(alpha: 0.5), fontSize: 11),
-                        ),
-                        const SizedBox(width: 6),
-                      ],
-                      if (tx.notes != null && tx.notes!.isNotEmpty)
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // Format time (HH:mm)
+    final timeStr = DateFormat('HH:mm').format(tx.transactionDate);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: isDark ? colors.surface : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.textSecondary.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.01),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: InkWell(
+        onTap: () {
+          context.push(
+            RoutePaths.transactionDetail,
+            extra: tx,
+          ).then((shouldRefresh) {
+            if (shouldRefresh == true) {
+              ref.invalidate(transactionListProvider);
+              ref.invalidate(filteredTransactionListProvider);
+              ref.invalidate(walletNotifierProvider);
+            }
+          });
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. Icon danh mục
+              CircleAvatar(
+                backgroundColor: catColor.withValues(alpha: 0.12),
+                radius: 20,
+                child: Icon(catIcon, color: catColor, size: 20),
+              ),
+              const SizedBox(width: 12),
+              
+              // 2. Nội dung thông tin
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Hàng 1: Tiêu đề giao dịch + Thời gian
+                    Row(
+                      children: [
                         Expanded(
                           child: Text(
-                            tx.notes!,
+                            tx.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: colors.textSecondary, fontSize: 11),
+                            style: TextStyle(
+                              color: colors.textPrimary,
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        Text(
+                          timeStr,
+                          style: TextStyle(
+                            color: colors.textSecondary.withValues(alpha: 0.7),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    
+                    // Hàng 2: Dropdown Chip Danh mục + Nhãn Ví
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        _buildCategoryDropdownChip(context, tx, catColor, catIcon, colors),
+                        
+                        // Tag ví thanh toán
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: colors.textSecondary.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.account_balance_wallet_rounded,
+                                size: 10,
+                                color: colors.textSecondary.withValues(alpha: 0.7),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                tx.walletName ?? 'Ví chính',
+                                style: TextStyle(
+                                  color: colors.textSecondary,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    // Hàng 3: Người nhận/Payee (nếu có)
+                    if (tx.payeeName != null && tx.payeeName!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.person_outline_rounded,
+                            size: 11.5,
+                            color: colors.textSecondary.withValues(alpha: 0.7),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              'Đối tác: ${tx.payeeName!.trim()}',
+                              style: TextStyle(
+                                color: colors.textSecondary,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
+
+                    // Hàng 4: Ghi chú (nếu có)
+                    if (tx.notes != null && tx.notes!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.notes_rounded,
+                            size: 11.5,
+                            color: colors.textSecondary.withValues(alpha: 0.7),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              tx.notes!.trim(),
+                              style: TextStyle(
+                                color: colors.textSecondary.withValues(alpha: 0.8),
+                                fontSize: 11.5,
+                                fontStyle: FontStyle.italic,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              
+              // 3. Số tiền & Đính kèm (nếu có)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    (tx.type == 'expense' ? '-' : '+') + _formatCurrency(tx.amount * (tx.exchangeRate ?? 1.0)),
+                    style: TextStyle(
+                      color: tx.type == 'expense' ? colors.expenseRed : colors.incomeGreen,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
                   ),
+                  if (tx.attachmentUrls.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.attach_file_rounded,
+                          size: 13,
+                          color: colors.textSecondary.withValues(alpha: 0.6),
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          '${tx.attachmentUrls.length}',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: colors.textSecondary.withValues(alpha: 0.6),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              (tx.type == 'expense' ? '-' : '+') + _formatCurrency(tx.amount * (tx.exchangeRate ?? 1.0)),
-              style: TextStyle(
-                color: tx.type == 'expense' ? colors.expenseRed : colors.incomeGreen,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1263,6 +1449,338 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildDetailedStatsCard(
+    AppColorsExtension colors,
+    double currentPeriodAmount,
+    List<TransactionEntity> selectedPeriodTxs,
+    double? percentageChange,
+  ) {
+    double maxTx = 0.0;
+    for (final tx in selectedPeriodTxs) {
+      final amt = tx.amount * (tx.exchangeRate ?? 1.0);
+      if (amt > maxTx) maxTx = amt;
+    }
+
+    double avgTx = selectedPeriodTxs.isEmpty ? 0.0 : (currentPeriodAmount / selectedPeriodTxs.length);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Chỉ số chi tiết',
+            style: TextStyle(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: 2.2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            children: [
+              _buildStatItem(
+                title: 'Số giao dịch',
+                value: '${selectedPeriodTxs.length}',
+                icon: Icons.tag_rounded,
+                iconColor: Colors.blue,
+                colors: colors,
+              ),
+              _buildStatItem(
+                title: 'Biến động kỳ trước',
+                value: percentageChange != null
+                    ? (percentageChange > 0 ? '+${percentageChange.toStringAsFixed(1)}%' : '${percentageChange.toStringAsFixed(1)}%')
+                    : 'N/A',
+                icon: percentageChange == null
+                    ? Icons.trending_flat_rounded
+                    : (percentageChange > 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded),
+                iconColor: percentageChange == null
+                    ? Colors.grey
+                    : (percentageChange > 0
+                        ? (widget.type == 'expense' ? colors.expenseRed : colors.incomeGreen)
+                        : (widget.type == 'expense' ? colors.incomeGreen : colors.expenseRed)),
+                textColor: percentageChange == null
+                    ? colors.textSecondary
+                    : (percentageChange > 0
+                        ? (widget.type == 'expense' ? colors.expenseRed : colors.incomeGreen)
+                        : (widget.type == 'expense' ? colors.incomeGreen : colors.expenseRed)),
+                colors: colors,
+              ),
+              _buildStatItem(
+                title: 'Giao dịch lớn nhất',
+                value: _formatCurrency(maxTx),
+                icon: Icons.keyboard_double_arrow_up_rounded,
+                iconColor: Colors.orange,
+                colors: colors,
+              ),
+              _buildStatItem(
+                title: 'Trung bình/giao dịch',
+                value: _formatCurrency(avgTx),
+                icon: Icons.calculate_rounded,
+                iconColor: Colors.purple,
+                colors: colors,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color iconColor,
+    Color? textColor,
+    required AppColorsExtension colors,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: colors.background.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.textSecondary.withValues(alpha: 0.06)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: iconColor, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(color: colors.textSecondary, fontSize: 10, fontWeight: FontWeight.w500),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: textColor ?? colors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubcategoryBreakdownCard(
+    AppColorsExtension colors,
+    List<TransactionEntity> selectedPeriodTxs,
+    double currentPeriodAmount,
+  ) {
+    if (selectedPeriodTxs.isEmpty || currentPeriodAmount <= 0) return const SizedBox.shrink();
+
+    final Map<String, double> subcatSums = {};
+    final Map<String, TransactionEntity> subcatSampleTxs = {};
+
+    for (final tx in selectedPeriodTxs) {
+      final name = tx.categoryName ?? 'Chưa phân loại';
+      subcatSums[name] = (subcatSums[name] ?? 0.0) + (tx.amount * (tx.exchangeRate ?? 1.0));
+      if (!subcatSampleTxs.containsKey(name)) {
+        subcatSampleTxs[name] = tx;
+      }
+    }
+
+    if (subcatSums.length <= 1) return const SizedBox.shrink();
+
+    final sortedNames = subcatSums.keys.toList()
+      ..sort((a, b) => subcatSums[b]!.compareTo(subcatSums[a]!));
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Cơ cấu danh mục con',
+                style: TextStyle(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              if (_selectedSubcategoryFilter != null)
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedSubcategoryFilter = null;
+                    });
+                  },
+                  child: Text(
+                    'Xoá lọc',
+                    style: TextStyle(color: colors.primary, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Nhấn vào danh mục con để lọc nhanh các giao dịch bên dưới',
+            style: TextStyle(color: colors.textSecondary, fontSize: 11.5),
+          ),
+          const SizedBox(height: 16),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: sortedNames.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final name = sortedNames[index];
+              final amount = subcatSums[name]!;
+              final pct = amount / currentPeriodAmount;
+              final sampleTx = subcatSampleTxs[name]!;
+              
+              final hasCategory = sampleTx.categoryId != null && sampleTx.categoryId!.isNotEmpty;
+              final catColor = hasCategory
+                  ? CategoryUIConstants.getColorFromHex(sampleTx.categoryColor ?? _currentCategoryColor, categoryName: sampleTx.categoryName)
+                  : colors.textSecondary;
+              final catIcon = hasCategory
+                  ? CategoryUIConstants.getIconData(sampleTx.categoryIcon ?? _currentCategoryIcon, categoryName: sampleTx.categoryName)
+                  : Icons.help_outline_rounded;
+
+              final isSelected = _selectedSubcategoryFilter == name;
+
+              return InkWell(
+                onTap: () {
+                  setState(() {
+                    if (_selectedSubcategoryFilter == name) {
+                      _selectedSubcategoryFilter = null;
+                    } else {
+                      _selectedSubcategoryFilter = name;
+                    }
+                  });
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isSelected ? colors.primary.withValues(alpha: 0.06) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected ? colors.primary.withValues(alpha: 0.3) : Colors.transparent,
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: catColor.withValues(alpha: 0.12),
+                            radius: 16,
+                            child: Icon(catIcon, color: catColor, size: 16),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              name,
+                              style: TextStyle(
+                                color: colors.textPrimary,
+                                fontSize: 13.5,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                _formatCurrency(amount),
+                                style: TextStyle(
+                                  color: colors.textPrimary,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                '${(pct * 100).toStringAsFixed(1)}%',
+                                style: TextStyle(
+                                  color: colors.textSecondary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // Progress bar
+                      Container(
+                        height: 6,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: colors.textSecondary.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: FractionallySizedBox(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: pct,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: catColor,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }

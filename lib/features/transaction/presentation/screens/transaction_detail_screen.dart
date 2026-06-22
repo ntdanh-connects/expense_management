@@ -241,6 +241,9 @@ class _TransactionDetailScreenState
             categoryId: _selectedCategory?.id,
             notes: _notesController.text.trim(),
             attachments: attachments,
+            payeeId: widget.transaction.payeeId,
+            sourceType: widget.transaction.sourceType,
+            type: widget.transaction.type,
           );
 
       if (mounted) {
