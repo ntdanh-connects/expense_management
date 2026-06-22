@@ -6,6 +6,9 @@ import 'package:expense_management/features/notification/presentation/providers/
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:expense_management/core/router/app_route.dart';
+import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
+import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
+
 
 /// Opens a sliding notification panel from the right side.
 /// Call [NotificationSidebar.show(context)] to open.
@@ -196,12 +199,140 @@ class _NotificationPanelState extends ConsumerState<_NotificationPanel> {
                           }
                           return _NotificationTile(
                             item: items[index],
-                            onTap: () {
+                            onTap: () async {
                               if (!items[index].isRead) {
                                 ref.read(notificationNotifierProvider.notifier).markAsRead(items[index].id);
                               }
-                              Navigator.of(context).pop(); // Close sidebar
-                              context.push(RoutePaths.notificationDetail, extra: items[index]);
+
+                              final metadata = items[index].metadata;
+                              final type = items[index].type.toLowerCase();
+                              final isBudget = type.contains('budgetwarning') || type.contains('budget_warning');
+                              final isExport = type.contains('exportcompleted') || type.contains('export_completed');
+                              final isFinancial = type.contains('financialmonth') || type.contains('financial_month');
+                              final isP2p = type.contains('p2ptransferreceived') || type.contains('p2p_transfer');
+
+                              if (isExport) {
+                                if (mounted) {
+                                  Navigator.of(context).pop(); // Close sidebar
+                                  context.push(RoutePaths.exportHistory);
+                                }
+                                return;
+                              }
+
+                              if (isFinancial) {
+                                if (mounted) {
+                                  Navigator.of(context).pop(); // Close sidebar
+                                  context.push(RoutePaths.financialMonth);
+                                }
+                                return;
+                              }
+
+                              if (isBudget && metadata != null) {
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  barrierColor: Colors.black26,
+                                  builder: (_) => const Center(child: CircularProgressIndicator()),
+                                );
+
+                                try {
+                                  final budgetId = metadata['budget_id']?.toString();
+                                  final month = int.tryParse(metadata['month']?.toString() ?? '') ?? DateTime.now().month;
+                                  final year = int.tryParse(metadata['year']?.toString() ?? '') ?? DateTime.now().year;
+
+                                  final budgets = await ref.read(budgetRepositoryProvider).getBudgets(month, year);
+                                  
+                                  final budget = budgets.firstWhere(
+                                    (b) => b.id == budgetId,
+                                    orElse: () {
+                                      final catName = metadata['category_name']?.toString();
+                                      return budgets.firstWhere(
+                                        (b) => b.category?.name == catName,
+                                      );
+                                    },
+                                  );
+
+                                  if (mounted) {
+                                    Navigator.of(context).pop(); // Dismiss loading
+                                  }
+
+                                  if (budget.categoryId != null && budget.category != null) {
+                                    final cat = budget.category!;
+                                    final startDate = DateTime(year, month, 1);
+                                    final endDate = DateTime(year, month + 1, 0);
+
+                                    if (mounted) {
+                                      Navigator.of(context).pop(); // Close sidebar
+                                      context.push(RoutePaths.categoryDetail, extra: {
+                                        'categoryId': cat.id,
+                                        'categoryName': cat.name,
+                                        'categoryColor': cat.color,
+                                        'categoryIcon': cat.icon,
+                                        'type': 'expense',
+                                        'startDate': startDate,
+                                        'endDate': endDate,
+                                        'timeMode': 'month',
+                                      });
+                                    }
+                                  } else {
+                                    if (mounted) {
+                                      Navigator.of(context).pop(); // Close sidebar
+                                      context.push('${RoutePaths.analytics}?tab=budget');
+                                    }
+                                  }
+                                  return;
+                                } catch (_) {
+                                  if (mounted) {
+                                    Navigator.of(context).pop(); // Dismiss loading
+                                  }
+                                  if (mounted) {
+                                    Navigator.of(context).pop(); // Close sidebar
+                                    context.push('${RoutePaths.analytics}?tab=budget');
+                                  }
+                                  return;
+                                }
+                              }
+
+                              String? transactionId = metadata?['transaction_id'] as String?;
+
+                              if (transactionId == null && isP2p && metadata != null) {
+                                final amount = double.tryParse(metadata['amount']?.toString() ?? '0');
+                                final senderName = metadata['sender_name'] as String?;
+                                if (amount != null && amount > 0) {
+                                  showDialog(
+                                    context: context,
+                                    barrierDismissible: false,
+                                    barrierColor: Colors.black26,
+                                    builder: (_) => const Center(child: CircularProgressIndicator()),
+                                  );
+
+                                  try {
+                                    final tx = await ref
+                                        .read(transactionListProvider.notifier)
+                                        .findTransactionByNotificationMetadata(
+                                          type: 'income',
+                                          amount: amount,
+                                          senderName: senderName,
+                                        );
+                                    if (tx != null) {
+                                      transactionId = tx.id;
+                                    }
+                                  } catch (_) {}
+
+                                  if (mounted) {
+                                    Navigator.of(context).pop(); // Dismiss loading
+                                  }
+                                }
+                              }
+
+                              if (mounted) {
+                                Navigator.of(context).pop(); // Close sidebar
+                                if (transactionId != null && transactionId.isNotEmpty) {
+                                  context.push(RoutePaths.transactionDetail, extra: transactionId);
+                                } else {
+                                  context.push(RoutePaths.notificationDetail, extra: items[index]);
+                                }
+                              }
                             },
                             onDelete: () => ref
                                 .read(notificationNotifierProvider
@@ -427,7 +558,10 @@ class _NotificationTile extends StatelessWidget {
     if (t.contains('recurringtransaction')) return 'recurring_created';
     if (t.contains('dailyreminder')) return 'daily_reminder';
     if (t.contains('weeklysummary')) return 'weekly_summary';
-    if (t.contains('importcompleted') || t.contains('exportcompleted')) return 'transaction';
+    if (t.contains('p2ptransferreceived')) return 'p2p_transfer';
+    if (t.contains('exportcompleted') || t.contains('export_completed')) return 'export_completed';
+    if (t.contains('financialmonth') || t.contains('financial_month')) return 'financial_month';
+    if (t.contains('importcompleted')) return 'transaction';
     return type;
   }
 
@@ -542,6 +676,12 @@ class _NotificationTile extends StatelessWidget {
         return Icons.bar_chart_rounded;
       case 'transaction':
         return Icons.receipt_long_rounded;
+      case 'p2p_transfer':
+        return Icons.swap_horizontal_circle_rounded;
+      case 'export_completed':
+        return Icons.download_done_rounded;
+      case 'financial_month':
+        return Icons.calendar_month_rounded;
       default:
         return Icons.notifications_rounded;
     }
@@ -559,6 +699,12 @@ class _NotificationTile extends StatelessWidget {
         return const Color(0xFF8B5CF6);
       case 'transaction':
         return const Color(0xFFF59E0B);
+      case 'p2p_transfer':
+        return const Color(0xFF10B981);
+      case 'export_completed':
+        return const Color(0xFF8B5CF6);
+      case 'financial_month':
+        return const Color(0xFF8B5CF6);
       default:
         return const Color(0xFF6366F1);
     }

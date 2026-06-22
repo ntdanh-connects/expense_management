@@ -3,8 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/notification/data/models/notification_dto.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
+import 'package:expense_management/core/router/app_route.dart';
+import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
+import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
 
-class NotificationDetailScreen extends ConsumerWidget {
+class NotificationDetailScreen extends ConsumerStatefulWidget {
   final NotificationDto notification;
 
   const NotificationDetailScreen({
@@ -12,13 +16,81 @@ class NotificationDetailScreen extends ConsumerWidget {
     required this.notification,
   });
 
+  @override
+  ConsumerState<NotificationDetailScreen> createState() =>
+      _NotificationDetailScreenState();
+}
+
+class _NotificationDetailScreenState
+    extends ConsumerState<NotificationDetailScreen> {
+  String? _resolvedTransactionId;
+  bool _isSearchingTransaction = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveTransaction();
+  }
+
+  Future<void> _resolveTransaction() async {
+    final metadata = widget.notification.metadata;
+    if (metadata == null) return;
+
+    // Check if transaction_id is already in metadata
+    String? txId = metadata['transaction_id'] as String?;
+    if (txId != null && txId.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _resolvedTransactionId = txId;
+        });
+      }
+      return;
+    }
+
+    // Otherwise, check if it's P2P transfer and look it up
+    final isP2p = widget.notification.type.toLowerCase().contains('p2ptransferreceived');
+    if (isP2p) {
+      final amount = double.tryParse(metadata['amount']?.toString() ?? '0');
+      final senderName = metadata['sender_name'] as String?;
+      if (amount != null && amount > 0) {
+        if (mounted) {
+          setState(() {
+            _isSearchingTransaction = true;
+          });
+        }
+        try {
+          final tx = await ref
+              .read(transactionListProvider.notifier)
+              .findTransactionByNotificationMetadata(
+                type: 'income',
+                amount: amount,
+                senderName: senderName,
+              );
+          if (tx != null && mounted) {
+            setState(() {
+              _resolvedTransactionId = tx.id;
+            });
+          }
+        } catch (_) {}
+        if (mounted) {
+          setState(() {
+            _isSearchingTransaction = false;
+          });
+        }
+      }
+    }
+  }
+
   String _normalizeType(String type) {
     final t = type.toLowerCase();
     if (t.contains('budgetwarning')) return 'budget_warning';
     if (t.contains('recurringtransaction')) return 'recurring_created';
     if (t.contains('dailyreminder')) return 'daily_reminder';
     if (t.contains('weeklysummary')) return 'weekly_summary';
-    if (t.contains('importcompleted') || t.contains('exportcompleted')) return 'transaction';
+    if (t.contains('p2ptransferreceived')) return 'p2p_transfer';
+    if (t.contains('exportcompleted') || t.contains('export_completed')) return 'export_completed';
+    if (t.contains('financialmonth') || t.contains('financial_month')) return 'financial_month';
+    if (t.contains('importcompleted')) return 'transaction';
     return type;
   }
 
@@ -34,6 +106,12 @@ class NotificationDetailScreen extends ConsumerWidget {
         return Icons.bar_chart_rounded;
       case 'transaction':
         return Icons.receipt_long_rounded;
+      case 'p2p_transfer':
+        return Icons.swap_horizontal_circle_rounded;
+      case 'export_completed':
+        return Icons.download_done_rounded;
+      case 'financial_month':
+        return Icons.calendar_month_rounded;
       default:
         return Icons.notifications_rounded;
     }
@@ -51,6 +129,12 @@ class NotificationDetailScreen extends ConsumerWidget {
         return const Color(0xFF8B5CF6); // Purple
       case 'transaction':
         return const Color(0xFFF59E0B); // Amber
+      case 'p2p_transfer':
+        return const Color(0xFF10B981);
+      case 'export_completed':
+        return const Color(0xFF8B5CF6);
+      case 'financial_month':
+        return const Color(0xFF8B5CF6);
       default:
         return const Color(0xFF6366F1); // Indigo
     }
@@ -68,6 +152,12 @@ class NotificationDetailScreen extends ConsumerWidget {
         return 'Báo cáo tuần';
       case 'transaction':
         return 'Giao dịch mới';
+      case 'p2p_transfer':
+        return 'Nhận tiền P2P';
+      case 'export_completed':
+        return 'Xuất báo cáo';
+      case 'financial_month':
+        return 'Tháng tài chính';
       default:
         return 'Thông báo hệ thống';
     }
@@ -90,15 +180,15 @@ class NotificationDetailScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final colors = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final rawType = _normalizeType(notification.type);
+    final rawType = _normalizeType(widget.notification.type);
     final themeColor = _colorForType(rawType);
     final iconData = _iconForType(rawType);
     final typeLabel = _typeLabel(rawType);
 
-    final metadata = notification.metadata;
+    final metadata = widget.notification.metadata;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -170,7 +260,7 @@ class NotificationDetailScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _formatDateTime(notification.createdAt),
+                          _formatDateTime(widget.notification.createdAt),
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.8),
                             fontSize: 12.5,
@@ -206,7 +296,7 @@ class NotificationDetailScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    notification.title,
+                    widget.notification.title,
                     style: TextStyle(
                       color: colors.textPrimary,
                       fontSize: 17,
@@ -216,7 +306,7 @@ class NotificationDetailScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    notification.body,
+                    widget.notification.body,
                     style: TextStyle(
                       color: colors.textSecondary,
                       fontSize: 14.5,
@@ -234,8 +324,186 @@ class NotificationDetailScreen extends ConsumerWidget {
                 _buildBudgetWarningMetadata(context, metadata, isDark)
               else if (rawType == 'recurring_created')
                 _buildRecurringMetadata(context, metadata, isDark)
+              else if (rawType == 'p2p_transfer')
+                _buildP2pTransferMetadata(context, metadata, isDark)
               else
                 _buildGenericMetadata(context, metadata, isDark),
+            ],
+
+            // ── Direct Link to Transaction Details / Actions ──
+            if (_resolvedTransactionId != null) ...[
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    context.push(RoutePaths.transactionDetail, extra: _resolvedTransactionId);
+                  },
+                  icon: const Icon(Icons.receipt_long_rounded, color: Colors.white),
+                  label: const Text(
+                    'Xem chi tiết giao dịch',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                  ),
+                ),
+              ),
+            ] else if (_isSearchingTransaction) ...[
+              const SizedBox(height: 24),
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+            ] else if (rawType == 'export_completed') ...[
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    context.push(RoutePaths.exportHistory);
+                  },
+                  icon: const Icon(Icons.history_rounded, color: Colors.white),
+                  label: const Text(
+                    'Xem lịch sử báo cáo',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                  ),
+                ),
+              ),
+            ] else if (rawType == 'financial_month') ...[
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    context.push(RoutePaths.financialMonth);
+                  },
+                  icon: const Icon(Icons.calendar_month_rounded, color: Colors.white),
+                  label: const Text(
+                    'Thiết lập tháng tài chính',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                  ),
+                ),
+              ),
+            ] else if (rawType == 'budget_warning' && metadata != null) ...[
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      barrierColor: Colors.black26,
+                      builder: (_) => const Center(child: CircularProgressIndicator()),
+                    );
+
+                    try {
+                      final budgetId = metadata['budget_id']?.toString();
+                      final month = int.tryParse(metadata['month']?.toString() ?? '') ?? DateTime.now().month;
+                      final year = int.tryParse(metadata['year']?.toString() ?? '') ?? DateTime.now().year;
+
+                      final budgets = await ref.read(budgetRepositoryProvider).getBudgets(month, year);
+                      
+                      final budget = budgets.firstWhere(
+                        (b) => b.id == budgetId,
+                        orElse: () {
+                          final catName = metadata['category_name']?.toString();
+                          return budgets.firstWhere(
+                            (b) => b.category?.name == catName,
+                          );
+                        },
+                      );
+
+                      if (context.mounted) {
+                        Navigator.of(context).pop(); // Dismiss loading
+                      }
+
+                      if (budget.categoryId != null && budget.category != null) {
+                        final cat = budget.category!;
+                        final startDate = DateTime(year, month, 1);
+                        final endDate = DateTime(year, month + 1, 0);
+
+                        if (context.mounted) {
+                          context.push(RoutePaths.categoryDetail, extra: {
+                            'categoryId': cat.id,
+                            'categoryName': cat.name,
+                            'categoryColor': cat.color,
+                            'categoryIcon': cat.icon,
+                            'type': 'expense',
+                            'startDate': startDate,
+                            'endDate': endDate,
+                            'timeMode': 'month',
+                          });
+                        }
+                      } else {
+                        if (context.mounted) {
+                          context.push('${RoutePaths.analytics}?tab=budget');
+                        }
+                      }
+                    } catch (_) {
+                      if (context.mounted) {
+                        Navigator.of(context).pop(); // Dismiss loading
+                      }
+                      if (context.mounted) {
+                        context.push('${RoutePaths.analytics}?tab=budget');
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.pie_chart_rounded, color: Colors.white),
+                  label: const Text(
+                    'Xem chi tiết ngân sách',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                  ),
+                ),
+              ),
             ],
           ],
         ),
@@ -391,6 +659,51 @@ class NotificationDetailScreen extends ConsumerWidget {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildP2pTransferMetadata(
+      BuildContext context, Map<String, dynamic> meta, bool isDark) {
+    final colors = context.colors;
+    final senderName = meta['sender_name']?.toString() ?? 'Người gửi';
+    final amount = double.tryParse(meta['amount']?.toString() ?? '0') ?? 0.0;
+    final currency = meta['currency']?.toString() ?? 'VND';
+    final notes = meta['notes']?.toString();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFEFF1F0),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.swap_horizontal_circle_rounded, color: colors.incomeGreen, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Chi tiết chuyển nhận tiền',
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildMetaRow(context, 'Người gửi', senderName),
+          _buildMetaRow(context, 'Số tiền nhận', _formatMoney(amount, currency)),
+          if (notes != null && notes.isNotEmpty)
+            _buildMetaRow(context, 'Nội dung', notes),
         ],
       ),
     );

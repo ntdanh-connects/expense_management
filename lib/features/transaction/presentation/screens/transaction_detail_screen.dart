@@ -21,9 +21,14 @@ import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/core/utils/currency_utils.dart';
 
 class TransactionDetailScreen extends ConsumerStatefulWidget {
-  final TransactionEntity transaction;
+  final TransactionEntity? transaction;
+  final String? transactionId;
 
-  const TransactionDetailScreen({super.key, required this.transaction});
+  const TransactionDetailScreen({
+    super.key,
+    this.transaction,
+    this.transactionId,
+  });
 
   @override
   ConsumerState<TransactionDetailScreen> createState() =>
@@ -42,12 +47,15 @@ class _TransactionDetailScreenState
   CategoryDto? _selectedCategory;
   final List<File> _selectedImages = [];
 
+  String get _transactionId =>
+      widget.transaction?.id ?? widget.transactionId ?? _liveTransaction?.id ?? '';
+
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.transaction.title);
+    _titleController = TextEditingController(text: widget.transaction?.title ?? '');
     _notesController = TextEditingController(
-      text: widget.transaction.notes ?? '',
+      text: widget.transaction?.notes ?? '',
     );
     _liveTransaction = widget.transaction;
 
@@ -59,15 +67,17 @@ class _TransactionDetailScreenState
   }
 
   void _initDefaultCategory() {
+    final tx = _liveTransaction ?? widget.transaction;
+    if (tx == null) return;
     final categories = ref.read(categoriesNotifierProvider).value ?? [];
     for (var parent in categories) {
-      if (parent.id == widget.transaction.categoryId) {
+      if (parent.id == tx.categoryId) {
         _selectedCategory = parent;
         break;
       }
       if (parent.children != null) {
         final sub = parent.children!
-            .where((c) => c.id == widget.transaction.categoryId)
+            .where((c) => c.id == tx.categoryId)
             .firstOrNull;
         if (sub != null) {
           _selectedCategory = sub;
@@ -78,10 +88,12 @@ class _TransactionDetailScreenState
   }
 
   Future<void> _fetchFreshTransaction() async {
+    final txId = _transactionId;
+    if (txId.isEmpty) return;
     try {
       final freshTx = await ref
           .read(transactionListProvider.notifier)
-          .getTransactionById(widget.transaction.id);
+          .getTransactionById(txId);
       if (mounted) {
         setState(() {
           _liveTransaction = freshTx;
@@ -184,7 +196,7 @@ class _TransactionDetailScreenState
       await ref
           .read(transactionListProvider.notifier)
           .updateTransactionCategoryOptimistic(
-            transactionId: widget.transaction.id,
+            transactionId: _transactionId,
             categoryId: newCategory.id,
           );
       
@@ -236,14 +248,14 @@ class _TransactionDetailScreenState
       await ref
           .read(transactionListProvider.notifier)
           .updateTransaction(
-            transactionId: widget.transaction.id,
+            transactionId: _transactionId,
             title: _titleController.text.trim(),
             categoryId: _selectedCategory?.id,
             notes: _notesController.text.trim(),
             attachments: attachments,
-            payeeId: widget.transaction.payeeId,
-            sourceType: widget.transaction.sourceType,
-            type: widget.transaction.type,
+            payeeId: _liveTransaction?.payeeId ?? widget.transaction?.payeeId,
+            sourceType: _liveTransaction?.sourceType ?? widget.transaction?.sourceType,
+            type: _liveTransaction?.type ?? widget.transaction?.type ?? 'expense',
           );
 
       if (mounted) {
@@ -295,7 +307,7 @@ class _TransactionDetailScreenState
     try {
       await ref
           .read(transactionListProvider.notifier)
-          .deleteTransaction(widget.transaction.id);
+          .deleteTransaction(_transactionId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('delete_transaction_success'.trRead(ref))),
@@ -324,6 +336,34 @@ class _TransactionDetailScreenState
     final colors = context.colors;
     final localeCode = ref.watch(localeProvider);
     final tx = _liveTransaction ?? widget.transaction;
+
+    if (tx == null) {
+      return Scaffold(
+        backgroundColor: colors.background,
+        appBar: AppBar(
+          backgroundColor: colors.background,
+          elevation: 0,
+          title: Text(
+            'transaction_details'.tr(ref),
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+          ),
+          centerTitle: true,
+          leading: IconButton(
+            icon: Icon(
+              Icons.arrow_back_ios_new,
+              color: colors.textPrimary,
+              size: 20,
+            ),
+            onPressed: () => context.pop(),
+          ),
+        ),
+        body: const TransactionDetailShimmer(),
+      );
+    }
 
     final currencySymbol = tx.currencyCode ?? 'đ';
     final formattedAmount = AppConstant.formatMoney(tx.amount, tx.currencyCode);

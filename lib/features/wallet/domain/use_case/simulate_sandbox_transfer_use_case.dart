@@ -5,7 +5,7 @@ class SimulateSandboxTransferUseCase {
 
   SimulateSandboxTransferUseCase(this._repository);
 
-  Future<void> execute({
+  Future<String?> execute({
     required String walletId,
     required double amount,
     String? senderName,

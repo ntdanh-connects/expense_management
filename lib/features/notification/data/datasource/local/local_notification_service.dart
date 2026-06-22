@@ -1,5 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
+import 'package:expense_management/core/router/app_route.dart';
+import 'package:go_router/go_router.dart';
 
 class LocalNotificationService {
   static final FlutterLocalNotificationsPlugin _plugin =
@@ -21,7 +23,13 @@ class LocalNotificationService {
     await _plugin.initialize(
       settings: initSettings,
       onDidReceiveNotificationResponse: (details) {
-        // Handle notification click if needed
+        final payload = details.payload;
+        if (payload != null && payload.isNotEmpty) {
+          final context = rootNavigatorKey.currentContext;
+          if (context != null) {
+            context.push(RoutePaths.transactionDetail, extra: payload);
+          }
+        }
       },
     );
 

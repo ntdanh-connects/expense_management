@@ -163,7 +163,7 @@ class WalletRepositoryImpl  implements WalletRepository{
   }
 
   @override
-  Future<void> simulateSandboxTransfer({
+  Future<String?> simulateSandboxTransfer({
     required String walletId,
     required double amount,
     String? senderName,
@@ -177,9 +177,18 @@ class WalletRepositoryImpl  implements WalletRepository{
         if (senderName != null) 'sender_name': senderName,
         if (notes != null) 'notes': notes,
       };
-      await _apiService.simulateSandboxTransfer(body);
+      final response = await _apiService.simulateSandboxTransfer(body);
       AppLogger.info("☁️ [Wallet-Sync] Giả lập nhận tiền thành công trên Remote Server! Tiến hành đồng bộ lại ví...", tag: "Wallet-Sync");
       await syncWalletsImplicit();
+
+      final data = response.data;
+      if (data is Map<String, dynamic>) {
+        final tx = data['transaction'];
+        if (tx is Map<String, dynamic>) {
+          return tx['id']?.toString();
+        }
+      }
+      return null;
     } catch (e, stackTrace) {
       if (e is DioException) {
         final serverError = e.response?.data;

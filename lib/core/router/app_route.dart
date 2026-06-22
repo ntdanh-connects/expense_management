@@ -220,8 +220,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.transactionDetail,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) {
-          final transaction = state.extra as TransactionEntity;
-          return TransactionDetailScreen(transaction: transaction);
+          if (state.extra is TransactionEntity) {
+            final transaction = state.extra as TransactionEntity;
+            return TransactionDetailScreen(transaction: transaction);
+          } else if (state.extra is String) {
+            final transactionId = state.extra as String;
+            return TransactionDetailScreen(transactionId: transactionId);
+          }
+          throw Exception('Invalid argument for transaction detail route');
         },
       ),
       GoRoute(

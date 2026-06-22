@@ -13,6 +13,10 @@ import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/core/language/app_provider.dart';
 import 'package:expense_management/core/utils/currency_utils.dart';
+import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
+import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
+import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
+import 'package:expense_management/features/profile/user_provider.dart';
 
 class SandboxSimulateTransferScreen extends ConsumerStatefulWidget {
   const SandboxSimulateTransferScreen({super.key});
@@ -63,12 +67,49 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
     });
 
     try {
-      await ref.read(simulateSandboxTransferUseCaseProvider).execute(
+      final transactionId = await ref.read(simulateSandboxTransferUseCaseProvider).execute(
             walletId: _selectedWallet!.id,
             amount: amount,
             senderName: senderName,
             notes: notes.isNotEmpty ? notes : null,
           );
+
+      // Check notification preference
+      final pref = ref.read(notificationPreferencesProvider).value;
+      final showPush = pref?.pushEnabled ?? true;
+
+      if (showPush) {
+        final notifId = DateTime.now().millisecondsSinceEpoch.hashCode;
+        final formattedAmount = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ', decimalDigits: 0).format(amount);
+        final title = 'Biến động số dư';
+        final body = 'Ví "${_selectedWallet!.name}" nhận +$formattedAmount từ $senderName.';
+
+        await LocalNotificationService.showNotification(
+          id: notifId,
+          title: title,
+          body: body,
+          payload: transactionId,
+        );
+
+        final userId = ref.read(currentUserProvider)?.id ?? '';
+        if (userId.isNotEmpty) {
+          final localNotif = await LocalNotificationStorage.createAndSave(
+            userId: userId,
+            type: 'p2p_transfer',
+            title: title,
+            body: body,
+            metadata: {
+              'transaction_id': transactionId,
+              'amount': amount,
+              'sender_name': senderName,
+              'notes': notes,
+            },
+          );
+          if (localNotif != null) {
+            ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
+          }
+        }
+      }
 
       // Dọn dẹp HTTP cache để các báo cáo/thống kê kéo dữ liệu mới
       await ref.read(cacheStoreProvider).clean();
