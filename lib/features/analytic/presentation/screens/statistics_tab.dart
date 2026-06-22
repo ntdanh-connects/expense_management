@@ -7,6 +7,8 @@ import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
+import 'package:expense_management/features/profile/data/models/category_dto.dart';
+import 'package:expense_management/features/profile/category_provider.dart';
 import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:expense_management/features/profile/user_provider.dart';
@@ -459,6 +461,7 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
   Widget _buildLineChartSection(WidgetRef ref) {
     final dailyTrendsAsync = ref.watch(trendsDailyProvider);
     final colors = context.colors;
+    final trendType = ref.watch(selectedTrendTypeProvider);
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -510,6 +513,8 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
           ),
           if (_isLineChartExpanded) ...[
             const SizedBox(height: 16),
+            _buildTrendFilterBar(ref),
+            const SizedBox(height: 16),
             () {
               final trends = dailyTrendsAsync.asData?.value;
               if (trends == null) {
@@ -528,11 +533,123 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
                   ),
                 );
               }
-              return SpendingTrendLineChart(data: trends, colors: colors);
+              return SpendingTrendLineChart(data: trends, colors: colors, trendType: trendType);
             }(),
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildTrendFilterBar(WidgetRef ref) {
+    final colors = context.colors;
+    final trendType = ref.watch(selectedTrendTypeProvider);
+    final selectedCategory = ref.watch(selectedTrendCategoryProvider);
+    final isEnglish = ref.watch(localeProvider) == 'en';
+
+    final categoryColor = selectedCategory != null
+        ? CategoryUIConstants.getColorFromHex(selectedCategory.color, categoryName: selectedCategory.name)
+        : colors.primary;
+
+    return Row(
+      children: [
+        Expanded(
+          flex: 4,
+          child: CupertinoSlidingSegmentedControl<String>(
+            groupValue: trendType,
+            backgroundColor: colors.textSecondary.withOpacity(0.05),
+            thumbColor: colors.surface,
+            children: {
+              'expense': Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Text(
+                  isEnglish ? 'Expense' : 'Chi tiêu',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: trendType == 'expense' ? colors.expenseRed : colors.textSecondary,
+                  ),
+                ),
+              ),
+              'income': Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Text(
+                  isEnglish ? 'Income' : 'Thu nhập',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: trendType == 'income' ? colors.incomeGreen : colors.textSecondary,
+                  ),
+                ),
+              ),
+            },
+            onValueChanged: (value) {
+              if (value != null) {
+                ref.read(selectedTrendTypeProvider.notifier).state = value;
+                ref.read(selectedTrendCategoryProvider.notifier).state = null;
+              }
+            },
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 3,
+          child: InkWell(
+            onTap: () => _showTrendCategoryPicker(ref, trendType),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: selectedCategory != null ? categoryColor.withOpacity(0.12) : colors.textSecondary.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: selectedCategory != null ? categoryColor : Colors.transparent,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    selectedCategory != null
+                        ? CategoryUIConstants.getIconData(selectedCategory.icon, categoryName: selectedCategory.name)
+                        : Icons.filter_list_rounded,
+                    color: selectedCategory != null ? categoryColor : colors.textSecondary,
+                    size: 14,
+                  ),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      selectedCategory != null ? selectedCategory.name.tr(ref) : (isEnglish ? 'All' : 'Tất cả'),
+                      style: TextStyle(
+                        color: selectedCategory != null ? categoryColor : colors.textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: selectedCategory != null ? categoryColor : colors.textSecondary,
+                    size: 14,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showTrendCategoryPicker(WidgetRef ref, String trendType) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => TrendCategoryPickerBottomSheet(trendType: trendType),
     );
   }
 
@@ -1777,55 +1894,183 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
 }
 
 // 📐 VẼ CUSTOM LINE CHART XU HƯỚNG CHI TIÊU HÀNG NGÀY
-class SpendingTrendLineChart extends ConsumerWidget {
+// 📐 VẼ CUSTOM LINE CHART XU HƯỚNG CHI TIÊU HÀNG NGÀY (CÓ TƯƠNG TÁC CHẠM & ĐƯỜNG CONG BEZIER)
+class SpendingTrendLineChart extends ConsumerStatefulWidget {
   final List<ReportTrendEntryDto> data;
   final AppColorsExtension colors;
+  final String trendType;
 
   const SpendingTrendLineChart({
     super.key,
     required this.data,
     required this.colors,
+    required this.trendType,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (data.isEmpty) {
+  ConsumerState<SpendingTrendLineChart> createState() => _SpendingTrendLineChartState();
+}
+
+class _SpendingTrendLineChartState extends ConsumerState<SpendingTrendLineChart> {
+  int? _selectedIndex;
+
+  String _formatCurrency(double amount) {
+    final format = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ', decimalDigits: 0);
+    return format.format(amount);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.data.isEmpty) {
       return SizedBox(
         height: 160,
         child: Center(
           child: Text(
             'no_trend_data'.tr(ref),
-            style: TextStyle(color: colors.textSecondary, fontSize: 13),
+            style: TextStyle(color: widget.colors.textSecondary, fontSize: 13),
           ),
         ),
       );
     }
 
-    // Find max expense to scale
-    double maxExpense = 0;
-    for (var entry in data) {
-      if (entry.expense > maxExpense) {
-        maxExpense = entry.expense;
-      }
-    }
-    if (maxExpense == 0) maxExpense = 1.0; // Avoid divide by zero
+    final data = widget.data;
+    final isExpense = widget.trendType == 'expense';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          height: 160,
-          child: CustomPaint(
-            size: Size.infinite,
-            painter: LineChartPainter(
-              data: data,
-              maxVal: maxExpense,
-              colors: colors,
+    // Find max value to scale
+    double maxVal = 0;
+    double totalVal = 0;
+    for (var entry in data) {
+      final val = isExpense ? entry.expense : entry.income;
+      if (val > maxVal) {
+        maxVal = val;
+      }
+      totalVal += val;
+    }
+    if (maxVal == 0) maxVal = 1.0;
+
+    // Selected point details
+    final selectedEntry = _selectedIndex != null && _selectedIndex! < data.length ? data[_selectedIndex!] : null;
+    final selectedVal = selectedEntry != null ? (isExpense ? selectedEntry.expense : selectedEntry.income) : null;
+
+    final String displayTitle = selectedVal != null 
+        ? _formatCurrency(selectedVal) 
+        : _formatCurrency(totalVal);
+    
+    final String displaySubtitle = selectedEntry != null
+        ? (selectedEntry.date != null 
+            ? DateFormat('dd/MM/yyyy').format(DateTime.parse(selectedEntry.date!))
+            : selectedEntry.label)
+        : (isExpense ? 'spending_trend'.tr(ref) : 'income_label'.tr(ref));
+
+    final valueColor = isExpense ? widget.colors.expenseRed : widget.colors.incomeGreen;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final paddingLeft = 36.0;
+        final paddingRight = 10.0;
+        final chartWidth = constraints.maxWidth - paddingLeft - paddingRight;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Details Overlay Panel
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+              decoration: BoxDecoration(
+                color: widget.colors.textSecondary.withOpacity(0.04),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: widget.colors.textSecondary.withOpacity(0.05)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        displaySubtitle,
+                        style: TextStyle(
+                          color: widget.colors.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        displayTitle,
+                        style: TextStyle(
+                          color: valueColor,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_selectedIndex != null)
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedIndex = null;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: widget.colors.textSecondary.withOpacity(0.08),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.close_rounded, size: 14, color: widget.colors.textSecondary),
+                      ),
+                    )
+                  else
+                    Text(
+                      'Chạm để xem chi tiết',
+                      style: TextStyle(
+                        color: widget.colors.textSecondary.withOpacity(0.5),
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-        ),
-      ],
+            const SizedBox(height: 16),
+            GestureDetector(
+              onPanStart: (details) => _handleTouch(details.localPosition, chartWidth, paddingLeft, data.length),
+              onPanUpdate: (details) => _handleTouch(details.localPosition, chartWidth, paddingLeft, data.length),
+              onTapDown: (details) => _handleTouch(details.localPosition, chartWidth, paddingLeft, data.length),
+              child: SizedBox(
+                height: 160,
+                child: CustomPaint(
+                  size: Size.infinite,
+                  painter: LineChartPainter(
+                    data: data,
+                    maxVal: maxVal,
+                    colors: widget.colors,
+                    selectedIndex: _selectedIndex,
+                    trendType: widget.trendType,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
+  }
+
+  void _handleTouch(Offset localPosition, double chartWidth, double paddingLeft, int dataLength) {
+    if (chartWidth <= 0 || dataLength <= 1) return;
+    final x = localPosition.dx - paddingLeft;
+    final stepX = chartWidth / (dataLength - 1);
+    final index = (x / stepX).round().clamp(0, dataLength - 1);
+    if (_selectedIndex != index) {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 }
 
@@ -1833,11 +2078,15 @@ class LineChartPainter extends CustomPainter {
   final List<ReportTrendEntryDto> data;
   final double maxVal;
   final AppColorsExtension colors;
+  final int? selectedIndex;
+  final String trendType;
 
   LineChartPainter({
     required this.data,
     required this.maxVal,
     required this.colors,
+    this.selectedIndex,
+    required this.trendType,
   });
 
   @override
@@ -1852,7 +2101,10 @@ class LineChartPainter extends CustomPainter {
 
     if (data.isEmpty) return;
 
-    // Draw Grid Lines (Horizontal)
+    final isExpense = trendType == 'expense';
+    final themeColor = isExpense ? colors.expenseRed : colors.incomeGreen;
+
+    // Draw Grid Lines
     final gridPaint = Paint()
       ..color = colors.textSecondary.withOpacity(0.06)
       ..strokeWidth = 1.0;
@@ -1861,15 +2113,13 @@ class LineChartPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
     );
 
-    // Grid labels and lines (3 levels)
+    // 4 levels of horizontal grids
     for (int i = 0; i <= 3; i++) {
       final y = paddingTop + chartHeight - (i / 3) * chartHeight;
       final val = (i / 3) * maxVal;
 
-      // Draw horizontal grid line
       canvas.drawLine(Offset(paddingLeft, y), Offset(size.width - paddingRight, y), gridPaint);
 
-      // Draw label
       String labelText = _formatCompact(val);
       textPainter.text = TextSpan(
         text: labelText,
@@ -1884,24 +2134,32 @@ class LineChartPainter extends CustomPainter {
 
     for (int i = 0; i < data.length; i++) {
       final x = paddingLeft + i * stepX;
-      final y = paddingTop + chartHeight - (data[i].expense / maxVal) * chartHeight;
+      final val = isExpense ? data[i].expense : data[i].income;
+      final y = paddingTop + chartHeight - (val / maxVal) * chartHeight;
       points.add(Offset(x, y));
     }
 
-    // Draw Gradient Area below the line
+    // Draw Gradient Area below the curve
     if (points.isNotEmpty) {
       final fillPath = Path();
       fillPath.moveTo(paddingLeft, paddingTop + chartHeight);
-      for (var point in points) {
-        fillPath.lineTo(point.dx, point.dy);
+      fillPath.lineTo(points.first.dx, points.first.dy);
+      
+      for (int i = 0; i < points.length - 1; i++) {
+        final p0 = points[i];
+        final p1 = points[i + 1];
+        final controlPoint1 = Offset(p0.dx + (p1.dx - p0.dx) / 2, p0.dy);
+        final controlPoint2 = Offset(p0.dx + (p1.dx - p0.dx) / 2, p1.dy);
+        fillPath.cubicTo(controlPoint1.dx, controlPoint1.dy, controlPoint2.dx, controlPoint2.dy, p1.dx, p1.dy);
       }
+      
       fillPath.lineTo(points.last.dx, paddingTop + chartHeight);
       fillPath.close();
 
       final gradient = LinearGradient(
         colors: [
-          colors.primary.withOpacity(0.25),
-          colors.primary.withOpacity(0.0),
+          themeColor.withOpacity(0.18),
+          themeColor.withOpacity(0.0),
         ],
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
@@ -1914,39 +2172,82 @@ class LineChartPainter extends CustomPainter {
       canvas.drawPath(fillPath, fillPaint);
     }
 
-    // Draw Line
+    // Draw Smooth Line
     final linePaint = Paint()
-      ..color = colors.primary
-      ..strokeWidth = 2.0
+      ..color = themeColor
+      ..strokeWidth = 2.5
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
     final path = Path();
     if (points.isNotEmpty) {
       path.moveTo(points.first.dx, points.first.dy);
-      for (int i = 1; i < points.length; i++) {
-        path.lineTo(points[i].dx, points[i].dy);
+      for (int i = 0; i < points.length - 1; i++) {
+        final p0 = points[i];
+        final p1 = points[i + 1];
+        final controlPoint1 = Offset(p0.dx + (p1.dx - p0.dx) / 2, p0.dy);
+        final controlPoint2 = Offset(p0.dx + (p1.dx - p0.dx) / 2, p1.dy);
+        path.cubicTo(controlPoint1.dx, controlPoint1.dy, controlPoint2.dx, controlPoint2.dy, p1.dx, p1.dy);
       }
       canvas.drawPath(path, linePaint);
     }
 
-    // Draw Dots on line
-    final dotPaint = Paint()
-      ..color = colors.primary
-      ..style = PaintingStyle.fill;
+    // Highlight selected index
+    if (selectedIndex != null && selectedIndex! < points.length) {
+      final selectedPoint = points[selectedIndex!];
 
-    final dotBorderPaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
+      // Draw dashed reference line
+      final guidePaint = Paint()
+        ..color = themeColor.withOpacity(0.3)
+        ..strokeWidth = 1.0
+        ..style = PaintingStyle.stroke;
+      
+      double currentY = paddingTop;
+      final dashHeight = 4.0;
+      final gapHeight = 4.0;
+      while (currentY < paddingTop + chartHeight) {
+        canvas.drawLine(
+          Offset(selectedPoint.dx, currentY),
+          Offset(selectedPoint.dx, (currentY + dashHeight).clamp(paddingTop, paddingTop + chartHeight)),
+          guidePaint,
+        );
+        currentY += dashHeight + gapHeight;
+      }
 
-    // Draw Dots on line for every data point
-    for (var point in points) {
-      canvas.drawCircle(point, 3.5, dotPaint);
-      canvas.drawCircle(point, 3.5, dotBorderPaint);
+      // Halo and core dots
+      final haloPaint = Paint()
+        ..color = themeColor.withOpacity(0.18)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(selectedPoint, 9.0, haloPaint);
+
+      final dotPaint = Paint()
+        ..color = themeColor
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(selectedPoint, 4.5, dotPaint);
+
+      final dotBorderPaint = Paint()
+        ..color = Colors.white
+        ..strokeWidth = 1.5
+        ..style = PaintingStyle.stroke;
+      canvas.drawCircle(selectedPoint, 4.5, dotBorderPaint);
+    } else {
+      // Draw small dot on last point for premium visual weight
+      if (points.isNotEmpty) {
+        final lastPoint = points.last;
+        final lastDotPaint = Paint()
+          ..color = themeColor
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(lastPoint, 3.0, lastDotPaint);
+        
+        final lastDotBorderPaint = Paint()
+          ..color = Colors.white
+          ..strokeWidth = 1.0
+          ..style = PaintingStyle.stroke;
+        canvas.drawCircle(lastPoint, 3.0, lastDotBorderPaint);
+      }
     }
 
-    // Draw dynamic labels on X-axis (Draw 5 labels max to avoid overlap)
+    // Draw X labels (max 5)
     final labelCount = data.length < 5 ? data.length : 5;
     final labelStep = data.length > 1 ? (data.length - 1) / (labelCount - 1) : 1;
 
@@ -1956,7 +2257,6 @@ class LineChartPainter extends CustomPainter {
 
       final point = points[index];
 
-      // Draw X Label
       textPainter.text = TextSpan(
         text: data[index].label,
         style: TextStyle(color: colors.textSecondary, fontSize: 9, fontWeight: FontWeight.bold),
@@ -1980,7 +2280,207 @@ class LineChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant LineChartPainter oldDelegate) =>
-      oldDelegate.data != data || oldDelegate.maxVal != maxVal || oldDelegate.colors != colors;
+      oldDelegate.data != data || 
+      oldDelegate.maxVal != maxVal || 
+      oldDelegate.colors != colors ||
+      oldDelegate.selectedIndex != selectedIndex ||
+      oldDelegate.trendType != trendType;
+}
+
+// 🗂️ CUSTOM CATEGORY PICKER BOTTOM SHEET FOR TREND CHART (SUPPORTS PARENT/CHILD SELECTION)
+class TrendCategoryPickerBottomSheet extends ConsumerWidget {
+  final String trendType;
+
+  const TrendCategoryPickerBottomSheet({super.key, required this.trendType});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final categories = ref.watch(categoriesNotifierProvider).value ?? [];
+    final isEnglish = ref.watch(localeProvider) == 'en';
+
+    // Filter parent categories matching trendType
+    final parentCategories = categories.where((c) => c.type == trendType).toList();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 38,
+              height: 4.5,
+              decoration: BoxDecoration(
+                color: Colors.grey[400],
+                borderRadius: BorderRadius.circular(2.5),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: Row(
+                children: [
+                  const Spacer(),
+                  Text(
+                    isEnglish ? 'Filter by Category' : 'Lọc theo danh mục',
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded, color: colors.textSecondary),
+                    onPressed: () => Navigator.pop(context),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, thickness: 0.5),
+            Flexible(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.6,
+                ),
+                child: ListView(
+                  shrinkWrap: true,
+                  physics: const BouncingScrollPhysics(),
+                  children: [
+                    // All categories option
+                    _buildCategoryItem(
+                      context: context,
+                      ref: ref,
+                      name: isEnglish ? 'All Categories' : 'Tất cả danh mục',
+                      icon: Icons.all_inclusive_rounded,
+                      color: colors.primary,
+                      isSelected: ref.watch(selectedTrendCategoryProvider) == null,
+                      onTap: () {
+                        ref.read(selectedTrendCategoryProvider.notifier).state = null;
+                        Navigator.pop(context);
+                      },
+                    ),
+                    const Divider(height: 1, thickness: 0.5),
+                    
+                    ...parentCategories.expand((parent) {
+                      final list = <Widget>[];
+                      final isParentSelected = ref.watch(selectedTrendCategoryProvider)?.id == parent.id;
+
+                      list.add(
+                        _buildCategoryItem(
+                          context: context,
+                          ref: ref,
+                          name: parent.name,
+                          icon: CategoryUIConstants.getIconData(parent.icon, categoryName: parent.name),
+                          color: CategoryUIConstants.getColorFromHex(parent.color, categoryName: parent.name),
+                          isSelected: isParentSelected,
+                          isParent: true,
+                          onTap: () {
+                            ref.read(selectedTrendCategoryProvider.notifier).state = parent;
+                            Navigator.pop(context);
+                          },
+                        ),
+                      );
+
+                      if (parent.children != null && parent.children!.isNotEmpty) {
+                        for (final child in parent.children!) {
+                          final isChildSelected = ref.watch(selectedTrendCategoryProvider)?.id == child.id;
+                          list.add(
+                            _buildCategoryItem(
+                              context: context,
+                              ref: ref,
+                              name: child.name,
+                              icon: CategoryUIConstants.getIconData(child.icon, categoryName: child.name),
+                              color: CategoryUIConstants.getColorFromHex(child.color, categoryName: child.name),
+                              isSelected: isChildSelected,
+                              isChild: true,
+                              onTap: () {
+                                ref.read(selectedTrendCategoryProvider.notifier).state = child;
+                                Navigator.pop(context);
+                              },
+                            ),
+                          );
+                        }
+                      }
+                      
+                      list.add(const SizedBox(height: 8));
+                      return list;
+                    }),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryItem({
+    required BuildContext context,
+    required WidgetRef ref,
+    required String name,
+    required IconData icon,
+    required Color color,
+    required bool isSelected,
+    bool isParent = false,
+    bool isChild = false,
+    required VoidCallback onTap,
+  }) {
+    final colors = context.colors;
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.only(
+          left: isChild ? 48.0 : 20.0,
+          right: 20.0,
+          top: 12.0,
+          bottom: 12.0,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withOpacity(0.08) : Colors.transparent,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: isChild ? 32 : 40,
+              height: isChild ? 32 : 40,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                shape: BoxShape.circle,
+                border: isSelected ? Border.all(color: color, width: 1.5) : null,
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: isChild ? 16 : 20,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                name.tr(ref),
+                style: TextStyle(
+                  color: isSelected ? color : colors.textPrimary,
+                  fontSize: isChild ? 13.5 : 15,
+                  fontWeight: isSelected ? FontWeight.bold : (isParent ? FontWeight.w600 : FontWeight.normal),
+                ),
+              ),
+            ),
+            if (isSelected)
+              Icon(Icons.check_circle_rounded, color: color, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // 📐 VẼ CUSTOM DONUT CHART PHÂN BỔ DANH MỤC TIÊU DÙNG

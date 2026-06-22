@@ -5,6 +5,7 @@ import 'package:expense_management/core/database/app_database.dart';
 import 'package:expense_management/features/profile/user_provider.dart';
 import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/features/analytic/data/datasource/remote/report_api_service.dart';
+import 'package:expense_management/features/profile/data/models/category_dto.dart';
 import 'package:expense_management/features/analytic/data/models/report_category_dto.dart';
 import 'package:expense_management/features/analytic/data/models/report_summary_dto.dart';
 import 'package:expense_management/features/analytic/data/models/report_trend_dto.dart';
@@ -36,6 +37,10 @@ final selectedTimeFilterProvider = StateProvider<TimeFilter>((ref) => TimeFilter
 final customDateRangeProvider = StateProvider<DateTimeRange?>((ref) => null);
 
 final selectedAnalyticTabProvider = StateProvider<String>((ref) => 'statistics');
+
+final selectedTrendTypeProvider = StateProvider<String>((ref) => 'expense');
+
+final selectedTrendCategoryProvider = StateProvider<CategoryDto?>((ref) => null);
 
 final selectedDateRangeProvider = Provider<DateTimeRange>((ref) {
   final filter = ref.watch(selectedTimeFilterProvider);
@@ -233,13 +238,86 @@ final reportIncomeCategoriesProvider = FutureProvider<ReportCategoryDto>((ref) a
 
 final trendsDailyProvider = FutureProvider<List<ReportTrendEntryDto>>((ref) async {
   ref.watch(transactionListProvider);
-  final repository = ref.watch(reportRepositoryProvider);
   final range = ref.watch(selectedDateRangeProvider);
-  return repository.getTrends(
-    startDate: range.start,
-    endDate: range.end,
-    groupBy: 'day',
-  );
+  final category = ref.watch(selectedTrendCategoryProvider);
+  final trendType = ref.watch(selectedTrendTypeProvider);
+
+  if (category == null) {
+    final repository = ref.watch(reportRepositoryProvider);
+    return repository.getTrends(
+      startDate: range.start,
+      endDate: range.end,
+      groupBy: 'day',
+    );
+  }
+
+  // Calculate trends locally for the selected category
+  final useCase = ref.read(getTransactionsUseCaseProvider);
+  final database = ref.read(appDatabaseProvider);
+
+  final isUncategorized = category.id == 'uncategorized';
+  
+  // Find child category IDs if it is a parent category
+  final allCategories = await database.getAllCategories();
+  final childIds = allCategories
+      .where((c) => c.parentId == category.id)
+      .map((c) => c.id)
+      .toList();
+  final idsToFetch = [category.id, ...childIds];
+
+  // Fetch transactions matching these category IDs and date range
+  final results = await Future.wait(idsToFetch.map((id) => useCase.execute(
+        categoryId: isUncategorized ? null : id,
+        startDate: DateFormat('yyyy-MM-dd').format(range.start),
+        endDate: DateFormat('yyyy-MM-dd').format(range.end.add(const Duration(days: 1))),
+        type: trendType,
+        sortBy: 'date',
+        sortOrder: 'asc',
+        perPage: 200,
+      )));
+
+  var allTransactions = results.expand((r) => r.items).toList();
+  if (isUncategorized) {
+    allTransactions = allTransactions.where((tx) => tx.categoryId == null || tx.categoryName == null).toList();
+  }
+
+  allTransactions = allTransactions.where((tx) => tx.type == trendType).toList();
+
+  // Group by day inside user timezone
+  final tzName = ref.watch(currentUserProvider.select((u) => u?.timezone)) ?? 'Asia/Ho_Chi_Minh';
+  final location = tz.getLocation(tzName);
+
+  final Map<String, List<TransactionEntity>> grouped = {};
+  for (final tx in allTransactions) {
+    final txDate = tz.TZDateTime.from(tx.transactionDate, location);
+    final dateStr = DateFormat('yyyy-MM-dd').format(txDate);
+    grouped.putIfAbsent(dateStr, () => []).add(tx);
+  }
+
+  final List<ReportTrendEntryDto> result = [];
+  var current = tz.TZDateTime.from(range.start, location);
+  final end = tz.TZDateTime.from(range.end, location);
+
+  while (current.isBefore(end) || current.isAtSameMomentAs(end)) {
+    final dateStr = DateFormat('yyyy-MM-dd').format(current);
+    final items = grouped[dateStr] ?? [];
+
+    double totalAmount = 0.0;
+    for (final tx in items) {
+      totalAmount += tx.amount * (tx.exchangeRate ?? 1.0);
+    }
+
+    result.add(ReportTrendEntryDto(
+      label: DateFormat('dd/MM').format(current),
+      date: dateStr,
+      income: trendType == 'income' ? totalAmount : 0.0,
+      expense: trendType == 'expense' ? totalAmount : 0.0,
+    ));
+
+    current = current.add(const Duration(days: 1));
+  }
+
+  return result;
 });
 
 final trends6MonthsProvider = FutureProvider<List<ReportTrendEntryDto>>((ref) async {
