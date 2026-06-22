@@ -36,6 +36,7 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
   bool _isCategoriesExpanded = true;
   String _distributionMode = 'category'; // 'category' or 'wallet'
   String _categoryType = 'expense'; // 'expense' or 'income'
+  String _trendLineVisibility = 'all'; // 'all', 'income', 'expense'
 
   String _formatCurrency(double amount) {
     final format = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ', decimalDigits: 0);
@@ -533,7 +534,12 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
                   ),
                 );
               }
-              return SpendingTrendLineChart(data: trends, colors: colors, trendType: trendType);
+              return SpendingTrendLineChart(
+                data: trends,
+                colors: colors,
+                trendType: trendType,
+                trendLineVisibility: _trendLineVisibility,
+              );
             }(),
           ],
         ],
@@ -543,7 +549,6 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
 
   Widget _buildTrendFilterBar(WidgetRef ref) {
     final colors = context.colors;
-    final trendType = ref.watch(selectedTrendTypeProvider);
     final selectedCategory = ref.watch(selectedTrendCategoryProvider);
     final isEnglish = ref.watch(localeProvider) == 'en';
 
@@ -552,104 +557,153 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
         : colors.primary;
 
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Expanded(
-          flex: 4,
-          child: CupertinoSlidingSegmentedControl<String>(
-            groupValue: trendType,
-            backgroundColor: colors.textSecondary.withOpacity(0.05),
-            thumbColor: colors.surface,
-            children: {
-              'expense': Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Text(
-                  isEnglish ? 'Expense' : 'Chi tiêu',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: trendType == 'expense' ? colors.expenseRed : colors.textSecondary,
+        InkWell(
+          onTap: () => _showTrendCategoryPicker(ref),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: selectedCategory != null ? categoryColor.withOpacity(0.12) : colors.textSecondary.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: selectedCategory != null ? categoryColor : Colors.transparent,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  selectedCategory != null
+                      ? CategoryUIConstants.getIconData(selectedCategory.icon, categoryName: selectedCategory.name)
+                      : Icons.filter_list_rounded,
+                  color: selectedCategory != null ? categoryColor : colors.textSecondary,
+                  size: 14,
+                ),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    selectedCategory != null ? selectedCategory.name.tr(ref) : (isEnglish ? 'All' : 'Tất cả'),
+                    style: TextStyle(
+                      color: selectedCategory != null ? categoryColor : colors.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              ),
-              'income': Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Text(
-                  isEnglish ? 'Income' : 'Thu nhập',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: trendType == 'income' ? colors.incomeGreen : colors.textSecondary,
-                  ),
+                const SizedBox(width: 2),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: selectedCategory != null ? categoryColor : colors.textSecondary,
+                  size: 14,
                 ),
-              ),
-            },
-            onValueChanged: (value) {
-              if (value != null) {
-                ref.read(selectedTrendTypeProvider.notifier).state = value;
-                ref.read(selectedTrendCategoryProvider.notifier).state = null;
-              }
-            },
+              ],
+            ),
           ),
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          flex: 3,
-          child: InkWell(
-            onTap: () => _showTrendCategoryPicker(ref, trendType),
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: selectedCategory != null ? categoryColor.withOpacity(0.12) : colors.textSecondary.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: selectedCategory != null ? categoryColor : Colors.transparent,
-                  width: 1,
-                ),
-              ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Income legend (Clickable)
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  if (_trendLineVisibility == 'income') {
+                    _trendLineVisibility = 'all';
+                  } else {
+                    _trendLineVisibility = 'income';
+                  }
+                });
+              },
+              behavior: HitTestBehavior.opaque,
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    selectedCategory != null
-                        ? CategoryUIConstants.getIconData(selectedCategory.icon, categoryName: selectedCategory.name)
-                        : Icons.filter_list_rounded,
-                    color: selectedCategory != null ? categoryColor : colors.textSecondary,
-                    size: 14,
-                  ),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      selectedCategory != null ? selectedCategory.name.tr(ref) : (isEnglish ? 'All' : 'Tất cả'),
-                      style: TextStyle(
-                        color: selectedCategory != null ? categoryColor : colors.textPrimary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 200),
+                    opacity: _trendLineVisibility == 'all' || _trendLineVisibility == 'income' ? 1.0 : 0.35,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: colors.incomeGreen,
+                        shape: BoxShape.circle,
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 2),
-                  Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    color: selectedCategory != null ? categoryColor : colors.textSecondary,
-                    size: 14,
+                  const SizedBox(width: 4),
+                  AnimatedDefaultTextStyle(
+                    duration: const Duration(milliseconds: 200),
+                    style: TextStyle(
+                      color: colors.textSecondary.withOpacity(
+                        _trendLineVisibility == 'all' || _trendLineVisibility == 'income' ? 1.0 : 0.35,
+                      ),
+                      fontSize: 11,
+                      fontWeight: _trendLineVisibility == 'income' ? FontWeight.bold : FontWeight.w600,
+                    ),
+                    child: Text(isEnglish ? 'Income' : 'Thu nhập'),
                   ),
                 ],
               ),
             ),
-          ),
+            const SizedBox(width: 12),
+            // Expense legend (Clickable)
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  if (_trendLineVisibility == 'expense') {
+                    _trendLineVisibility = 'all';
+                  } else {
+                    _trendLineVisibility = 'expense';
+                  }
+                });
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 200),
+                    opacity: _trendLineVisibility == 'all' || _trendLineVisibility == 'expense' ? 1.0 : 0.35,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: colors.expenseRed,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  AnimatedDefaultTextStyle(
+                    duration: const Duration(milliseconds: 200),
+                    style: TextStyle(
+                      color: colors.textSecondary.withOpacity(
+                        _trendLineVisibility == 'all' || _trendLineVisibility == 'expense' ? 1.0 : 0.35,
+                      ),
+                      fontSize: 11,
+                      fontWeight: _trendLineVisibility == 'expense' ? FontWeight.bold : FontWeight.w600,
+                    ),
+                    child: Text(isEnglish ? 'Expense' : 'Chi tiêu'),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  void _showTrendCategoryPicker(WidgetRef ref, String trendType) {
+  void _showTrendCategoryPicker(WidgetRef ref) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => TrendCategoryPickerBottomSheet(trendType: trendType),
+      builder: (context) => const TrendCategoryPickerBottomSheet(),
     );
   }
 
@@ -1899,12 +1953,14 @@ class SpendingTrendLineChart extends ConsumerStatefulWidget {
   final List<ReportTrendEntryDto> data;
   final AppColorsExtension colors;
   final String trendType;
+  final String trendLineVisibility;
 
   const SpendingTrendLineChart({
     super.key,
     required this.data,
     required this.colors,
     required this.trendType,
+    required this.trendLineVisibility,
   });
 
   @override
@@ -1934,35 +1990,29 @@ class _SpendingTrendLineChartState extends ConsumerState<SpendingTrendLineChart>
     }
 
     final data = widget.data;
-    final isExpense = widget.trendType == 'expense';
+    final isEnglish = ref.watch(localeProvider) == 'en';
 
-    // Find max value to scale
+    // Find max value to scale dynamically based on visible lines
     double maxVal = 0;
-    double totalVal = 0;
+    double totalIncome = 0;
+    double totalExpense = 0;
     for (var entry in data) {
-      final val = isExpense ? entry.expense : entry.income;
-      if (val > maxVal) {
-        maxVal = val;
+      if (widget.trendLineVisibility == 'all' || widget.trendLineVisibility == 'income') {
+        if (entry.income > maxVal) maxVal = entry.income;
       }
-      totalVal += val;
+      if (widget.trendLineVisibility == 'all' || widget.trendLineVisibility == 'expense') {
+        if (entry.expense > maxVal) maxVal = entry.expense;
+      }
+      totalIncome += entry.income;
+      totalExpense += entry.expense;
     }
     if (maxVal == 0) maxVal = 1.0;
 
     // Selected point details
     final selectedEntry = _selectedIndex != null && _selectedIndex! < data.length ? data[_selectedIndex!] : null;
-    final selectedVal = selectedEntry != null ? (isExpense ? selectedEntry.expense : selectedEntry.income) : null;
 
-    final String displayTitle = selectedVal != null 
-        ? _formatCurrency(selectedVal) 
-        : _formatCurrency(totalVal);
-    
-    final String displaySubtitle = selectedEntry != null
-        ? (selectedEntry.date != null 
-            ? DateFormat('dd/MM/yyyy').format(DateTime.parse(selectedEntry.date!))
-            : selectedEntry.label)
-        : (isExpense ? 'spending_trend'.tr(ref) : 'income_label'.tr(ref));
-
-    final valueColor = isExpense ? widget.colors.expenseRed : widget.colors.incomeGreen;
+    final showIncomeInDetails = widget.trendLineVisibility == 'all' || widget.trendLineVisibility == 'income';
+    final showExpenseInDetails = widget.trendLineVisibility == 'all' || widget.trendLineVisibility == 'expense';
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1976,20 +2026,24 @@ class _SpendingTrendLineChartState extends ConsumerState<SpendingTrendLineChart>
             // Details Overlay Panel
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               decoration: BoxDecoration(
                 color: widget.colors.textSecondary.withOpacity(0.04),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: widget.colors.textSecondary.withOpacity(0.05)),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        displaySubtitle,
+                        selectedEntry != null
+                            ? (selectedEntry.date != null 
+                                ? DateFormat('dd/MM/yyyy').format(DateTime.parse(selectedEntry.date!))
+                                : selectedEntry.label)
+                            : (isEnglish ? 'Period Overview' : 'Tổng quan chu kỳ'),
                         style: TextStyle(
                           color: widget.colors.textSecondary,
                           fontSize: 11,
@@ -1997,42 +2051,103 @@ class _SpendingTrendLineChartState extends ConsumerState<SpendingTrendLineChart>
                           letterSpacing: 0.2,
                         ),
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        displayTitle,
-                        style: TextStyle(
-                          color: valueColor,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      if (selectedEntry != null)
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedIndex = null;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: widget.colors.textSecondary.withOpacity(0.08),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(Icons.close_rounded, size: 14, color: widget.colors.textSecondary),
+                          ),
+                        )
+                      else
+                        Text(
+                          isEnglish ? 'Tap chart to inspect' : 'Chạm biểu đồ để xem chi tiết',
+                          style: TextStyle(
+                            color: widget.colors.textSecondary.withOpacity(0.5),
+                            fontSize: 11,
+                            fontStyle: FontStyle.italic,
+                          ),
                         ),
-                      ),
                     ],
                   ),
-                  if (_selectedIndex != null)
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedIndex = null;
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: widget.colors.textSecondary.withOpacity(0.08),
-                          shape: BoxShape.circle,
+                  const SizedBox(height: 8),
+                  IntrinsicHeight(
+                    child: Row(
+                      children: [
+                        // Income Column
+                        Expanded(
+                          child: AnimatedOpacity(
+                            duration: const Duration(milliseconds: 200),
+                            opacity: showIncomeInDetails ? 1.0 : 0.25,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isEnglish ? 'Income' : 'Thu nhập',
+                                  style: TextStyle(
+                                    color: widget.colors.textSecondary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  selectedEntry != null ? _formatCurrency(selectedEntry.income) : _formatCurrency(totalIncome),
+                                  style: TextStyle(
+                                    color: widget.colors.incomeGreen,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                        child: Icon(Icons.close_rounded, size: 14, color: widget.colors.textSecondary),
-                      ),
-                    )
-                  else
-                    Text(
-                      'Chạm để xem chi tiết',
-                      style: TextStyle(
-                        color: widget.colors.textSecondary.withOpacity(0.5),
-                        fontSize: 11,
-                        fontStyle: FontStyle.italic,
-                      ),
+                        VerticalDivider(
+                          color: widget.colors.textSecondary.withOpacity(0.12),
+                          thickness: 1,
+                          width: 24,
+                        ),
+                        // Expense Column
+                        Expanded(
+                          child: AnimatedOpacity(
+                            duration: const Duration(milliseconds: 200),
+                            opacity: showExpenseInDetails ? 1.0 : 0.25,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isEnglish ? 'Expense' : 'Chi tiêu',
+                                  style: TextStyle(
+                                    color: widget.colors.textSecondary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  selectedEntry != null ? _formatCurrency(selectedEntry.expense) : _formatCurrency(totalExpense),
+                                  style: TextStyle(
+                                    color: widget.colors.expenseRed,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
+                  ),
                 ],
               ),
             ),
@@ -2051,6 +2166,7 @@ class _SpendingTrendLineChartState extends ConsumerState<SpendingTrendLineChart>
                     colors: widget.colors,
                     selectedIndex: _selectedIndex,
                     trendType: widget.trendType,
+                    trendLineVisibility: widget.trendLineVisibility,
                   ),
                 ),
               ),
@@ -2080,6 +2196,7 @@ class LineChartPainter extends CustomPainter {
   final AppColorsExtension colors;
   final int? selectedIndex;
   final String trendType;
+  final String trendLineVisibility;
 
   LineChartPainter({
     required this.data,
@@ -2087,6 +2204,7 @@ class LineChartPainter extends CustomPainter {
     required this.colors,
     this.selectedIndex,
     required this.trendType,
+    required this.trendLineVisibility,
   });
 
   @override
@@ -2101,9 +2219,6 @@ class LineChartPainter extends CustomPainter {
 
     if (data.isEmpty) return;
 
-    final isExpense = trendType == 'expense';
-    final themeColor = isExpense ? colors.expenseRed : colors.incomeGreen;
-
     // Draw Grid Lines
     final gridPaint = Paint()
       ..color = colors.textSecondary.withOpacity(0.06)
@@ -2113,10 +2228,10 @@ class LineChartPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
     );
 
-    // 4 levels of horizontal grids
-    for (int i = 0; i <= 3; i++) {
-      final y = paddingTop + chartHeight - (i / 3) * chartHeight;
-      final val = (i / 3) * maxVal;
+    // 3 levels of horizontal grids (0%, 50%, 100%)
+    for (int i = 0; i <= 2; i++) {
+      final y = paddingTop + chartHeight - (i / 2) * chartHeight;
+      final val = (i / 2) * maxVal;
 
       canvas.drawLine(Offset(paddingLeft, y), Offset(size.width - paddingRight, y), gridPaint);
 
@@ -2129,18 +2244,26 @@ class LineChartPainter extends CustomPainter {
       textPainter.paint(canvas, Offset(paddingLeft - textPainter.width - 6, y - textPainter.height / 2));
     }
 
-    final points = <Offset>[];
+    final pointsIncome = <Offset>[];
+    final pointsExpense = <Offset>[];
     final stepX = data.length > 1 ? chartWidth / (data.length - 1) : chartWidth;
 
     for (int i = 0; i < data.length; i++) {
       final x = paddingLeft + i * stepX;
-      final val = isExpense ? data[i].expense : data[i].income;
-      final y = paddingTop + chartHeight - (val / maxVal) * chartHeight;
-      points.add(Offset(x, y));
+      
+      final valIncome = data[i].income;
+      final yIncome = paddingTop + chartHeight - (valIncome / maxVal) * chartHeight;
+      pointsIncome.add(Offset(x, yIncome));
+
+      final valExpense = data[i].expense;
+      final yExpense = paddingTop + chartHeight - (valExpense / maxVal) * chartHeight;
+      pointsExpense.add(Offset(x, yExpense));
     }
 
-    // Draw Gradient Area below the curve
-    if (points.isNotEmpty) {
+    void drawCurveAndGradient(List<Offset> points, Color color) {
+      if (points.isEmpty) return;
+
+      // 1. Draw Gradient Area below the curve
       final fillPath = Path();
       fillPath.moveTo(paddingLeft, paddingTop + chartHeight);
       fillPath.lineTo(points.first.dx, points.first.dy);
@@ -2158,8 +2281,8 @@ class LineChartPainter extends CustomPainter {
 
       final gradient = LinearGradient(
         colors: [
-          themeColor.withOpacity(0.18),
-          themeColor.withOpacity(0.0),
+          color.withOpacity(0.12),
+          color.withOpacity(0.0),
         ],
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
@@ -2170,17 +2293,15 @@ class LineChartPainter extends CustomPainter {
         ..style = PaintingStyle.fill;
 
       canvas.drawPath(fillPath, fillPaint);
-    }
 
-    // Draw Smooth Line
-    final linePaint = Paint()
-      ..color = themeColor
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+      // 2. Draw Smooth Line
+      final linePaint = Paint()
+        ..color = color
+        ..strokeWidth = 2.5
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round;
 
-    final path = Path();
-    if (points.isNotEmpty) {
+      final path = Path();
       path.moveTo(points.first.dx, points.first.dy);
       for (int i = 0; i < points.length - 1; i++) {
         final p0 = points[i];
@@ -2192,13 +2313,22 @@ class LineChartPainter extends CustomPainter {
       canvas.drawPath(path, linePaint);
     }
 
+    // Draw visible curves
+    if (trendLineVisibility == 'all' || trendLineVisibility == 'income') {
+      drawCurveAndGradient(pointsIncome, colors.incomeGreen);
+    }
+    if (trendLineVisibility == 'all' || trendLineVisibility == 'expense') {
+      drawCurveAndGradient(pointsExpense, colors.expenseRed);
+    }
+
     // Highlight selected index
-    if (selectedIndex != null && selectedIndex! < points.length) {
-      final selectedPoint = points[selectedIndex!];
+    if (selectedIndex != null && selectedIndex! < pointsIncome.length) {
+      final selectedPointIncome = pointsIncome[selectedIndex!];
+      final selectedPointExpense = pointsExpense[selectedIndex!];
 
       // Draw dashed reference line
       final guidePaint = Paint()
-        ..color = themeColor.withOpacity(0.3)
+        ..color = colors.textSecondary.withOpacity(0.2)
         ..strokeWidth = 1.0
         ..style = PaintingStyle.stroke;
       
@@ -2207,43 +2337,31 @@ class LineChartPainter extends CustomPainter {
       final gapHeight = 4.0;
       while (currentY < paddingTop + chartHeight) {
         canvas.drawLine(
-          Offset(selectedPoint.dx, currentY),
-          Offset(selectedPoint.dx, (currentY + dashHeight).clamp(paddingTop, paddingTop + chartHeight)),
+          Offset(selectedPointIncome.dx, currentY),
+          Offset(selectedPointIncome.dx, (currentY + dashHeight).clamp(paddingTop, paddingTop + chartHeight)),
           guidePaint,
         );
         currentY += dashHeight + gapHeight;
       }
 
-      // Halo and core dots
-      final haloPaint = Paint()
-        ..color = themeColor.withOpacity(0.18)
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(selectedPoint, 9.0, haloPaint);
-
-      final dotPaint = Paint()
-        ..color = themeColor
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(selectedPoint, 4.5, dotPaint);
-
-      final dotBorderPaint = Paint()
-        ..color = Colors.white
-        ..strokeWidth = 1.5
-        ..style = PaintingStyle.stroke;
-      canvas.drawCircle(selectedPoint, 4.5, dotBorderPaint);
+      // Draw focal dots for visible curves
+      if (trendLineVisibility == 'all' || trendLineVisibility == 'income') {
+        _drawFocalDot(canvas, selectedPointIncome, colors.incomeGreen);
+      }
+      if (trendLineVisibility == 'all' || trendLineVisibility == 'expense') {
+        _drawFocalDot(canvas, selectedPointExpense, colors.expenseRed);
+      }
     } else {
-      // Draw small dot on last point for premium visual weight
-      if (points.isNotEmpty) {
-        final lastPoint = points.last;
-        final lastDotPaint = Paint()
-          ..color = themeColor
-          ..style = PaintingStyle.fill;
-        canvas.drawCircle(lastPoint, 3.0, lastDotPaint);
-        
-        final lastDotBorderPaint = Paint()
-          ..color = Colors.white
-          ..strokeWidth = 1.0
-          ..style = PaintingStyle.stroke;
-        canvas.drawCircle(lastPoint, 3.0, lastDotBorderPaint);
+      // Draw small dot on last point for premium visual weight (only for visible lines)
+      if (trendLineVisibility == 'all' || trendLineVisibility == 'income') {
+        if (pointsIncome.isNotEmpty) {
+          _drawEndDot(canvas, pointsIncome.last, colors.incomeGreen);
+        }
+      }
+      if (trendLineVisibility == 'all' || trendLineVisibility == 'expense') {
+        if (pointsExpense.isNotEmpty) {
+          _drawEndDot(canvas, pointsExpense.last, colors.expenseRed);
+        }
       }
     }
 
@@ -2255,7 +2373,7 @@ class LineChartPainter extends CustomPainter {
       final index = (i * labelStep).round();
       if (index >= data.length) continue;
 
-      final point = points[index];
+      final point = pointsIncome[index];
 
       textPainter.text = TextSpan(
         text: data[index].label,
@@ -2267,6 +2385,37 @@ class LineChartPainter extends CustomPainter {
         Offset(point.dx - textPainter.width / 2, paddingTop + chartHeight + 4),
       );
     }
+  }
+
+  void _drawFocalDot(Canvas canvas, Offset point, Color color) {
+    final haloPaint = Paint()
+      ..color = color.withOpacity(0.18)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(point, 9.0, haloPaint);
+
+    final dotPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(point, 4.5, dotPaint);
+
+    final dotBorderPaint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    canvas.drawCircle(point, 4.5, dotBorderPaint);
+  }
+
+  void _drawEndDot(Canvas canvas, Offset point, Color color) {
+    final lastDotPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(point, 3.0, lastDotPaint);
+    
+    final lastDotBorderPaint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+    canvas.drawCircle(point, 3.0, lastDotBorderPaint);
   }
 
   String _formatCompact(double val) {
@@ -2284,14 +2433,41 @@ class LineChartPainter extends CustomPainter {
       oldDelegate.maxVal != maxVal || 
       oldDelegate.colors != colors ||
       oldDelegate.selectedIndex != selectedIndex ||
-      oldDelegate.trendType != trendType;
+      oldDelegate.trendType != trendType ||
+      oldDelegate.trendLineVisibility != trendLineVisibility;
 }
 
 // 🗂️ CUSTOM CATEGORY PICKER BOTTOM SHEET FOR TREND CHART (SUPPORTS PARENT/CHILD SELECTION)
 class TrendCategoryPickerBottomSheet extends ConsumerWidget {
-  final String trendType;
+  const TrendCategoryPickerBottomSheet({super.key});
 
-  const TrendCategoryPickerBottomSheet({super.key, required this.trendType});
+  Widget _buildSectionHeader(String title, Color color, AppColorsExtension colors) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 14,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              color: color,
+              fontSize: 11.5,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.8,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -2299,8 +2475,55 @@ class TrendCategoryPickerBottomSheet extends ConsumerWidget {
     final categories = ref.watch(categoriesNotifierProvider).value ?? [];
     final isEnglish = ref.watch(localeProvider) == 'en';
 
-    // Filter parent categories matching trendType
-    final parentCategories = categories.where((c) => c.type == trendType).toList();
+    final expenseParents = categories.where((c) => c.type == 'expense').toList();
+    final incomeParents = categories.where((c) => c.type == 'income').toList();
+
+    List<Widget> buildCategoryList(List<CategoryDto> parents) {
+      return parents.expand((parent) {
+        final list = <Widget>[];
+        final isParentSelected = ref.watch(selectedTrendCategoryProvider)?.id == parent.id;
+
+        list.add(
+          _buildCategoryItem(
+            context: context,
+            ref: ref,
+            name: parent.name,
+            icon: CategoryUIConstants.getIconData(parent.icon, categoryName: parent.name),
+            color: CategoryUIConstants.getColorFromHex(parent.color, categoryName: parent.name),
+            isSelected: isParentSelected,
+            isParent: true,
+            onTap: () {
+              ref.read(selectedTrendCategoryProvider.notifier).state = parent;
+              Navigator.pop(context);
+            },
+          ),
+        );
+
+        if (parent.children != null && parent.children!.isNotEmpty) {
+          for (final child in parent.children!) {
+            final isChildSelected = ref.watch(selectedTrendCategoryProvider)?.id == child.id;
+            list.add(
+              _buildCategoryItem(
+                context: context,
+                ref: ref,
+                name: child.name,
+                icon: CategoryUIConstants.getIconData(child.icon, categoryName: child.name),
+                color: CategoryUIConstants.getColorFromHex(child.color, categoryName: child.name),
+                isSelected: isChildSelected,
+                isChild: true,
+                onTap: () {
+                  ref.read(selectedTrendCategoryProvider.notifier).state = child;
+                  Navigator.pop(context);
+                },
+              ),
+            );
+          }
+        }
+        
+        list.add(const SizedBox(height: 8));
+        return list;
+      }).toList();
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -2367,51 +2590,17 @@ class TrendCategoryPickerBottomSheet extends ConsumerWidget {
                       },
                     ),
                     const Divider(height: 1, thickness: 0.5),
-                    
-                    ...parentCategories.expand((parent) {
-                      final list = <Widget>[];
-                      final isParentSelected = ref.watch(selectedTrendCategoryProvider)?.id == parent.id;
 
-                      list.add(
-                        _buildCategoryItem(
-                          context: context,
-                          ref: ref,
-                          name: parent.name,
-                          icon: CategoryUIConstants.getIconData(parent.icon, categoryName: parent.name),
-                          color: CategoryUIConstants.getColorFromHex(parent.color, categoryName: parent.name),
-                          isSelected: isParentSelected,
-                          isParent: true,
-                          onTap: () {
-                            ref.read(selectedTrendCategoryProvider.notifier).state = parent;
-                            Navigator.pop(context);
-                          },
-                        ),
-                      );
+                    if (expenseParents.isNotEmpty) ...[
+                      _buildSectionHeader(isEnglish ? 'Expense Categories' : 'Danh mục chi tiêu', colors.expenseRed, colors),
+                      ...buildCategoryList(expenseParents),
+                    ],
 
-                      if (parent.children != null && parent.children!.isNotEmpty) {
-                        for (final child in parent.children!) {
-                          final isChildSelected = ref.watch(selectedTrendCategoryProvider)?.id == child.id;
-                          list.add(
-                            _buildCategoryItem(
-                              context: context,
-                              ref: ref,
-                              name: child.name,
-                              icon: CategoryUIConstants.getIconData(child.icon, categoryName: child.name),
-                              color: CategoryUIConstants.getColorFromHex(child.color, categoryName: child.name),
-                              isSelected: isChildSelected,
-                              isChild: true,
-                              onTap: () {
-                                ref.read(selectedTrendCategoryProvider.notifier).state = child;
-                                Navigator.pop(context);
-                              },
-                            ),
-                          );
-                        }
-                      }
-                      
-                      list.add(const SizedBox(height: 8));
-                      return list;
-                    }),
+                    if (incomeParents.isNotEmpty) ...[
+                      _buildSectionHeader(isEnglish ? 'Income Categories' : 'Danh mục thu nhập', colors.incomeGreen, colors),
+                      ...buildCategoryList(incomeParents),
+                    ],
+
                     const SizedBox(height: 24),
                   ],
                 ),
