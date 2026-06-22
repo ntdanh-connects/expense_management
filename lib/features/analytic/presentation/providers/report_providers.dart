@@ -240,7 +240,6 @@ final trendsDailyProvider = FutureProvider<List<ReportTrendEntryDto>>((ref) asyn
   ref.watch(transactionListProvider);
   final range = ref.watch(selectedDateRangeProvider);
   final category = ref.watch(selectedTrendCategoryProvider);
-  final trendType = ref.watch(selectedTrendTypeProvider);
 
   if (category == null) {
     final repository = ref.watch(reportRepositoryProvider);
@@ -251,44 +250,36 @@ final trendsDailyProvider = FutureProvider<List<ReportTrendEntryDto>>((ref) asyn
     );
   }
 
-  // Calculate trends locally for the selected category
+  // Calculate trends locally for the selected category (both income and expense)
   final useCase = ref.read(getTransactionsUseCaseProvider);
-  final database = ref.read(appDatabaseProvider);
-
   final isUncategorized = category.id == 'uncategorized';
   
-  // Find child category IDs if it is a parent category
-  final allCategories = await database.getAllCategories();
-  final childIds = allCategories
-      .where((c) => c.parentId == category.id)
-      .map((c) => c.id)
-      .toList();
-  final idsToFetch = [category.id, ...childIds];
+  // Fetch transactions matching the category ID and date range
+  final resultTransactions = await useCase.execute(
+    categoryId: isUncategorized ? null : category.id,
+    startDate: DateFormat('yyyy-MM-dd').format(range.start),
+    endDate: DateFormat('yyyy-MM-dd').format(range.end.add(const Duration(days: 1))),
+    type: null,
+    sortBy: 'date',
+    sortOrder: 'asc',
+    perPage: 200,
+  );
 
-  // Fetch transactions matching these category IDs and date range
-  final results = await Future.wait(idsToFetch.map((id) => useCase.execute(
-        categoryId: isUncategorized ? null : id,
-        startDate: DateFormat('yyyy-MM-dd').format(range.start),
-        endDate: DateFormat('yyyy-MM-dd').format(range.end.add(const Duration(days: 1))),
-        type: trendType,
-        sortBy: 'date',
-        sortOrder: 'asc',
-        perPage: 200,
-      )));
-
-  var allTransactions = results.expand((r) => r.items).toList();
+  var allTransactions = resultTransactions.items;
   if (isUncategorized) {
     allTransactions = allTransactions.where((tx) => tx.categoryId == null || tx.categoryName == null).toList();
   }
 
-  allTransactions = allTransactions.where((tx) => tx.type == trendType).toList();
+  // Deduplicate transactions by ID defensively
+  final uniqueMap = {for (var tx in allTransactions) tx.id: tx};
+  final cleanTransactions = uniqueMap.values.toList();
 
   // Group by day inside user timezone
   final tzName = ref.watch(currentUserProvider.select((u) => u?.timezone)) ?? 'Asia/Ho_Chi_Minh';
   final location = tz.getLocation(tzName);
 
   final Map<String, List<TransactionEntity>> grouped = {};
-  for (final tx in allTransactions) {
+  for (final tx in cleanTransactions) {
     final txDate = tz.TZDateTime.from(tx.transactionDate, location);
     final dateStr = DateFormat('yyyy-MM-dd').format(txDate);
     grouped.putIfAbsent(dateStr, () => []).add(tx);
@@ -302,16 +293,22 @@ final trendsDailyProvider = FutureProvider<List<ReportTrendEntryDto>>((ref) asyn
     final dateStr = DateFormat('yyyy-MM-dd').format(current);
     final items = grouped[dateStr] ?? [];
 
-    double totalAmount = 0.0;
+    double income = 0.0;
+    double expense = 0.0;
     for (final tx in items) {
-      totalAmount += tx.amount * (tx.exchangeRate ?? 1.0);
+      final amount = tx.amount * (tx.exchangeRate ?? 1.0);
+      if (tx.type == 'income') {
+        income += amount;
+      } else if (tx.type == 'expense') {
+        expense += amount;
+      }
     }
 
     result.add(ReportTrendEntryDto(
       label: DateFormat('dd/MM').format(current),
       date: dateStr,
-      income: trendType == 'income' ? totalAmount : 0.0,
-      expense: trendType == 'expense' ? totalAmount : 0.0,
+      income: income,
+      expense: expense,
     ));
 
     current = current.add(const Duration(days: 1));
