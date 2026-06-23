@@ -97,17 +97,13 @@ class _TransactionResultScreenState
       // Làm mới danh sách thông báo để cập nhật badge và danh sách realtime
       await ref.read(notificationNotifierProvider.notifier).refresh();
 
-      // Invalidate dashboard and reports providers
-      ref.invalidate(fetchDashboardSummaryProvider);
-      ref.invalidate(dashboardSummaryProvider);
-      ref.invalidate(reportSummaryProvider);
-      ref.invalidate(previousPeriodSummaryProvider);
-      ref.invalidate(reportCategoriesProvider);
-
-      // Invalidate budget providers to refresh budget lists and totals immediately
-      ref.invalidate(budgetListProvider);
-      ref.invalidate(currentMonthBudgetsProvider);
-      ref.invalidate(filteredTransactionListProvider);
+      // Refresh budget providers smoothly (báo cáo sẽ tự động làm mới ngầm nhờ transactionListProvider)
+      await ref.read(budgetListProvider.notifier).refreshBudgets(silent: true);
+      try {
+        await ref
+            .read(filteredTransactionListProvider.notifier)
+            .refreshTransactions(silent: true);
+      } catch (_) {}
       // Force rebuild to trigger budget threshold checks
       ref
           .read(currentMonthBudgetsProvider.future)

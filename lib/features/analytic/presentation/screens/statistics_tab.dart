@@ -284,7 +284,7 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
     final previousSummaryAsync = ref.watch(previousPeriodSummaryProvider);
     final colors = context.colors;
 
-    final summary = summaryAsync.asData?.value;
+    final summary = summaryAsync.value;
     if (summary == null) {
       if (summaryAsync.isLoading) {
         return _buildShimmerCard(height: 220);
@@ -304,7 +304,7 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
       );
     }
 
-    final previousSummary = previousSummaryAsync.asData?.value;
+    final previousSummary = previousSummaryAsync.value;
 
     return Column(
       children: [
@@ -520,7 +520,7 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
             _buildTrendFilterBar(ref),
             const SizedBox(height: 16),
             () {
-              final trends = dailyTrendsAsync.asData?.value;
+              final trends = dailyTrendsAsync.value;
               if (trends == null) {
                 if (dailyTrendsAsync.isLoading) {
                   return _buildShimmerCard(height: 160);
@@ -1029,7 +1029,7 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
         ),
         const SizedBox(height: 16),
         () {
-          final reportData = walletsAsync.asData?.value;
+          final reportData = walletsAsync.value;
           if (reportData == null) {
             if (walletsAsync.isLoading) {
               return _buildShimmerCard(height: 160);
@@ -1221,7 +1221,7 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
     final colors = context.colors;
 
     return () {
-      final reportData = walletsAsync.asData?.value;
+      final reportData = walletsAsync.value;
       if (reportData == null) {
         if (walletsAsync.isLoading) {
           return _buildShimmerCard(height: 200);
@@ -1474,7 +1474,7 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
         ),
         const SizedBox(height: 16),
         () {
-          final reportData = categoriesAsync.asData?.value;
+          final reportData = categoriesAsync.value;
           if (reportData == null) {
             if (categoriesAsync.isLoading) {
               return _buildShimmerCard(height: 160);
@@ -1731,7 +1731,7 @@ class _StatisticsTabState extends ConsumerState<StatisticsTab> {
     final isEnglish = ref.watch(localeProvider) == 'en';
 
     return () {
-      final reportData = categoriesAsync.asData?.value;
+      final reportData = categoriesAsync.value;
       if (reportData == null) {
         if (categoriesAsync.isLoading) {
           return _buildShimmerCard(height: 200);

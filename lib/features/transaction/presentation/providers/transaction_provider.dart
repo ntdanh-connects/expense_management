@@ -1398,11 +1398,36 @@ class FilteredTransactionListNotifier extends TransactionListNotifier {
   TransactionFilter get currentFilter => ref.read(transactionFilterProvider);
 
   @override
+  void _startSyncTimer() {
+    // Disable sync timer in FilteredTransactionListNotifier to avoid duplicate syncs
+  }
+
+  @override
+  Future<void> _syncPendingTransactions() async {
+    // Disable direct sync in FilteredTransactionListNotifier to avoid duplicate syncs
+  }
+
+  @override
+  Future<void> refreshTransactions({bool silent = false}) async {
+    if (currentFilter.isEmpty) {
+      await ref.read(transactionListProvider.notifier).refreshTransactions(silent: silent);
+      return;
+    }
+    await super.refreshTransactions(silent: silent);
+  }
+
+  @override
   FutureOr<List<TransactionEntity>> build() async {
     final userId = ref.watch(currentUserProvider.select((u) => u?.id)) ?? '';
     if (userId.isEmpty) return [];
 
     final filter = ref.watch(transactionFilterProvider);
+
+    // Dùng chung dữ liệu từ transactionListProvider nếu bộ lọc rỗng để tránh gọi API trùng lặp
+    if (filter.isEmpty) {
+      final mainState = ref.watch(transactionListProvider);
+      return mainState.value ?? [];
+    }
 
     final database = ref.read(appDatabaseProvider);
 
@@ -1435,11 +1460,6 @@ class FilteredTransactionListNotifier extends TransactionListNotifier {
     );
 
     final initialList = [...filteredPending, ...filteredCached];
-
-    ref.onDispose(() {
-      _syncTimer?.cancel();
-    });
-    _startSyncTimer();
 
     if (userId.isNotEmpty) {
       Future.microtask(

@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:expense_management/shared/widgets/custom_sliding_bottom_bar.dart';
 import 'package:expense_management/features/auth/presentation/providers/auth_provider.dart'; // Import provider auth của ní vào
 import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
+import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
+import 'package:expense_management/features/budget/data/models/budget_dto.dart';
+
 
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
@@ -30,6 +33,8 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> with WidgetsB
     // Khung xương vừa lên hình là âm thầm bắn API kéo data tươi về đè vào Drift DB
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(authNotifierProvider.notifier).syncUserProfileImplicit();
+      // Kích hoạt kiểm tra giới hạn ngân sách ngay lập tức khi vào Main Shell
+      ref.read(currentMonthBudgetsProvider.future).catchError((_) => <BudgetDto>[]);
     });
   }
 

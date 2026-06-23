@@ -30,9 +30,11 @@ class BudgetListNotifier extends AsyncNotifier<List<BudgetDto>> with ErrorHandle
     return _overrideBudgetUsages(ref, budgets, month, year);
   }
 
-  Future<void> refreshBudgets() async {
+  Future<void> refreshBudgets({bool silent = false}) async {
     ref.invalidate(currentMonthBudgetsProvider);
-    state = const AsyncValue.loading();
+    if (!silent) {
+      state = const AsyncValue.loading();
+    }
     state = await AsyncValue.guard(() async {
       final month = ref.read(selectedBudgetMonthProvider);
       final year = ref.read(selectedBudgetYearProvider);
@@ -54,13 +56,13 @@ class BudgetListNotifier extends AsyncNotifier<List<BudgetDto>> with ErrorHandle
       month: month,
       year: year,
     );
-    await refreshBudgets();
+    await refreshBudgets(silent: true);
   }
 
   Future<void> deleteBudget(String id) async {
     final repository = ref.read(budgetRepositoryProvider);
     await repository.deleteBudget(id);
-    await refreshBudgets();
+    await refreshBudgets(silent: true);
   }
 
   Future<void> copyFromPreviousMonth() async {
@@ -81,7 +83,7 @@ class BudgetListNotifier extends AsyncNotifier<List<BudgetDto>> with ErrorHandle
       toMonth: month,
       toYear: year,
     );
-    await refreshBudgets();
+    await refreshBudgets(silent: true);
   }
 }
 

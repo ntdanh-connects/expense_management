@@ -6,6 +6,10 @@ import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/shared/widgets/shared_top_app_bar.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
+import 'package:expense_management/features/analytic/data/models/report_summary_dto.dart';
+import 'package:expense_management/features/analytic/data/models/report_category_dto.dart';
+import 'package:expense_management/features/analytic/data/models/report_trend_dto.dart';
+import 'package:expense_management/features/budget/data/models/budget_dto.dart';
 import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
@@ -66,35 +70,26 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
           child: const Icon(Icons.add, color: Colors.white),
           onPressed: () {
             context.push(RoutePaths.budgetCreate).then((_) {
-              ref.read(budgetListProvider.notifier).refreshBudgets();
+              ref.read(budgetListProvider.notifier).refreshBudgets(silent: true);
             });
           },
         );
       }(),
       body: RefreshIndicator(
         onRefresh: () async {
-          // 1. Refresh transactions
+          // 1. Refresh transactions (silent)
           await ref
               .read(transactionListProvider.notifier)
-              .refreshTransactions();
+              .refreshTransactions(silent: true);
           await ref
               .read(filteredTransactionListProvider.notifier)
-              .refreshTransactions();
+              .refreshTransactions(silent: true);
 
           // 2. Refresh wallets
           await ref.read(walletNotifierProvider.notifier).refreshWallets();
 
-          // 3. Invalidate reports
-          ref.invalidate(reportSummaryProvider);
-          ref.invalidate(previousPeriodSummaryProvider);
-          ref.invalidate(reportCategoriesProvider);
-          ref.invalidate(trendsDailyProvider);
-          ref.invalidate(trends6MonthsProvider);
-          ref.invalidate(trendsFlexibleProvider);
-
-          // 4. Refresh budgets
-          await ref.read(budgetListProvider.notifier).refreshBudgets();
-          ref.invalidate(currentMonthBudgetsProvider);
+          // 3. Refresh budgets (silent)
+          await ref.read(budgetListProvider.notifier).refreshBudgets(silent: true);
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(

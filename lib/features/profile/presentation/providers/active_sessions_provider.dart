@@ -17,13 +17,17 @@ class ActiveSessionsNotifier extends AsyncNotifier<List<UserSessionDto>> {
     return ref.read(userRepositoryProvider).getActiveSessions();
   }
 
-  Future<void> refreshSessions() async {
-    state = const AsyncValue.loading();
+  Future<void> refreshSessions({bool silent = false}) async {
+    if (!silent) {
+      state = const AsyncValue.loading();
+    }
     state = await AsyncValue.guard(() => ref.read(userRepositoryProvider).getActiveSessions());
   }
 
-  Future<void> revokeSession(String sessionId) async {
-    state = const AsyncValue.loading();
+  Future<void> revokeSession(String sessionId, {bool silent = false}) async {
+    if (!silent) {
+      state = const AsyncValue.loading();
+    }
     try {
       await ref.read(userRepositoryProvider).revokeSession(sessionId);
       state = await AsyncValue.guard(() => ref.read(userRepositoryProvider).getActiveSessions());
@@ -32,10 +36,13 @@ class ActiveSessionsNotifier extends AsyncNotifier<List<UserSessionDto>> {
     }
   }
 
-  Future<void> revokeAllSessions() async {
-    state = const AsyncValue.loading();
+  Future<void> revokeAllSessions({bool silent = false}) async {
+    if (!silent) {
+      state = const AsyncValue.loading();
+    }
     try {
       await ref.read(userRepositoryProvider).logoutAllDevices();
+      state = await AsyncValue.guard(() => ref.read(userRepositoryProvider).getActiveSessions());
     } catch (e, stackTrace) {
       state = AsyncValue.error(e, stackTrace);
     }

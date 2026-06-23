@@ -122,8 +122,10 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> with ErrorHa
     state = AsyncValue.data(current.copyWith(notifications: uniqueMerged));
   }
 
-  Future<void> refresh() async {
-    state = const AsyncValue.loading();
+  Future<void> refresh({bool silent = false}) async {
+    if (!silent) {
+      state = const AsyncValue.loading();
+    }
     state = await AsyncValue.guard(() => _fetchPage(1, []));
   }
 

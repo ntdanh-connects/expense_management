@@ -14,8 +14,31 @@ export 'package:expense_management/features/analytic/domain/di/domain_providers.
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
 import 'package:flutter_riverpod/legacy.dart';
-import 'package:timezone/timezone.dart' as tz;
+import 'dart:async';
 import 'package:intl/intl.dart';
+import 'package:timezone/timezone.dart' as tz;
+
+extension CacheForExtension on Ref {
+  void cacheFor(Duration duration) {
+    final link = keepAlive();
+    Timer? timer;
+
+    onDispose(() {
+      timer?.cancel();
+    });
+
+    onCancel(() {
+      timer?.cancel();
+      timer = Timer(duration, () {
+        link.close();
+      });
+    });
+
+    onResume(() {
+      timer?.cancel();
+    });
+  }
+}
 
 enum TimeFilter { thisWeek, thisMonth, thisQuarter, thisYear, custom }
 
@@ -230,14 +253,16 @@ DateTimeRange getPreviousPeriodRange(
 }
 
 // Data Fetching Providers
-final reportSummaryProvider = FutureProvider<ReportSummaryDto>((ref) async {
+final reportSummaryProvider = FutureProvider.autoDispose<ReportSummaryDto>((ref) async {
+  ref.cacheFor(const Duration(minutes: 3));
   ref.watch(transactionListProvider);
   final repository = ref.watch(reportRepositoryProvider);
   final range = ref.watch(selectedDateRangeProvider);
   return repository.getSummary(startDate: range.start, endDate: range.end);
 });
 
-final dashboardSummaryProvider = FutureProvider<ReportSummaryDto>((ref) async {
+final dashboardSummaryProvider = FutureProvider.autoDispose<ReportSummaryDto>((ref) async {
+  ref.cacheFor(const Duration(minutes: 3));
   // Watch transactionListProvider to refresh when transactions are updated/synced
   ref.watch(transactionListProvider);
 
@@ -266,9 +291,10 @@ final dashboardSummaryProvider = FutureProvider<ReportSummaryDto>((ref) async {
   return repository.getSummary(startDate: startOfMonth, endDate: endOfMonth);
 });
 
-final previousPeriodSummaryProvider = FutureProvider<ReportSummaryDto>((
+final previousPeriodSummaryProvider = FutureProvider.autoDispose<ReportSummaryDto>((
   ref,
 ) async {
+  ref.cacheFor(const Duration(minutes: 3));
   ref.watch(transactionListProvider);
   final repository = ref.watch(reportRepositoryProvider);
   final filter = ref.watch(selectedTimeFilterProvider);
@@ -385,7 +411,8 @@ Future<ReportCategoryDto> _adjustReportCategories(
   }
 }
 
-final reportCategoriesProvider = FutureProvider<ReportCategoryDto>((ref) async {
+final reportCategoriesProvider = FutureProvider.autoDispose<ReportCategoryDto>((ref) async {
+  ref.cacheFor(const Duration(minutes: 3));
   ref.watch(transactionListProvider);
   final repository = ref.watch(reportRepositoryProvider);
   final range = ref.watch(selectedDateRangeProvider);
@@ -415,9 +442,10 @@ final reportCategoriesProvider = FutureProvider<ReportCategoryDto>((ref) async {
   );
 });
 
-final reportIncomeCategoriesProvider = FutureProvider<ReportCategoryDto>((
+final reportIncomeCategoriesProvider = FutureProvider.autoDispose<ReportCategoryDto>((
   ref,
 ) async {
+  ref.cacheFor(const Duration(minutes: 3));
   ref.watch(transactionListProvider);
   final repository = ref.watch(reportRepositoryProvider);
   final range = ref.watch(selectedDateRangeProvider);
@@ -447,9 +475,10 @@ final reportIncomeCategoriesProvider = FutureProvider<ReportCategoryDto>((
   );
 });
 
-final trendsDailyProvider = FutureProvider<List<ReportTrendEntryDto>>((
+final trendsDailyProvider = FutureProvider.autoDispose<List<ReportTrendEntryDto>>((
   ref,
 ) async {
+  ref.cacheFor(const Duration(minutes: 3));
   ref.watch(transactionListProvider);
   final range = ref.watch(selectedDateRangeProvider);
   final category = ref.watch(selectedTrendCategoryProvider);
@@ -542,9 +571,10 @@ final trendsDailyProvider = FutureProvider<List<ReportTrendEntryDto>>((
   return result;
 });
 
-final trends6MonthsProvider = FutureProvider<List<ReportTrendEntryDto>>((
+final trends6MonthsProvider = FutureProvider.autoDispose<List<ReportTrendEntryDto>>((
   ref,
 ) async {
+  ref.cacheFor(const Duration(minutes: 3));
   ref.watch(transactionListProvider);
   final repository = ref.watch(reportRepositoryProvider);
   final now = DateTime.now();
@@ -559,10 +589,11 @@ final trends6MonthsProvider = FutureProvider<List<ReportTrendEntryDto>>((
 
 // Dynamic trend provider for 6 weeks, 12 months, or 2 years
 final trendsFlexibleProvider =
-    FutureProvider.family<List<ReportTrendEntryDto>, String>((
+    FutureProvider.autoDispose.family<List<ReportTrendEntryDto>, String>((
       ref,
       timeMode,
     ) async {
+      ref.cacheFor(const Duration(minutes: 3));
       ref.watch(transactionListProvider);
       final repository = ref.watch(reportRepositoryProvider);
       final now = DateTime.now();
@@ -730,10 +761,11 @@ typedef CategoryPeriodArg = ({
   String type,
 });
 final categoriesByPeriodProvider =
-    FutureProvider.family<ReportCategoryDto, CategoryPeriodArg>((
+    FutureProvider.autoDispose.family<ReportCategoryDto, CategoryPeriodArg>((
       ref,
       arg,
     ) async {
+      ref.cacheFor(const Duration(minutes: 3));
       ref.watch(transactionListProvider);
       final repository = ref.watch(reportRepositoryProvider);
       final rawReport = await repository.getCategories(
@@ -759,10 +791,11 @@ typedef CategoryDetailTransArg = ({
   String type,
 });
 final categoryDetailTransactionsProvider =
-    FutureProvider.family<List<TransactionEntity>, CategoryDetailTransArg>((
+    FutureProvider.autoDispose.family<List<TransactionEntity>, CategoryDetailTransArg>((
       ref,
       arg,
     ) async {
+      ref.cacheFor(const Duration(minutes: 3));
       ref.watch(transactionListProvider);
       final useCase = ref.read(getTransactionsUseCaseProvider);
 
@@ -918,10 +951,11 @@ final categoryDetailTransactionsProvider =
       return sortedList;
     });
 
-final reportWalletsProvider = FutureProvider.family<ReportWalletDto, String>((
+final reportWalletsProvider = FutureProvider.autoDispose.family<ReportWalletDto, String>((
   ref,
   type,
 ) async {
+  ref.cacheFor(const Duration(minutes: 3));
   // Watch transactionListProvider to refresh when transactions are updated/synced
   ref.watch(transactionListProvider);
 

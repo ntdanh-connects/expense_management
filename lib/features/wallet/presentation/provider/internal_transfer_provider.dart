@@ -24,8 +24,10 @@ class InternalTransferHistoryNotifier extends StateNotifier<AsyncValue<List<Inte
     });
   }
 
-  Future<void> fetchTransferHistory() async {
-    state = const AsyncValue.loading();
+  Future<void> fetchTransferHistory({bool silent = false}) async {
+    if (!silent) {
+      state = const AsyncValue.loading();
+    }
     try {
       final history = await _repository.getTransferHistory();
       state = AsyncValue.data(history);

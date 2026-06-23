@@ -17,8 +17,10 @@ class SavingsListNotifier extends StateNotifier<AsyncValue<List<SavingsGoalEntit
     loadGoals();
   }
 
-  Future<void> loadGoals() async {
-    state = const AsyncValue.loading();
+  Future<void> loadGoals({bool silent = false}) async {
+    if (!silent) {
+      state = const AsyncValue.loading();
+    }
     try {
       final list = await _repository.getSavingsGoals();
       state = AsyncValue.data(list);
@@ -45,7 +47,7 @@ class SavingsListNotifier extends StateNotifier<AsyncValue<List<SavingsGoalEntit
         autoSaveAmount: autoSaveAmount,
         sourceWalletId: sourceWalletId,
       );
-      await loadGoals();
+      await loadGoals(silent: true);
       return goal;
     } catch (e, st) {
       logException(e, st, tag: 'SavingsListNotifier_createGoal');
@@ -56,7 +58,7 @@ class SavingsListNotifier extends StateNotifier<AsyncValue<List<SavingsGoalEntit
   Future<void> deleteGoal(String id) async {
     try {
       await _repository.deleteSavingsGoal(id);
-      await loadGoals();
+      await loadGoals(silent: true);
     } catch (e, st) {
       logException(e, st, tag: 'SavingsListNotifier_deleteGoal');
       rethrow;

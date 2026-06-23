@@ -144,15 +144,13 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
       await ref.read(notificationNotifierProvider.notifier).refresh();
 
       if (!mounted) return;
-      // Invalidate dashboard and reports providers to refresh state immediately
-      ref.invalidate(fetchDashboardSummaryProvider);
-      ref.invalidate(dashboardSummaryProvider);
-      ref.invalidate(reportSummaryProvider);
-      ref.invalidate(previousPeriodSummaryProvider);
-      ref.invalidate(reportCategoriesProvider);
-      ref.invalidate(budgetListProvider);
-      ref.invalidate(currentMonthBudgetsProvider);
-      ref.invalidate(filteredTransactionListProvider);
+      // Nạp lại các nguồn dữ liệu gốc ngân sách và bộ lọc giao dịch (báo cáo sẽ tự động làm mới ngầm)
+      await ref.read(budgetListProvider.notifier).refreshBudgets(silent: true);
+      try {
+        await ref
+            .read(filteredTransactionListProvider.notifier)
+            .refreshTransactions(silent: true);
+      } catch (_) {}
 
       // Trigger system and local notifications
       try {

@@ -189,7 +189,7 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
       
       _saveAlertPreferences();
 
-      await ref.read(budgetListProvider.notifier).refreshBudgets();
+      await ref.read(budgetListProvider.notifier).refreshBudgets(silent: true);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -264,7 +264,7 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
 
       await repository.deleteBudget(widget.budget.id);
 
-      await ref.read(budgetListProvider.notifier).refreshBudgets();
+      await ref.read(budgetListProvider.notifier).refreshBudgets(silent: true);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
