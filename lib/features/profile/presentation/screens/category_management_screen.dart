@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_management_shimmer.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
@@ -32,6 +31,12 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
       setState(() {
         _activeTabIndex = _tabController.index;
       });
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        // Invalidate để buộc fetch lại từ server khi vào màn hình
+        ref.invalidate(categoriesNotifierProvider);
+      }
     });
   }
 
@@ -80,7 +85,7 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) {
+      builder: (sheetContext) {
         return Container(
           decoration: BoxDecoration(
             color: colors.surface,
@@ -155,16 +160,24 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
                   leading: Icon(Icons.edit_outlined, color: colors.textPrimary),
                   title: Text('Chỉnh sửa danh mục', style: TextStyle(color: colors.textPrimary)),
                   onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CategoryEditScreen(
-                          category: category,
-                          parentCategories: allCategories.where((c) => c.type == category.type).toList(),
+                    // Đóng bottom sheet rồi dùng context của màn hình chính để push route mới
+                    Navigator.pop(sheetContext);
+                    if (mounted) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CategoryEditScreen(
+                            category: category,
+                            parentCategories: allCategories.where((c) => c.type == category.type).toList(),
+                          ),
                         ),
-                      ),
-                    );
+                      ).then((_) {
+                        // Refresh lại danh sách khi quay về từ màn hình chỉnh sửa
+                        if (mounted) {
+                          ref.read(categoriesNotifierProvider.notifier).refreshCategories(silent: true);
+                        }
+                      });
+                    }
                   },
                 ),
                 Divider(color: colors.textSecondary.withOpacity(0.1)),
@@ -173,7 +186,7 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
                   title: Text('Gộp danh mục', style: TextStyle(color: colors.textPrimary)),
                   onTap: () {
                     showModalBottomSheet(
-                      context: context,
+                      context: sheetContext,
                       isScrollControlled: true,
                       backgroundColor: Colors.transparent,
                       builder: (context) => MergeCategorySheet(
@@ -188,8 +201,11 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
                   leading: Icon(Icons.delete_outline_rounded, color: colors.expenseRed),
                   title: Text('Xóa danh mục', style: TextStyle(color: colors.expenseRed)),
                   onTap: () {
-                    Navigator.pop(context);
-                    _confirmDelete(context, category);
+                    // Đóng bottom sheet rồi dùng context của màn hình chính để show dialog
+                    Navigator.pop(sheetContext);
+                    if (mounted) {
+                      _confirmDelete(context, category);
+                    }
                   },
                 ),
               ],
@@ -258,6 +274,7 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    // Dùng ref.watch trực tiếp để đảm bảo rebuild khi provider thay đổi
     final categoriesAsync = ref.watch(categoriesNotifierProvider);
 
     return Scaffold(
@@ -313,61 +330,70 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
           ),
 
           Expanded(
-            child: categoriesAsync.when(
-              loading: () => const CategoryManagementShimmer(),
-              error: (error, __) => Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Lỗi tải danh mục từ Server',
-                      style: TextStyle(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(error.toString(), style: TextStyle(color: colors.textSecondary), textAlign: TextAlign.center),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => ref.read(categoriesNotifierProvider.notifier).refreshCategories(),
-                      child: const Text('Thử lại'),
-                    ),
-                  ],
-                ),
-              ),
-              data: (allCategories) {
-                final type = _activeTabIndex == 0 ? 'expense' : 'income';
-                // Filter to only expense/income type (exclude 'transfer' and others)
-                final parents = allCategories
-                    .where((c) => c.type == type && c.parentId == null)
-                    .toList();
-
-                // Compute custom categories count
-                int customCount = 0;
-                for (final parent in allCategories) {
-                  if (parent.type == type && parent.children != null) {
-                    customCount += parent.children!.where((c) => !c.isDefault).length;
-                  }
-                }
-
-                return SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Column(
-                    children: [
-                      // New Category Button Row
-                      _buildNewCategoryRow(type, parents, customCount),
-                      const SizedBox(height: 16),
-
-                      // List Content
-                      if (type == 'income')
-                        _buildIncomeView(parents, allCategories)
-                      else
-                        _buildExpenseView(parents, allCategories),
-                    ],
-                  ),
-                );
-              },
-            ),
+            child: _buildBody(colors, categoriesAsync),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody(AppColorsExtension colors, AsyncValue<List<CategoryDto>> categoriesAsync) {
+    // Ưu tiên: nếu đã có data (kể cả đang load lại) → hiện danh sách luôn
+    final allCategories = categoriesAsync.value;
+    if (allCategories != null) {
+      return _buildCategoryList(colors, allCategories);
+    }
+
+    // Chưa có data và có lỗi → show error
+    if (categoriesAsync.hasError) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Lỗi tải danh mục từ Server',
+              style: TextStyle(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(categoriesAsync.error.toString(), style: TextStyle(color: colors.textSecondary), textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => ref.read(categoriesNotifierProvider.notifier).refreshCategories(),
+              child: const Text('Thử lại'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Chưa có data, đang loading lần đầu → show shimmer
+    return const CategoryManagementShimmer();
+  }
+
+  Widget _buildCategoryList(AppColorsExtension colors, List<CategoryDto> allCategories) {
+    final type = _activeTabIndex == 0 ? 'expense' : 'income';
+    final parents = allCategories
+        .where((c) => c.type == type && c.parentId == null)
+        .toList();
+
+    int customCount = 0;
+    for (final parent in allCategories) {
+      if (parent.type == type && parent.children != null) {
+        customCount += parent.children!.where((c) => !c.isDefault).length;
+      }
+    }
+
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        children: [
+          _buildNewCategoryRow(type, parents, customCount),
+          const SizedBox(height: 16),
+          if (type == 'income')
+            _buildIncomeView(parents, allCategories)
+          else
+            _buildExpenseView(parents, allCategories),
         ],
       ),
     );

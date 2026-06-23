@@ -13,6 +13,7 @@ import 'package:expense_management/features/budget/data/models/budget_dto.dart';
 import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
+import 'package:expense_management/features/profile/presentation/providers/category_provider.dart';
 import 'package:expense_management/features/analytic/presentation/screens/statistics_tab.dart';
 import 'package:expense_management/features/analytic/presentation/screens/balance_fluctuation_tab.dart';
 import 'package:expense_management/features/analytic/presentation/screens/budget_tab.dart';
@@ -90,6 +91,11 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
 
           // 3. Refresh budgets (silent)
           await ref.read(budgetListProvider.notifier).refreshBudgets(silent: true);
+
+          // 4. Refresh categories (silent)
+          await ref
+              .read(categoriesNotifierProvider.notifier)
+              .refreshCategories(silent: true);
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(

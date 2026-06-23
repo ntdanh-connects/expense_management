@@ -15,18 +15,35 @@ class ReportRepositoryImpl implements ReportRepository {
     return DateFormat('yyyy-MM-dd').format(date);
   }
 
+  final Map<String, Future<ReportSummaryDto>> _summaryRequests = {};
+
   @override
   Future<ReportSummaryDto> getSummary({
     required DateTime startDate,
     required DateTime endDate,
     String? walletId,
-  }) async {
-    final response = await _apiService.getSummary(
-      startDate: _formatDate(startDate),
-      endDate: _formatDate(endDate),
+  }) {
+    final startStr = _formatDate(startDate);
+    final endStr = _formatDate(endDate);
+    final cacheKey = '${startStr}_${endStr}_${walletId ?? ''}';
+
+    if (_summaryRequests.containsKey(cacheKey)) {
+      return _summaryRequests[cacheKey]!;
+    }
+
+    final future = _apiService.getSummary(
+      startDate: startStr,
+      endDate: endStr,
       walletId: walletId,
-    );
-    return response.data;
+    ).then((response) => response.data);
+
+    _summaryRequests[cacheKey] = future;
+
+    future.whenComplete(() {
+      _summaryRequests.remove(cacheKey);
+    });
+
+    return future;
   }
 
   @override

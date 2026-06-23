@@ -212,6 +212,9 @@ class _TransactionHistoryScreenState
                 await ref
                     .read(filteredTransactionListProvider.notifier)
                     .refreshTransactions(silent: false);
+                await ref
+                    .read(categoriesNotifierProvider.notifier)
+                    .refreshCategories(silent: true);
               },
               child: transactionState.when(
                 data: (txList) {

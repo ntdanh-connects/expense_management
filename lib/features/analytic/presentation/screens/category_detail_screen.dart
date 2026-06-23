@@ -161,8 +161,30 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
           ),
         ],
       ),
-      body: txAsync.when(
-        data: (transactions) {
+      body: () {
+        final transactions = txAsync.value;
+        if (transactions == null) {
+          if (txAsync.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Text(
+                  'Lỗi tải dữ liệu chi tiết: ${txAsync.error}',
+                  style: TextStyle(color: colors.expenseRed),
+                ),
+              ),
+            );
+          }
+          return Column(
+            children: [
+              _buildShimmerHeader(colors),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: _buildShimmerCard(height: 200, colors: colors),
+              ),
+            ],
+          );
+        }
           // 1. Generate the periods buckets (5 periods: 0 to 4)
           final periods = _generatePeriods(
             chartStartDate,
@@ -736,26 +758,7 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
               ],
             ),
           );
-        },
-        loading: () => Column(
-          children: [
-            _buildShimmerHeader(colors),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: _buildShimmerCard(height: 200, colors: colors),
-            ),
-          ],
-        ),
-        error: (err, stack) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Text(
-              'Lỗi tải dữ liệu chi tiết: $err',
-              style: TextStyle(color: colors.expenseRed),
-            ),
-          ),
-        ),
-      ),
+      }(),
     );
   }
 
