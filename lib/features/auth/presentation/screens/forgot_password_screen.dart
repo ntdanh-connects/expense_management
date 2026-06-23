@@ -1,7 +1,7 @@
 import 'package:elegant_notification/elegant_notification.dart';
 import 'package:elegant_notification/resources/arrays.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
-import 'package:expense_management/features/auth/forgot_password_provider.dart';
+import 'package:expense_management/features/auth/presentation/providers/forgot_password_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';

@@ -11,8 +11,8 @@ import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/core/language/app_provider.dart';
 import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
-import 'package:expense_management/features/profile/category_provider.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/category_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 import 'package:expense_management/features/reporting_export/presentation/providers/reporting_export_providers.dart';
 import 'package:elegant_notification/elegant_notification.dart';
 import 'package:expense_management/core/utils/app_logger.dart';
@@ -245,11 +245,11 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
           ).show(context);
         }
 
-        final dio = ref.read(dioClientProvider);
+        final repo = ref.read(reportingExportRepositoryProvider);
         final tempDir = await getTemporaryDirectory();
         final savePath = '${tempDir.path}/${item.name}';
         
-        await dio.download(item.pathOrUrl, savePath);
+        await repo.downloadFile(item.pathOrUrl, savePath);
 
         // Open local downloaded file
         await OpenFile.open(savePath);

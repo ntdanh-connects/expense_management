@@ -9,12 +9,18 @@ import 'package:expense_management/core/utils/app_logger.dart';
 import '../../domain/entities/wallet_entity.dart';
 import '../../domain/entities/internal_transfer_record.dart';
 
-class WalletRepositoryImpl  implements WalletRepository{
+class WalletRepositoryImpl implements WalletRepository {
   final WalletApiService _apiService;
   final WalletLocalService _localDataSource;
   final SecureStorageService _secureStorage;
+  final Future<void> Function()? _cleanCache;
 
-  WalletRepositoryImpl(this._apiService, this._localDataSource, this._secureStorage);
+  WalletRepositoryImpl(
+    this._apiService,
+    this._localDataSource,
+    this._secureStorage, {
+    Future<void> Function()? cleanCache,
+  }) : _cleanCache = cleanCache;
 
   @override
   Future<void> syncWalletsImplicit() async {
@@ -180,6 +186,10 @@ class WalletRepositoryImpl  implements WalletRepository{
       final response = await _apiService.simulateSandboxTransfer(body);
       AppLogger.info("☁️ [Wallet-Sync] Giả lập nhận tiền thành công trên Remote Server! Tiến hành đồng bộ lại ví...", tag: "Wallet-Sync");
       await syncWalletsImplicit();
+
+      try {
+        await _cleanCache?.call();
+      } catch (_) {}
 
       final data = response.data;
       if (data is Map<String, dynamic>) {

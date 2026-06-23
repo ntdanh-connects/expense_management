@@ -2,16 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart';
 import 'package:expense_management/core/database/app_database.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 import 'package:expense_management/core/network/dio_client.dart';
-import 'package:expense_management/features/analytic/data/datasource/remote/report_api_service.dart';
 import 'package:expense_management/features/profile/data/models/category_dto.dart';
 import 'package:expense_management/features/analytic/data/models/report_category_dto.dart';
 import 'package:expense_management/features/analytic/data/models/report_summary_dto.dart';
 import 'package:expense_management/features/analytic/data/models/report_trend_dto.dart';
 import 'package:expense_management/features/analytic/data/models/report_wallet_dto.dart';
-import 'package:expense_management/features/analytic/data/repository_impl/report_repository_impl.dart';
-import 'package:expense_management/features/analytic/domain/repository/report_repository.dart';
+import 'package:expense_management/features/analytic/domain/di/domain_providers.dart';
+export 'package:expense_management/features/analytic/domain/di/domain_providers.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -20,33 +19,30 @@ import 'package:intl/intl.dart';
 
 enum TimeFilter { thisWeek, thisMonth, thisQuarter, thisYear, custom }
 
-// API & Repo Providers
-final reportApiServiceProvider = Provider<ReportApiService>((ref) {
-  final dio = ref.watch(dioClientProvider);
-  return ReportApiService(dio);
-});
-
-final reportRepositoryProvider = Provider<ReportRepository>((ref) {
-  final apiService = ref.watch(reportApiServiceProvider);
-  return ReportRepositoryImpl(apiService);
-});
-
 // UI State Providers
-final selectedTimeFilterProvider = StateProvider<TimeFilter>((ref) => TimeFilter.thisMonth);
+final selectedTimeFilterProvider = StateProvider<TimeFilter>(
+  (ref) => TimeFilter.thisMonth,
+);
 
 final customDateRangeProvider = StateProvider<DateTimeRange?>((ref) => null);
 
-final selectedAnalyticTabProvider = StateProvider<String>((ref) => 'statistics');
+final selectedAnalyticTabProvider = StateProvider<String>(
+  (ref) => 'statistics',
+);
 
 final selectedTrendTypeProvider = StateProvider<String>((ref) => 'expense');
 
-final selectedTrendCategoryProvider = StateProvider<CategoryDto?>((ref) => null);
+final selectedTrendCategoryProvider = StateProvider<CategoryDto?>(
+  (ref) => null,
+);
 
 final selectedDateRangeProvider = Provider<DateTimeRange>((ref) {
   final filter = ref.watch(selectedTimeFilterProvider);
   final customRange = ref.watch(customDateRangeProvider);
-  
-  final tzName = ref.watch(currentUserProvider.select((u) => u?.timezone)) ?? 'Asia/Ho_Chi_Minh';
+
+  final tzName =
+      ref.watch(currentUserProvider.select((u) => u?.timezone)) ??
+      'Asia/Ho_Chi_Minh';
   final location = tz.getLocation(tzName);
   final now = tz.TZDateTime.now(location);
 
@@ -55,17 +51,51 @@ final selectedDateRangeProvider = Provider<DateTimeRange>((ref) {
       final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
       final endOfWeek = startOfWeek.add(const Duration(days: 6));
       return DateTimeRange(
-        start: tz.TZDateTime(location, startOfWeek.year, startOfWeek.month, startOfWeek.day),
-        end: tz.TZDateTime(location, endOfWeek.year, endOfWeek.month, endOfWeek.day, 23, 59, 59),
+        start: tz.TZDateTime(
+          location,
+          startOfWeek.year,
+          startOfWeek.month,
+          startOfWeek.day,
+        ),
+        end: tz.TZDateTime(
+          location,
+          endOfWeek.year,
+          endOfWeek.month,
+          endOfWeek.day,
+          23,
+          59,
+          59,
+        ),
       );
     case TimeFilter.thisMonth:
       final startOfMonth = tz.TZDateTime(location, now.year, now.month, 1);
-      final endOfMonth = tz.TZDateTime(location, now.year, now.month + 1, 0, 23, 59, 59);
+      final endOfMonth = tz.TZDateTime(
+        location,
+        now.year,
+        now.month + 1,
+        0,
+        23,
+        59,
+        59,
+      );
       return DateTimeRange(start: startOfMonth, end: endOfMonth);
     case TimeFilter.thisQuarter:
       final quarter = ((now.month - 1) / 3).floor();
-      final startOfQuarter = tz.TZDateTime(location, now.year, quarter * 3 + 1, 1);
-      final endOfQuarter = tz.TZDateTime(location, now.year, (quarter + 1) * 3 + 1, 0, 23, 59, 59);
+      final startOfQuarter = tz.TZDateTime(
+        location,
+        now.year,
+        quarter * 3 + 1,
+        1,
+      );
+      final endOfQuarter = tz.TZDateTime(
+        location,
+        now.year,
+        (quarter + 1) * 3 + 1,
+        0,
+        23,
+        59,
+        59,
+      );
       return DateTimeRange(start: startOfQuarter, end: endOfQuarter);
     case TimeFilter.thisYear:
       final startOfYear = tz.TZDateTime(location, now.year, 1, 1);
@@ -75,13 +105,24 @@ final selectedDateRangeProvider = Provider<DateTimeRange>((ref) {
       return customRange ??
           DateTimeRange(
             start: tz.TZDateTime(location, now.year, now.month, 1),
-            end: tz.TZDateTime(location, now.year, now.month + 1, 0, 23, 59, 59),
+            end: tz.TZDateTime(
+              location,
+              now.year,
+              now.month + 1,
+              0,
+              23,
+              59,
+              59,
+            ),
           );
   }
 });
 
 // Helper for Previous Period calculation
-DateTimeRange getPreviousPeriodRange(TimeFilter filter, DateTimeRange currentRange) {
+DateTimeRange getPreviousPeriodRange(
+  TimeFilter filter,
+  DateTimeRange currentRange,
+) {
   final start = currentRange.start;
   final end = currentRange.end;
 
@@ -90,16 +131,48 @@ DateTimeRange getPreviousPeriodRange(TimeFilter filter, DateTimeRange currentRan
     switch (filter) {
       case TimeFilter.thisWeek:
         return DateTimeRange(
-          start: tz.TZDateTime.from(start.subtract(const Duration(days: 7)), location),
-          end: tz.TZDateTime.from(end.subtract(const Duration(days: 7)), location),
+          start: tz.TZDateTime.from(
+            start.subtract(const Duration(days: 7)),
+            location,
+          ),
+          end: tz.TZDateTime.from(
+            end.subtract(const Duration(days: 7)),
+            location,
+          ),
         );
       case TimeFilter.thisMonth:
-        final prevMonthStart = tz.TZDateTime(location, start.year, start.month - 1, 1);
-        final prevMonthEnd = tz.TZDateTime(location, start.year, start.month, 0, 23, 59, 59);
+        final prevMonthStart = tz.TZDateTime(
+          location,
+          start.year,
+          start.month - 1,
+          1,
+        );
+        final prevMonthEnd = tz.TZDateTime(
+          location,
+          start.year,
+          start.month,
+          0,
+          23,
+          59,
+          59,
+        );
         return DateTimeRange(start: prevMonthStart, end: prevMonthEnd);
       case TimeFilter.thisQuarter:
-        final prevQuarterStart = tz.TZDateTime(location, start.year, start.month - 3, 1);
-        final prevQuarterEnd = tz.TZDateTime(location, start.year, start.month, 0, 23, 59, 59);
+        final prevQuarterStart = tz.TZDateTime(
+          location,
+          start.year,
+          start.month - 3,
+          1,
+        );
+        final prevQuarterEnd = tz.TZDateTime(
+          location,
+          start.year,
+          start.month,
+          0,
+          23,
+          59,
+          59,
+        );
         return DateTimeRange(start: prevQuarterStart, end: prevQuarterEnd);
       case TimeFilter.thisYear:
         return DateTimeRange(
@@ -112,7 +185,15 @@ DateTimeRange getPreviousPeriodRange(TimeFilter filter, DateTimeRange currentRan
         final prevStart = prevEnd.subtract(duration);
         return DateTimeRange(
           start: tz.TZDateTime.from(prevStart, location),
-          end: tz.TZDateTime(location, prevEnd.year, prevEnd.month, prevEnd.day, 23, 59, 59),
+          end: tz.TZDateTime(
+            location,
+            prevEnd.year,
+            prevEnd.month,
+            prevEnd.day,
+            23,
+            59,
+            59,
+          ),
         );
     }
   }
@@ -141,7 +222,10 @@ DateTimeRange getPreviousPeriodRange(TimeFilter filter, DateTimeRange currentRan
       final duration = end.difference(start);
       final prevEnd = start.subtract(const Duration(days: 1));
       final prevStart = prevEnd.subtract(duration);
-      return DateTimeRange(start: prevStart, end: DateTime(prevEnd.year, prevEnd.month, prevEnd.day, 23, 59, 59));
+      return DateTimeRange(
+        start: prevStart,
+        end: DateTime(prevEnd.year, prevEnd.month, prevEnd.day, 23, 59, 59),
+      );
   }
 }
 
@@ -150,10 +234,7 @@ final reportSummaryProvider = FutureProvider<ReportSummaryDto>((ref) async {
   ref.watch(transactionListProvider);
   final repository = ref.watch(reportRepositoryProvider);
   final range = ref.watch(selectedDateRangeProvider);
-  return repository.getSummary(
-    startDate: range.start,
-    endDate: range.end,
-  );
+  return repository.getSummary(startDate: range.start, endDate: range.end);
 });
 
 final dashboardSummaryProvider = FutureProvider<ReportSummaryDto>((ref) async {
@@ -172,15 +253,22 @@ final dashboardSummaryProvider = FutureProvider<ReportSummaryDto>((ref) async {
   final location = tz.getLocation(tzName);
   final now = tz.TZDateTime.now(location);
   final startOfMonth = tz.TZDateTime(location, now.year, now.month, 1);
-  final endOfMonth = tz.TZDateTime(location, now.year, now.month + 1, 0, 23, 59, 59);
-
-  return repository.getSummary(
-    startDate: startOfMonth,
-    endDate: endOfMonth,
+  final endOfMonth = tz.TZDateTime(
+    location,
+    now.year,
+    now.month + 1,
+    0,
+    23,
+    59,
+    59,
   );
+
+  return repository.getSummary(startDate: startOfMonth, endDate: endOfMonth);
 });
 
-final previousPeriodSummaryProvider = FutureProvider<ReportSummaryDto>((ref) async {
+final previousPeriodSummaryProvider = FutureProvider<ReportSummaryDto>((
+  ref,
+) async {
   ref.watch(transactionListProvider);
   final repository = ref.watch(reportRepositoryProvider);
   final filter = ref.watch(selectedTimeFilterProvider);
@@ -193,12 +281,19 @@ final previousPeriodSummaryProvider = FutureProvider<ReportSummaryDto>((ref) asy
 });
 
 Future<ReportCategoryDto> _adjustReportCategories(
-    Ref ref, ReportCategoryDto dto, String type, DateTime startDate, DateTime endDate) async {
+  Ref ref,
+  ReportCategoryDto dto,
+  String type,
+  DateTime startDate,
+  DateTime endDate,
+) async {
   try {
     final useCase = ref.read(getTransactionsUseCaseProvider);
     final result = await useCase.execute(
       startDate: DateFormat('yyyy-MM-dd').format(startDate),
-      endDate: DateFormat('yyyy-MM-dd').format(endDate.add(const Duration(days: 1))),
+      endDate: DateFormat(
+        'yyyy-MM-dd',
+      ).format(endDate.add(const Duration(days: 1))),
       type: type,
       sortBy: 'date',
       sortOrder: 'desc',
@@ -218,7 +313,8 @@ Future<ReportCategoryDto> _adjustReportCategories(
     if (newTotalAmount < 0) newTotalAmount = 0.0;
 
     for (final cat in dto.categories) {
-      final isUncat = cat.categoryId == 'uncategorized' ||
+      final isUncat =
+          cat.categoryId == 'uncategorized' ||
           cat.categoryId.isEmpty ||
           cat.categoryId == 'null' ||
           cat.categoryName == 'Chưa phân loại' ||
@@ -226,43 +322,59 @@ Future<ReportCategoryDto> _adjustReportCategories(
       if (isUncat) {
         double newAmt = cat.amount - transferTotal;
         if (newAmt < 0) newAmt = 0.0;
-        
+
         if (newAmt > 0) {
-          categories.add(ReportCategoryEntryDto(
+          categories.add(
+            ReportCategoryEntryDto(
+              categoryId: cat.categoryId,
+              categoryName: cat.categoryName,
+              categoryColor: cat.categoryColor,
+              categoryIcon: cat.categoryIcon,
+              parentId: cat.parentId,
+              parentName: cat.parentName,
+              amount: newAmt,
+              percentage: newTotalAmount > 0
+                  ? (newAmt / newTotalAmount) * 100
+                  : 0.0,
+            ),
+          );
+        }
+      } else {
+        categories.add(
+          ReportCategoryEntryDto(
             categoryId: cat.categoryId,
             categoryName: cat.categoryName,
             categoryColor: cat.categoryColor,
             categoryIcon: cat.categoryIcon,
             parentId: cat.parentId,
             parentName: cat.parentName,
-            amount: newAmt,
-            percentage: newTotalAmount > 0 ? (newAmt / newTotalAmount) * 100 : 0.0,
-          ));
-        }
-      } else {
-        categories.add(ReportCategoryEntryDto(
-          categoryId: cat.categoryId,
-          categoryName: cat.categoryName,
-          categoryColor: cat.categoryColor,
-          categoryIcon: cat.categoryIcon,
-          parentId: cat.parentId,
-          parentName: cat.parentName,
-          amount: cat.amount,
-          percentage: newTotalAmount > 0 ? (cat.amount / newTotalAmount) * 100 : 0.0,
-        ));
+            amount: cat.amount,
+            percentage: newTotalAmount > 0
+                ? (cat.amount / newTotalAmount) * 100
+                : 0.0,
+          ),
+        );
       }
     }
 
-    final finalCategories = categories.map((cat) => ReportCategoryEntryDto(
-      categoryId: cat.categoryId,
-      categoryName: cat.categoryName,
-      categoryColor: cat.categoryColor,
-      categoryIcon: cat.categoryIcon,
-      parentId: cat.parentId,
-      parentName: cat.parentName,
-      amount: cat.amount,
-      percentage: newTotalAmount > 0 ? (cat.amount / newTotalAmount) * 100 : 0.0,
-    )).toList()..sort((a, b) => b.amount.compareTo(a.amount));
+    final finalCategories =
+        categories
+            .map(
+              (cat) => ReportCategoryEntryDto(
+                categoryId: cat.categoryId,
+                categoryName: cat.categoryName,
+                categoryColor: cat.categoryColor,
+                categoryIcon: cat.categoryIcon,
+                parentId: cat.parentId,
+                parentName: cat.parentName,
+                amount: cat.amount,
+                percentage: newTotalAmount > 0
+                    ? (cat.amount / newTotalAmount) * 100
+                    : 0.0,
+              ),
+            )
+            .toList()
+          ..sort((a, b) => b.amount.compareTo(a.amount));
 
     return ReportCategoryDto(
       totalAmount: newTotalAmount,
@@ -294,10 +406,18 @@ final reportCategoriesProvider = FutureProvider<ReportCategoryDto>((ref) async {
       type: 'expense',
     );
   }
-  return _adjustReportCategories(ref, rawReport, 'expense', range.start, range.end);
+  return _adjustReportCategories(
+    ref,
+    rawReport,
+    'expense',
+    range.start,
+    range.end,
+  );
 });
 
-final reportIncomeCategoriesProvider = FutureProvider<ReportCategoryDto>((ref) async {
+final reportIncomeCategoriesProvider = FutureProvider<ReportCategoryDto>((
+  ref,
+) async {
   ref.watch(transactionListProvider);
   final repository = ref.watch(reportRepositoryProvider);
   final range = ref.watch(selectedDateRangeProvider);
@@ -318,10 +438,18 @@ final reportIncomeCategoriesProvider = FutureProvider<ReportCategoryDto>((ref) a
       type: 'income',
     );
   }
-  return _adjustReportCategories(ref, rawReport, 'income', range.start, range.end);
+  return _adjustReportCategories(
+    ref,
+    rawReport,
+    'income',
+    range.start,
+    range.end,
+  );
 });
 
-final trendsDailyProvider = FutureProvider<List<ReportTrendEntryDto>>((ref) async {
+final trendsDailyProvider = FutureProvider<List<ReportTrendEntryDto>>((
+  ref,
+) async {
   ref.watch(transactionListProvider);
   final range = ref.watch(selectedDateRangeProvider);
   final category = ref.watch(selectedTrendCategoryProvider);
@@ -338,12 +466,14 @@ final trendsDailyProvider = FutureProvider<List<ReportTrendEntryDto>>((ref) asyn
   // Calculate trends locally for the selected category (both income and expense)
   final useCase = ref.read(getTransactionsUseCaseProvider);
   final isUncategorized = category.id == 'uncategorized';
-  
+
   // Fetch transactions matching the category ID and date range
   final resultTransactions = await useCase.execute(
     categoryId: isUncategorized ? null : category.id,
     startDate: DateFormat('yyyy-MM-dd').format(range.start),
-    endDate: DateFormat('yyyy-MM-dd').format(range.end.add(const Duration(days: 1))),
+    endDate: DateFormat(
+      'yyyy-MM-dd',
+    ).format(range.end.add(const Duration(days: 1))),
     type: null,
     sortBy: 'date',
     sortOrder: 'asc',
@@ -352,9 +482,13 @@ final trendsDailyProvider = FutureProvider<List<ReportTrendEntryDto>>((ref) asyn
 
   var allTransactions = resultTransactions.items;
   if (isUncategorized) {
-    allTransactions = allTransactions.where((tx) =>
-        (tx.categoryId == null || tx.categoryName == null) &&
-        !tx.isTransferLocked).toList();
+    allTransactions = allTransactions
+        .where(
+          (tx) =>
+              (tx.categoryId == null || tx.categoryName == null) &&
+              !tx.isTransferLocked,
+        )
+        .toList();
   }
 
   // Deduplicate transactions by ID defensively
@@ -362,7 +496,9 @@ final trendsDailyProvider = FutureProvider<List<ReportTrendEntryDto>>((ref) asyn
   final cleanTransactions = uniqueMap.values.toList();
 
   // Group by day inside user timezone
-  final tzName = ref.watch(currentUserProvider.select((u) => u?.timezone)) ?? 'Asia/Ho_Chi_Minh';
+  final tzName =
+      ref.watch(currentUserProvider.select((u) => u?.timezone)) ??
+      'Asia/Ho_Chi_Minh';
   final location = tz.getLocation(tzName);
 
   final Map<String, List<TransactionEntity>> grouped = {};
@@ -391,12 +527,14 @@ final trendsDailyProvider = FutureProvider<List<ReportTrendEntryDto>>((ref) asyn
       }
     }
 
-    result.add(ReportTrendEntryDto(
-      label: DateFormat('dd/MM').format(current),
-      date: dateStr,
-      income: income,
-      expense: expense,
-    ));
+    result.add(
+      ReportTrendEntryDto(
+        label: DateFormat('dd/MM').format(current),
+        date: dateStr,
+        income: income,
+        expense: expense,
+      ),
+    );
 
     current = current.add(const Duration(days: 1));
   }
@@ -404,7 +542,9 @@ final trendsDailyProvider = FutureProvider<List<ReportTrendEntryDto>>((ref) asyn
   return result;
 });
 
-final trends6MonthsProvider = FutureProvider<List<ReportTrendEntryDto>>((ref) async {
+final trends6MonthsProvider = FutureProvider<List<ReportTrendEntryDto>>((
+  ref,
+) async {
   ref.watch(transactionListProvider);
   final repository = ref.watch(reportRepositoryProvider);
   final now = DateTime.now();
@@ -418,296 +558,370 @@ final trends6MonthsProvider = FutureProvider<List<ReportTrendEntryDto>>((ref) as
 });
 
 // Dynamic trend provider for 6 weeks, 12 months, or 2 years
-final trendsFlexibleProvider = FutureProvider.family<List<ReportTrendEntryDto>, String>((ref, timeMode) async {
-  ref.watch(transactionListProvider);
-  final repository = ref.watch(reportRepositoryProvider);
-  final now = DateTime.now();
+final trendsFlexibleProvider =
+    FutureProvider.family<List<ReportTrendEntryDto>, String>((
+      ref,
+      timeMode,
+    ) async {
+      ref.watch(transactionListProvider);
+      final repository = ref.watch(reportRepositoryProvider);
+      final now = DateTime.now();
 
-  if (timeMode == 'week') {
-    // 6 weeks: from 5 weeks ago Monday to end of this week Sunday.
-    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-    final startDate = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day).subtract(const Duration(days: 35));
-    final endDate = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day).add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
+      if (timeMode == 'week') {
+        // 6 weeks: from 5 weeks ago Monday to end of this week Sunday.
+        final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+        final startDate = DateTime(
+          startOfWeek.year,
+          startOfWeek.month,
+          startOfWeek.day,
+        ).subtract(const Duration(days: 35));
+        final endDate = DateTime(
+          startOfWeek.year,
+          startOfWeek.month,
+          startOfWeek.day,
+        ).add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
 
-    final dailyTrends = await repository.getTrends(
-      startDate: startDate,
-      endDate: endDate,
-      groupBy: 'day',
-    );
+        final dailyTrends = await repository.getTrends(
+          startDate: startDate,
+          endDate: endDate,
+          groupBy: 'day',
+        );
 
-    final List<ReportTrendEntryDto> weeklyTrends = [];
-    for (int i = 0; i < 6; i++) {
-      final weekStart = startDate.add(Duration(days: i * 7));
-      final weekEnd = weekStart.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
+        final List<ReportTrendEntryDto> weeklyTrends = [];
+        for (int i = 0; i < 6; i++) {
+          final weekStart = startDate.add(Duration(days: i * 7));
+          final weekEnd = weekStart.add(
+            const Duration(days: 6, hours: 23, minutes: 59, seconds: 59),
+          );
 
-      double income = 0;
-      double expense = 0;
+          double income = 0;
+          double expense = 0;
 
-      for (final entry in dailyTrends) {
-        if (entry.date != null) {
-          final entryDate = DateTime.tryParse(entry.date!);
-          if (entryDate != null &&
-              entryDate.isAfter(weekStart.subtract(const Duration(seconds: 1))) &&
-              entryDate.isBefore(weekEnd.add(const Duration(seconds: 1)))) {
-            income += entry.income;
-            expense += entry.expense;
+          for (final entry in dailyTrends) {
+            if (entry.date != null) {
+              final entryDate = DateTime.tryParse(entry.date!);
+              if (entryDate != null &&
+                  entryDate.isAfter(
+                    weekStart.subtract(const Duration(seconds: 1)),
+                  ) &&
+                  entryDate.isBefore(weekEnd.add(const Duration(seconds: 1)))) {
+                income += entry.income;
+                expense += entry.expense;
+              }
+            }
           }
-        }
-      }
 
-      final label = '${weekStart.day}/${weekStart.month}-${weekEnd.day}/${weekEnd.month}';
-      weeklyTrends.add(ReportTrendEntryDto(
-        label: label,
-        date: DateFormat('yyyy-MM-dd').format(weekStart),
-        month: weekStart.month,
-        year: weekStart.year,
-        income: income,
-        expense: expense,
-      ));
-    }
-    return weeklyTrends;
-  } else if (timeMode == 'month') {
-    final startDate = DateTime(now.year, now.month - 11, 1);
-    final endDate = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
-
-    final trends = await repository.getTrends(
-      startDate: startDate,
-      endDate: endDate,
-      groupBy: 'month',
-    );
-
-    final List<ReportTrendEntryDto> result = [];
-    for (int i = 11; i >= 0; i--) {
-      final targetMonth = DateTime(now.year, now.month - i, 1);
-      final label = 'T${targetMonth.month}';
-      final match = trends.firstWhere(
-        (ReportTrendEntryDto t) => t.month == targetMonth.month && t.year == targetMonth.year,
-        orElse: () {
-          return trends.firstWhere(
-            (ReportTrendEntryDto t) =>
-                t.label.contains('${targetMonth.month}/${targetMonth.year}') ||
-                t.label.contains('${targetMonth.year}-${targetMonth.month.toString().padLeft(2, '0')}'),
-            orElse: () => ReportTrendEntryDto(
+          final label =
+              '${weekStart.day}/${weekStart.month}-${weekEnd.day}/${weekEnd.month}';
+          weeklyTrends.add(
+            ReportTrendEntryDto(
               label: label,
-              date: DateFormat('yyyy-MM-dd').format(targetMonth),
-              month: targetMonth.month,
-              year: targetMonth.year,
-              income: 0.0,
-              expense: 0.0,
+              date: DateFormat('yyyy-MM-dd').format(weekStart),
+              month: weekStart.month,
+              year: weekStart.year,
+              income: income,
+              expense: expense,
             ),
           );
-        },
-      );
+        }
+        return weeklyTrends;
+      } else if (timeMode == 'month') {
+        final startDate = DateTime(now.year, now.month - 11, 1);
+        final endDate = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
 
-      result.add(ReportTrendEntryDto(
-        label: label,
-        date: match.date ?? DateFormat('yyyy-MM-dd').format(targetMonth),
-        month: targetMonth.month,
-        year: targetMonth.year,
-        income: match.income,
-        expense: match.expense,
-      ));
-    }
-    return result;
-  } else {
-    // timeMode == 'year' -> 2 years (last year and this year)
-    final startDate = DateTime(now.year - 1, 1, 1);
-    final endDate = DateTime(now.year, 12, 31, 23, 59, 59);
+        final trends = await repository.getTrends(
+          startDate: startDate,
+          endDate: endDate,
+          groupBy: 'month',
+        );
 
-    final monthlyTrends = await repository.getTrends(
-      startDate: startDate,
-      endDate: endDate,
-      groupBy: 'month',
-    );
+        final List<ReportTrendEntryDto> result = [];
+        for (int i = 11; i >= 0; i--) {
+          final targetMonth = DateTime(now.year, now.month - i, 1);
+          final label = 'T${targetMonth.month}';
+          final match = trends.firstWhere(
+            (ReportTrendEntryDto t) =>
+                t.month == targetMonth.month && t.year == targetMonth.year,
+            orElse: () {
+              return trends.firstWhere(
+                (ReportTrendEntryDto t) =>
+                    t.label.contains(
+                      '${targetMonth.month}/${targetMonth.year}',
+                    ) ||
+                    t.label.contains(
+                      '${targetMonth.year}-${targetMonth.month.toString().padLeft(2, '0')}',
+                    ),
+                orElse: () => ReportTrendEntryDto(
+                  label: label,
+                  date: DateFormat('yyyy-MM-dd').format(targetMonth),
+                  month: targetMonth.month,
+                  year: targetMonth.year,
+                  income: 0.0,
+                  expense: 0.0,
+                ),
+              );
+            },
+          );
 
-    double thisYearIncome = 0;
-    double thisYearExpense = 0;
-    double lastYearIncome = 0;
-    double lastYearExpense = 0;
+          result.add(
+            ReportTrendEntryDto(
+              label: label,
+              date: match.date ?? DateFormat('yyyy-MM-dd').format(targetMonth),
+              month: targetMonth.month,
+              year: targetMonth.year,
+              income: match.income,
+              expense: match.expense,
+            ),
+          );
+        }
+        return result;
+      } else {
+        // timeMode == 'year' -> 2 years (last year and this year)
+        final startDate = DateTime(now.year - 1, 1, 1);
+        final endDate = DateTime(now.year, 12, 31, 23, 59, 59);
 
-    for (final entry in monthlyTrends) {
-      if (entry.year == now.year || entry.label.contains('${now.year}')) {
-        thisYearIncome += entry.income;
-        thisYearExpense += entry.expense;
-      } else if (entry.year == now.year - 1 || entry.label.contains('${now.year - 1}')) {
-        lastYearIncome += entry.income;
-        lastYearExpense += entry.expense;
+        final monthlyTrends = await repository.getTrends(
+          startDate: startDate,
+          endDate: endDate,
+          groupBy: 'month',
+        );
+
+        double thisYearIncome = 0;
+        double thisYearExpense = 0;
+        double lastYearIncome = 0;
+        double lastYearExpense = 0;
+
+        for (final entry in monthlyTrends) {
+          if (entry.year == now.year || entry.label.contains('${now.year}')) {
+            thisYearIncome += entry.income;
+            thisYearExpense += entry.expense;
+          } else if (entry.year == now.year - 1 ||
+              entry.label.contains('${now.year - 1}')) {
+            lastYearIncome += entry.income;
+            lastYearExpense += entry.expense;
+          }
+        }
+
+        return [
+          ReportTrendEntryDto(
+            label: '${now.year - 1}',
+            date: '${now.year - 1}-01-01',
+            month: 1,
+            year: now.year - 1,
+            income: lastYearIncome,
+            expense: lastYearExpense,
+          ),
+          ReportTrendEntryDto(
+            label: '${now.year}',
+            date: '${now.year}-01-01',
+            month: 1,
+            year: now.year,
+            income: thisYearIncome,
+            expense: thisYearExpense,
+          ),
+        ];
       }
-    }
-
-    return [
-      ReportTrendEntryDto(
-        label: '${now.year - 1}',
-        date: '${now.year - 1}-01-01',
-        month: 1,
-        year: now.year - 1,
-        income: lastYearIncome,
-        expense: lastYearExpense,
-      ),
-      ReportTrendEntryDto(
-        label: '${now.year}',
-        date: '${now.year}-01-01',
-        month: 1,
-        year: now.year,
-        income: thisYearIncome,
-        expense: thisYearExpense,
-      ),
-    ];
-  }
-});
+    });
 
 // Category breakdown provider for custom periods
-typedef CategoryPeriodArg = ({DateTime startDate, DateTime endDate, String type});
-final categoriesByPeriodProvider = FutureProvider.family<ReportCategoryDto, CategoryPeriodArg>((ref, arg) async {
-  ref.watch(transactionListProvider);
-  final repository = ref.watch(reportRepositoryProvider);
-  final rawReport = await repository.getCategories(
-    startDate: arg.startDate,
-    endDate: arg.endDate,
-    type: arg.type,
-  );
-  return _adjustReportCategories(ref, rawReport, arg.type, arg.startDate, arg.endDate);
+typedef CategoryPeriodArg = ({
+  DateTime startDate,
+  DateTime endDate,
+  String type,
 });
+final categoriesByPeriodProvider =
+    FutureProvider.family<ReportCategoryDto, CategoryPeriodArg>((
+      ref,
+      arg,
+    ) async {
+      ref.watch(transactionListProvider);
+      final repository = ref.watch(reportRepositoryProvider);
+      final rawReport = await repository.getCategories(
+        startDate: arg.startDate,
+        endDate: arg.endDate,
+        type: arg.type,
+      );
+      return _adjustReportCategories(
+        ref,
+        rawReport,
+        arg.type,
+        arg.startDate,
+        arg.endDate,
+      );
+    });
 
 // Transaction list provider for the Category Detail Screen
 // Transaction list provider for the Category Detail Screen
-typedef CategoryDetailTransArg = ({String categoryId, DateTime startDate, DateTime endDate, String type});
-final categoryDetailTransactionsProvider = FutureProvider.family<List<TransactionEntity>, CategoryDetailTransArg>((ref, arg) async {
-  ref.watch(transactionListProvider);
-  final useCase = ref.read(getTransactionsUseCaseProvider);
+typedef CategoryDetailTransArg = ({
+  String categoryId,
+  DateTime startDate,
+  DateTime endDate,
+  String type,
+});
+final categoryDetailTransactionsProvider =
+    FutureProvider.family<List<TransactionEntity>, CategoryDetailTransArg>((
+      ref,
+      arg,
+    ) async {
+      ref.watch(transactionListProvider);
+      final useCase = ref.read(getTransactionsUseCaseProvider);
 
-  final isUncategorized = arg.categoryId == 'uncategorized';
-  final database = ref.read(appDatabaseProvider);
-  final allCategories = await database.getAllCategories();
-  
-  List<TransactionEntity> baseTransactions = [];
+      final isUncategorized = arg.categoryId == 'uncategorized';
+      final database = ref.read(appDatabaseProvider);
+      final allCategories = await database.getAllCategories();
 
-  if (isUncategorized) {
-    final result = await useCase.execute(
-      categoryId: null,
-      startDate: DateFormat('yyyy-MM-dd').format(arg.startDate),
-      endDate: DateFormat('yyyy-MM-dd').format(arg.endDate.add(const Duration(days: 1))),
-      type: arg.type,
-      sortBy: 'date',
-      sortOrder: 'desc',
-      perPage: 100,
-    );
-    baseTransactions = result.items
-        .where((tx) => (tx.categoryId == null || tx.categoryName == null) &&
-                       tx.type == arg.type &&
-                       !tx.isTransferLocked)
-        .toList();
-  } else {
-    // Lấy các danh mục con nếu đây là danh mục cha
-    final childIds = allCategories
-        .where((c) => c.parentId == arg.categoryId)
-        .map((c) => c.id)
-        .toList();
+      List<TransactionEntity> baseTransactions = [];
 
-    final idsToFetch = [arg.categoryId, ...childIds];
-
-    // Fetch transactions song song cho tất cả các ID danh mục liên quan
-    final results = await Future.wait(idsToFetch.map((id) => useCase.execute(
-          categoryId: id,
+      if (isUncategorized) {
+        final result = await useCase.execute(
+          categoryId: null,
           startDate: DateFormat('yyyy-MM-dd').format(arg.startDate),
-          endDate: DateFormat('yyyy-MM-dd').format(arg.endDate.add(const Duration(days: 1))),
+          endDate: DateFormat(
+            'yyyy-MM-dd',
+          ).format(arg.endDate.add(const Duration(days: 1))),
           type: arg.type,
           sortBy: 'date',
           sortOrder: 'desc',
           perPage: 100,
-        )));
-
-    // Gộp tất cả kết quả
-    baseTransactions = results.expand((r) => r.items).toList();
-  }
-
-  // 1. Tạo Map chứa các giao dịch từ API để tránh trùng lặp
-  final Map<String, TransactionEntity> mergedMap = {for (var tx in baseTransactions) tx.id: tx};
-
-  // 2. Đồng bộ các thay đổi optimistic từ local state (transactionListProvider)
-  final localList = ref.read(transactionListProvider).value ?? [];
-  final childIds = isUncategorized ? <String>[] : allCategories
-      .where((c) => c.parentId == arg.categoryId)
-      .map((c) => c.id)
-      .toList();
-  final idsToFetch = isUncategorized ? <String>[] : [arg.categoryId, ...childIds];
-
-  for (final localTx in localList) {
-    // Only merge pending (unsynced) optimistic transactions
-    if (localTx.status != 'pending') {
-      continue;
-    }
-
-    // Kiểm tra xem giao dịch có thuộc phạm vi của chi tiết này không (ngày và loại)
-    final txDate = localTx.transactionDate;
-    final isWithinDateRange = txDate.isAfter(arg.startDate.subtract(const Duration(seconds: 1))) &&
-                              txDate.isBefore(arg.endDate.add(const Duration(days: 1)));
-    final isMatchingType = localTx.type == arg.type;
-
-    if (isWithinDateRange && isMatchingType) {
-      final isTxInThisCategory = isUncategorized
-          ? (localTx.categoryId == null || localTx.categoryName == null) && !localTx.isTransferLocked
-          : idsToFetch.contains(localTx.categoryId);
-
-      if (isTxInThisCategory) {
-        mergedMap[localTx.id] = localTx;
-      } else {
-        // Nếu giao dịch cũ thuộc danh mục này nhưng vừa được chuyển sang danh mục khác
-        mergedMap.remove(localTx.id);
-      }
-    }
-  }
-
-  // 3. Enrich thông tin danh mục cho danh sách kết quả cuối cùng từ local Categories DB
-  final enrichedList = mergedMap.values.map((tx) {
-    if (tx.categoryId != null) {
-      final match = allCategories.where((c) => c.id == tx.categoryId);
-      if (match.isNotEmpty) {
-        final cat = match.first;
-        return TransactionEntity(
-          id: tx.id,
-          walletId: tx.walletId,
-          categoryId: tx.categoryId,
-          type: tx.type,
-          status: tx.status,
-          amount: tx.amount,
-          currencyCode: tx.currencyCode,
-          exchangeRate: tx.exchangeRate,
-          title: tx.title,
-          notes: tx.notes,
-          timezone: tx.timezone,
-          sourceType: tx.sourceType,
-          sourceId: tx.sourceId,
-          isTransferLocked: tx.isTransferLocked,
-          transactionDate: tx.transactionDate,
-          createdAt: tx.createdAt,
-          categoryName: cat.name,
-          categoryIcon: cat.icon,
-          categoryColor: cat.color,
-          walletName: tx.walletName,
-          walletIcon: tx.walletIcon,
-          walletColor: tx.walletColor,
-          attachmentUrls: tx.attachmentUrls,
-          payeeId: tx.payeeId,
-          payeeName: tx.payeeName,
-          payeeAccountNumber: tx.payeeAccountNumber,
-          payeeBankName: tx.payeeBankName,
-          senderName: tx.senderName,
-          senderWalletName: tx.senderWalletName,
-          senderIdentifier: tx.senderIdentifier,
         );
+        baseTransactions = result.items
+            .where(
+              (tx) =>
+                  (tx.categoryId == null || tx.categoryName == null) &&
+                  tx.type == arg.type &&
+                  !tx.isTransferLocked,
+            )
+            .toList();
+      } else {
+        // Lấy các danh mục con nếu đây là danh mục cha
+        final childIds = allCategories
+            .where((c) => c.parentId == arg.categoryId)
+            .map((c) => c.id)
+            .toList();
+
+        final idsToFetch = [arg.categoryId, ...childIds];
+
+        // Fetch transactions song song cho tất cả các ID danh mục liên quan
+        final results = await Future.wait(
+          idsToFetch.map(
+            (id) => useCase.execute(
+              categoryId: id,
+              startDate: DateFormat('yyyy-MM-dd').format(arg.startDate),
+              endDate: DateFormat(
+                'yyyy-MM-dd',
+              ).format(arg.endDate.add(const Duration(days: 1))),
+              type: arg.type,
+              sortBy: 'date',
+              sortOrder: 'desc',
+              perPage: 100,
+            ),
+          ),
+        );
+
+        // Gộp tất cả kết quả
+        baseTransactions = results.expand((r) => r.items).toList();
       }
-    }
-    return tx;
-  }).toList();
 
-  final sortedList = enrichedList
-    ..sort((a, b) => b.transactionDate.compareTo(a.transactionDate));
+      // 1. Tạo Map chứa các giao dịch từ API để tránh trùng lặp
+      final Map<String, TransactionEntity> mergedMap = {
+        for (var tx in baseTransactions) tx.id: tx,
+      };
 
-  return sortedList;
-});
+      // 2. Đồng bộ các thay đổi optimistic từ local state (transactionListProvider)
+      final localList = ref.read(transactionListProvider).value ?? [];
+      final childIds = isUncategorized
+          ? <String>[]
+          : allCategories
+                .where((c) => c.parentId == arg.categoryId)
+                .map((c) => c.id)
+                .toList();
+      final idsToFetch = isUncategorized
+          ? <String>[]
+          : [arg.categoryId, ...childIds];
 
-final reportWalletsProvider = FutureProvider.family<ReportWalletDto, String>((ref, type) async {
+      for (final localTx in localList) {
+        // Only merge pending (unsynced) optimistic transactions
+        if (localTx.status != 'pending') {
+          continue;
+        }
+
+        // Kiểm tra xem giao dịch có thuộc phạm vi của chi tiết này không (ngày và loại)
+        final txDate = localTx.transactionDate;
+        final isWithinDateRange =
+            txDate.isAfter(
+              arg.startDate.subtract(const Duration(seconds: 1)),
+            ) &&
+            txDate.isBefore(arg.endDate.add(const Duration(days: 1)));
+        final isMatchingType = localTx.type == arg.type;
+
+        if (isWithinDateRange && isMatchingType) {
+          final isTxInThisCategory = isUncategorized
+              ? (localTx.categoryId == null || localTx.categoryName == null) &&
+                    !localTx.isTransferLocked
+              : idsToFetch.contains(localTx.categoryId);
+
+          if (isTxInThisCategory) {
+            mergedMap[localTx.id] = localTx;
+          } else {
+            // Nếu giao dịch cũ thuộc danh mục này nhưng vừa được chuyển sang danh mục khác
+            mergedMap.remove(localTx.id);
+          }
+        }
+      }
+
+      // 3. Enrich thông tin danh mục cho danh sách kết quả cuối cùng từ local Categories DB
+      final enrichedList = mergedMap.values.map((tx) {
+        if (tx.categoryId != null) {
+          final match = allCategories.where((c) => c.id == tx.categoryId);
+          if (match.isNotEmpty) {
+            final cat = match.first;
+            return TransactionEntity(
+              id: tx.id,
+              walletId: tx.walletId,
+              categoryId: tx.categoryId,
+              type: tx.type,
+              status: tx.status,
+              amount: tx.amount,
+              currencyCode: tx.currencyCode,
+              exchangeRate: tx.exchangeRate,
+              title: tx.title,
+              notes: tx.notes,
+              timezone: tx.timezone,
+              sourceType: tx.sourceType,
+              sourceId: tx.sourceId,
+              isTransferLocked: tx.isTransferLocked,
+              transactionDate: tx.transactionDate,
+              createdAt: tx.createdAt,
+              categoryName: cat.name,
+              categoryIcon: cat.icon,
+              categoryColor: cat.color,
+              walletName: tx.walletName,
+              walletIcon: tx.walletIcon,
+              walletColor: tx.walletColor,
+              attachmentUrls: tx.attachmentUrls,
+              payeeId: tx.payeeId,
+              payeeName: tx.payeeName,
+              payeeAccountNumber: tx.payeeAccountNumber,
+              payeeBankName: tx.payeeBankName,
+              senderName: tx.senderName,
+              senderWalletName: tx.senderWalletName,
+              senderIdentifier: tx.senderIdentifier,
+            );
+          }
+        }
+        return tx;
+      }).toList();
+
+      final sortedList = enrichedList
+        ..sort((a, b) => b.transactionDate.compareTo(a.transactionDate));
+
+      return sortedList;
+    });
+
+final reportWalletsProvider = FutureProvider.family<ReportWalletDto, String>((
+  ref,
+  type,
+) async {
   // Watch transactionListProvider to refresh when transactions are updated/synced
   ref.watch(transactionListProvider);
 
@@ -725,4 +939,3 @@ final reportWalletsProvider = FutureProvider.family<ReportWalletDto, String>((re
     type: type,
   );
 });
-

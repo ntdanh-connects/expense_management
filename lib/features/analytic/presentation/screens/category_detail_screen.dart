@@ -9,7 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/core/router/app_route.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:expense_management/features/transaction/presentation/widgets/category_picker_bottom_sheet.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
@@ -39,7 +39,8 @@ class CategoryDetailScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<CategoryDetailScreen> createState() => _CategoryDetailScreenState();
+  ConsumerState<CategoryDetailScreen> createState() =>
+      _CategoryDetailScreenState();
 }
 
 class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
@@ -47,7 +48,7 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
   late String _currentCategoryName;
   late String? _currentCategoryColor;
   late String? _currentCategoryIcon;
-  
+
   // Track selected period index in the chart (-1 means the latest/selected one)
   int _selectedChartIndex = 5; // defaults to the latest period
   String _activeFilterTab = 'all'; // 'all', 'top_spend', 'top_recipient'
@@ -65,7 +66,11 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
   }
 
   String _formatCurrency(double amount) {
-    final format = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ', decimalDigits: 0);
+    final format = NumberFormat.currency(
+      locale: 'vi_VN',
+      symbol: 'đ',
+      decimalDigits: 0,
+    );
     return format.format(amount);
   }
 
@@ -98,19 +103,23 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
     final colors = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final tzName = ref.watch(currentUserProvider.select((u) => u?.timezone)) ?? 'Asia/Ho_Chi_Minh';
+    final tzName =
+        ref.watch(currentUserProvider.select((u) => u?.timezone)) ??
+        'Asia/Ho_Chi_Minh';
     final location = tz.getLocation(tzName);
 
     final chartStartDate = _getChartStartDate();
     final chartEndDate = widget.endDate;
 
     // Fetch transactions for the 5-period window to compute chart and show lists
-    final txAsync = ref.watch(categoryDetailTransactionsProvider((
-      categoryId: _currentCategoryId,
-      startDate: chartStartDate,
-      endDate: chartEndDate,
-      type: widget.type,
-    )));
+    final txAsync = ref.watch(
+      categoryDetailTransactionsProvider((
+        categoryId: _currentCategoryId,
+        startDate: chartStartDate,
+        endDate: chartEndDate,
+        type: widget.type,
+      )),
+    );
 
     return Scaffold(
       backgroundColor: isDark ? colors.background : const Color(0xFFF6F8FB),
@@ -118,12 +127,20 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
         backgroundColor: colors.primary,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Colors.white,
+            size: 20,
+          ),
           onPressed: () => context.pop(),
         ),
         title: Text(
           _currentCategoryName,
-          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         centerTitle: true,
         actions: [
@@ -135,7 +152,11 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
           // ),
           // Home button
           IconButton(
-            icon: const Icon(Icons.home_outlined, color: Colors.white, size: 24),
+            icon: const Icon(
+              Icons.home_outlined,
+              color: Colors.white,
+              size: 24,
+            ),
             onPressed: () => context.go('/dashboard'),
           ),
         ],
@@ -143,15 +164,23 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
       body: txAsync.when(
         data: (transactions) {
           // 1. Generate the periods buckets (5 periods: 0 to 4)
-          final periods = _generatePeriods(chartStartDate, chartEndDate, widget.timeMode);
-          
+          final periods = _generatePeriods(
+            chartStartDate,
+            chartEndDate,
+            widget.timeMode,
+          );
+
           // 2. Aggregate transactions into period buckets
           final List<double> periodAmounts = List.filled(periods.length, 0.0);
           for (final tx in transactions) {
             final txDate = tz.TZDateTime.from(tx.transactionDate, location);
             for (int i = 0; i < periods.length; i++) {
-              if (txDate.isAfter(periods[i].start.subtract(const Duration(seconds: 1))) &&
-                  txDate.isBefore(periods[i].end.add(const Duration(seconds: 1)))) {
+              if (txDate.isAfter(
+                    periods[i].start.subtract(const Duration(seconds: 1)),
+                  ) &&
+                  txDate.isBefore(
+                    periods[i].end.add(const Duration(seconds: 1)),
+                  )) {
                 periodAmounts[i] += tx.amount * (tx.exchangeRate ?? 1.0);
                 break;
               }
@@ -168,13 +197,19 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
 
           // Compute average of non-zero periods (only months with spending)
           final nonZeroAmounts = periodAmounts.where((amt) => amt > 0).toList();
-          final double averageAmount = nonZeroAmounts.isEmpty ? 0 : nonZeroAmounts.reduce((a, b) => a + b) / nonZeroAmounts.length;
+          final double averageAmount = nonZeroAmounts.isEmpty
+              ? 0
+              : nonZeroAmounts.reduce((a, b) => a + b) / nonZeroAmounts.length;
 
           // Filter transactions matching the selected period
           final selectedPeriodTxs = transactions.where((tx) {
             final txDate = tz.TZDateTime.from(tx.transactionDate, location);
-            return txDate.isAfter(currentPeriod.start.subtract(const Duration(seconds: 1))) &&
-                txDate.isBefore(currentPeriod.end.add(const Duration(seconds: 1)));
+            return txDate.isAfter(
+                  currentPeriod.start.subtract(const Duration(seconds: 1)),
+                ) &&
+                txDate.isBefore(
+                  currentPeriod.end.add(const Duration(seconds: 1)),
+                );
           }).toList();
 
           // Compute percentage change compared to the previous period
@@ -182,7 +217,10 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
           if (_selectedChartIndex > 0) {
             final prevPeriodAmount = periodAmounts[_selectedChartIndex - 1];
             if (prevPeriodAmount > 0) {
-              percentageChange = ((currentPeriodAmount - prevPeriodAmount) / prevPeriodAmount) * 100;
+              percentageChange =
+                  ((currentPeriodAmount - prevPeriodAmount) /
+                      prevPeriodAmount) *
+                  100;
             } else if (currentPeriodAmount > 0) {
               percentageChange = 100.0;
             }
@@ -190,7 +228,13 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
 
           final displayTxs = _selectedSubcategoryFilter == null
               ? selectedPeriodTxs
-              : selectedPeriodTxs.where((tx) => (tx.categoryName ?? 'Chưa phân loại') == _selectedSubcategoryFilter).toList();
+              : selectedPeriodTxs
+                    .where(
+                      (tx) =>
+                          (tx.categoryName ?? 'Chưa phân loại') ==
+                          _selectedSubcategoryFilter,
+                    )
+                    .toList();
 
           return SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
@@ -206,15 +250,26 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _getPeriodLabel(currentPeriod.start, widget.timeMode) + (widget.type == 'expense' ? ' chi' : ' thu'),
-                        style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
+                        _getPeriodLabel(currentPeriod.start, widget.timeMode) +
+                            (widget.type == 'expense' ? ' chi' : ' thu'),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Row(
                         children: [
                           Text(
-                            _isAmountVisible ? _formatCurrency(currentPeriodAmount) : '******',
-                            style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+                            _isAmountVisible
+                                ? _formatCurrency(currentPeriodAmount)
+                                : '******',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           const SizedBox(width: 12),
                           GestureDetector(
@@ -224,7 +279,9 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                               });
                             },
                             child: Icon(
-                              _isAmountVisible ? Icons.visibility : Icons.visibility_off,
+                              _isAmountVisible
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
                               color: Colors.white70,
                               size: 20,
                             ),
@@ -235,14 +292,21 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
                               'T.bình: ${_formatCurrency(averageAmount)}',
-                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ],
@@ -263,7 +327,7 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                         color: Colors.black.withOpacity(0.02),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
-                      )
+                      ),
                     ],
                   ),
                   child: Column(
@@ -271,202 +335,302 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                     children: [
                       Text(
                         'Xu hướng chi tiêu',
-                        style: TextStyle(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Nhấn vào cột để lọc danh sách giao dịch bên dưới',
-                        style: TextStyle(color: colors.textSecondary, fontSize: 11.5),
+                        style: TextStyle(
+                          color: colors.textSecondary,
+                          fontSize: 11.5,
+                        ),
                       ),
                       const SizedBox(height: 24),
                       // Interactive columns with Y-axis and Average Line
                       SizedBox(
                         height: 160,
-                        child: LayoutBuilder(builder: (context, constraints) {
-                          double maxVal = averageAmount * 1.5;
-                          for (var amt in periodAmounts) {
-                            if (amt > maxVal) maxVal = amt;
-                          }
-                          if (maxVal == 0) maxVal = 1.0;
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            double maxVal = averageAmount * 1.5;
+                            for (var amt in periodAmounts) {
+                              if (amt > maxVal) maxVal = amt;
+                            }
+                            if (maxVal == 0) maxVal = 1.0;
 
-                          // Định dạng các tick labels cho Y-axis
-                          final levels = [1.0, 0.75, 0.5, 0.25, 0.0];
-                          final tickLabels = levels.map((lvl) => _formatTick(maxVal * lvl)).toList();
+                            // Định dạng các tick labels cho Y-axis
+                            final levels = [1.0, 0.75, 0.5, 0.25, 0.0];
+                            final tickLabels = levels
+                                .map((lvl) => _formatTick(maxVal * lvl))
+                                .toList();
 
-                          String unit = '(đ)';
-                          if (maxVal >= 1000000) {
-                            unit = '(Tr)';
-                          } else if (maxVal >= 1000) {
-                            unit = '(K)';
-                          }
+                            String unit = '(đ)';
+                            if (maxVal >= 1000000) {
+                              unit = '(Tr)';
+                            } else if (maxVal >= 1000) {
+                              unit = '(K)';
+                            }
 
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              // 1. Cột mức tiền cố định bên trái (Y-axis) - căn chỉnh hoàn hảo từng pixel
-                              SizedBox(
-                                height: 160,
-                                width: 42,
-                                child: Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    // Phần đơn vị nằm phía trên mức cao nhất
-                                    Positioned(
-                                      top: 35 - 20, // đặt cao hẳn lên (y = 15) để tránh dính chữ vào số
-                                      right: 0,
-                                      child: Text(
-                                        unit,
-                                        style: TextStyle(fontSize: 9, color: colors.textSecondary, fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                                    // 5 mức tiền khớp hoàn hảo với trung tâm của 5 đường kẻ ngang
-                                    ...List.generate(5, (index) {
-                                      final double yPosition = 35 + (110 * (index / 4));
-                                      return Positioned(
-                                        top: yPosition - 6,
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                // 1. Cột mức tiền cố định bên trái (Y-axis) - căn chỉnh hoàn hảo từng pixel
+                                SizedBox(
+                                  height: 160,
+                                  width: 42,
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      // Phần đơn vị nằm phía trên mức cao nhất
+                                      Positioned(
+                                        top:
+                                            35 -
+                                            20, // đặt cao hẳn lên (y = 15) để tránh dính chữ vào số
                                         right: 0,
                                         child: Text(
-                                          tickLabels[index],
-                                          style: TextStyle(fontSize: 10, color: colors.textSecondary, fontWeight: FontWeight.w500),
+                                          unit,
+                                          style: TextStyle(
+                                            fontSize: 9,
+                                            color: colors.textSecondary,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
-                                      );
-                                    }),
-                                  ],
+                                      ),
+                                      // 5 mức tiền khớp hoàn hảo với trung tâm của 5 đường kẻ ngang
+                                      ...List.generate(5, (index) {
+                                        final double yPosition =
+                                            35 + (110 * (index / 4));
+                                        return Positioned(
+                                          top: yPosition - 6,
+                                          right: 0,
+                                          child: Text(
+                                            tickLabels[index],
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color: colors.textSecondary,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        );
+                                      }),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              // 2. Vùng biểu đồ cuộn ngang chứa lưới, cột và đường trung bình
-                              Expanded(
-                                child: LayoutBuilder(
-                                  builder: (context, chartConstraints) {
-                                    final double minColumnWidth = widget.timeMode == 'year' ? 120.0 : 65.0;
-                                    final double computedWidth = periods.length * minColumnWidth + 32.0;
-                                    final double chartWidth = computedWidth > chartConstraints.maxWidth ? computedWidth : chartConstraints.maxWidth;
+                                const SizedBox(width: 8),
+                                // 2. Vùng biểu đồ cuộn ngang chứa lưới, cột và đường trung bình
+                                Expanded(
+                                  child: LayoutBuilder(
+                                    builder: (context, chartConstraints) {
+                                      final double minColumnWidth =
+                                          widget.timeMode == 'year'
+                                          ? 120.0
+                                          : 65.0;
+                                      final double computedWidth =
+                                          periods.length * minColumnWidth +
+                                          32.0;
+                                      final double chartWidth =
+                                          computedWidth >
+                                              chartConstraints.maxWidth
+                                          ? computedWidth
+                                          : chartConstraints.maxWidth;
 
-                                    return Stack(
-                                      alignment: Alignment.bottomLeft,
-                                      children: [
-                                        SingleChildScrollView(
-                                          scrollDirection: Axis.horizontal,
-                                          physics: const BouncingScrollPhysics(),
-                                          child: SizedBox(
-                                            width: chartWidth,
-                                            height: 160,
-                                            child: Stack(
-                                              alignment: Alignment.bottomLeft,
-                                              clipBehavior: Clip.none,
-                                              children: [
-                                                // Các đường kẻ ngang làm lưới phụ (sau các cột)
-                                                Positioned(
-                                                  left: 0,
-                                                  right: 0,
-                                                  bottom: 15,
-                                                  top: 35,
-                                                  child: Column(
-                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                    children: List.generate(
-                                                      5,
-                                                      (index) => Container(
-                                                        height: 0.5,
-                                                        color: colors.textSecondary.withOpacity(0.12),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                                // Đường nét đứt biểu thị mức trung bình (Average Line)
-                                                if (maxVal > 0 && averageAmount > 0)
+                                      return Stack(
+                                        alignment: Alignment.bottomLeft,
+                                        children: [
+                                          SingleChildScrollView(
+                                            scrollDirection: Axis.horizontal,
+                                            physics:
+                                                const BouncingScrollPhysics(),
+                                            child: SizedBox(
+                                              width: chartWidth,
+                                              height: 160,
+                                              child: Stack(
+                                                alignment: Alignment.bottomLeft,
+                                                clipBehavior: Clip.none,
+                                                children: [
+                                                  // Các đường kẻ ngang làm lưới phụ (sau các cột)
                                                   Positioned(
                                                     left: 0,
                                                     right: 0,
-                                                    bottom: 15 + (110 * (averageAmount / maxVal)) - 0.5,
-                                                    height: 1,
-                                                    child: CustomPaint(
-                                                      painter: DashedLinePainter(
-                                                        color: Colors.orange.withOpacity(0.8),
-                                                        strokeWidth: 1.2,
-                                                        dashWidth: 4.0,
-                                                        dashSpace: 3.0,
+                                                    bottom: 15,
+                                                    top: 35,
+                                                    child: Column(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .spaceBetween,
+                                                      children: List.generate(
+                                                        5,
+                                                        (index) => Container(
+                                                          height: 0.5,
+                                                          color: colors
+                                                              .textSecondary
+                                                              .withOpacity(
+                                                                0.12,
+                                                              ),
+                                                        ),
                                                       ),
                                                     ),
                                                   ),
-                                                // Các cột dữ liệu
-                                                Positioned(
-                                                  left: 0,
-                                                  right: 0,
-                                                  top: 0,
-                                                  bottom: 0,
-                                                  child: Padding(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                                                    child: Row(
-                                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                                      children: List.generate(periods.length, (index) {
-                                                        final amount = periodAmounts[index];
-                                                        final label = periods[index].label;
-                                                        final isSelected = index == _selectedChartIndex;
-                                                        final pct = amount / maxVal;
+                                                  // Đường nét đứt biểu thị mức trung bình (Average Line)
+                                                  if (maxVal > 0 &&
+                                                      averageAmount > 0)
+                                                    Positioned(
+                                                      left: 0,
+                                                      right: 0,
+                                                      bottom:
+                                                          15 +
+                                                          (110 *
+                                                              (averageAmount /
+                                                                  maxVal)) -
+                                                          0.5,
+                                                      height: 1,
+                                                      child: CustomPaint(
+                                                        painter:
+                                                            DashedLinePainter(
+                                                              color: Colors
+                                                                  .orange
+                                                                  .withOpacity(
+                                                                    0.8,
+                                                                  ),
+                                                              strokeWidth: 1.2,
+                                                              dashWidth: 4.0,
+                                                              dashSpace: 3.0,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                  // Các cột dữ liệu
+                                                  Positioned(
+                                                    left: 0,
+                                                    right: 0,
+                                                    top: 0,
+                                                    bottom: 0,
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 16,
+                                                          ),
+                                                      child: Row(
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .spaceAround,
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .end,
+                                                        children: List.generate(
+                                                          periods.length,
+                                                          (index) {
+                                                            final amount =
+                                                                periodAmounts[index];
+                                                            final label =
+                                                                periods[index]
+                                                                    .label;
+                                                            final isSelected =
+                                                                index ==
+                                                                _selectedChartIndex;
+                                                            final pct =
+                                                                amount / maxVal;
 
-                                                        return GestureDetector(
-                                                          onTap: () {
-                                                            setState(() {
-                                                              _selectedChartIndex = index;
-                                                              _selectedSubcategoryFilter = null;
-                                                            });
+                                                            return GestureDetector(
+                                                              onTap: () {
+                                                                setState(() {
+                                                                  _selectedChartIndex =
+                                                                      index;
+                                                                  _selectedSubcategoryFilter =
+                                                                      null;
+                                                                });
+                                                              },
+                                                              behavior:
+                                                                  HitTestBehavior
+                                                                      .opaque,
+                                                              child:
+                                                                  _buildSingleBar(
+                                                                    label,
+                                                                    amount,
+                                                                    pct,
+                                                                    colors,
+                                                                    isSelected,
+                                                                    widget
+                                                                        .timeMode,
+                                                                  ),
+                                                            );
                                                           },
-                                                          behavior: HitTestBehavior.opaque,
-                                                          child: _buildSingleBar(label, amount, pct, colors, isSelected, widget.timeMode),
-                                                        );
-                                                      }),
+                                                        ),
+                                                      ),
                                                     ),
                                                   ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                        // Tag T.bình cố định bên phải hiển thị, không bị cuộn đi!
-                                        if (maxVal > 0 && averageAmount > 0)
-                                          Positioned(
-                                            right: 8,
-                                            bottom: 15 + (110 * (averageAmount / maxVal)) + 2,
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
-                                              decoration: BoxDecoration(
-                                                color: Colors.orange.withOpacity(0.18),
-                                                borderRadius: BorderRadius.circular(4),
-                                                border: Border.all(
-                                                  color: Colors.orange.withOpacity(0.4),
-                                                  width: 0.5,
-                                                ),
-                                              ),
-                                              child: Text(
-                                                'T.bình',
-                                                style: TextStyle(
-                                                  color: Colors.orange.shade800,
-                                                  fontSize: 7.5,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
+                                                ],
                                               ),
                                             ),
                                           ),
-                                      ],
-                                    );
-                                  },
+                                          // Tag T.bình cố định bên phải hiển thị, không bị cuộn đi!
+                                          if (maxVal > 0 && averageAmount > 0)
+                                            Positioned(
+                                              right: 8,
+                                              bottom:
+                                                  15 +
+                                                  (110 *
+                                                      (averageAmount /
+                                                          maxVal)) +
+                                                  2,
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 5,
+                                                      vertical: 2.5,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.orange
+                                                      .withOpacity(0.18),
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                  border: Border.all(
+                                                    color: Colors.orange
+                                                        .withOpacity(0.4),
+                                                    width: 0.5,
+                                                  ),
+                                                ),
+                                                child: Text(
+                                                  'T.bình',
+                                                  style: TextStyle(
+                                                    color:
+                                                        Colors.orange.shade800,
+                                                    fontSize: 7.5,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      );
+                                    },
+                                  ),
                                 ),
-                              ),
-                            ],
-                          );
-                        }),
+                              ],
+                            );
+                          },
+                        ),
                       ),
                     ],
                   ),
                 ),
 
                 // 📊 Detailed Statistics Section (Grid)
-                _buildDetailedStatsCard(colors, currentPeriodAmount, selectedPeriodTxs, percentageChange),
+                _buildDetailedStatsCard(
+                  colors,
+                  currentPeriodAmount,
+                  selectedPeriodTxs,
+                  percentageChange,
+                ),
 
                 // 🍕 Subcategory Breakdown Section
-                _buildSubcategoryBreakdownCard(colors, selectedPeriodTxs, currentPeriodAmount),
+                _buildSubcategoryBreakdownCard(
+                  colors,
+                  selectedPeriodTxs,
+                  currentPeriodAmount,
+                ),
 
                 // 💸 Suggestion Card Section (if it's expense type)
                 if (widget.type == 'expense')
@@ -484,7 +648,7 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                         color: Colors.black.withOpacity(0.02),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
-                      )
+                      ),
                     ],
                   ),
                   child: Column(
@@ -492,24 +656,37 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                     children: [
                       Text(
                         'Danh sách giao dịch',
-                        style: TextStyle(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       // Filter tabs row
                       Row(
                         children: [
-                          _buildTabButton('all', 'Tất cả', Icons.list_alt_rounded, displayTxs.length),
+                          _buildTabButton(
+                            'all',
+                            'Tất cả',
+                            Icons.list_alt_rounded,
+                            displayTxs.length,
+                          ),
                           const SizedBox(width: 8),
                           _buildTabButton(
                             'top_spend',
-                            widget.type == 'expense' ? 'Top chi tiêu' : 'Top thu nhập',
+                            widget.type == 'expense'
+                                ? 'Top chi tiêu'
+                                : 'Top thu nhập',
                             Icons.bar_chart_rounded,
                             null,
                           ),
                           const SizedBox(width: 8),
                           _buildTabButton(
                             'top_recipient',
-                            widget.type == 'expense' ? 'Top người nhận' : 'Top nguồn gửi',
+                            widget.type == 'expense'
+                                ? 'Top người nhận'
+                                : 'Top nguồn gửi',
                             Icons.person_outline_rounded,
                             null,
                           ),
@@ -520,15 +697,31 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                         Row(
                           children: [
                             Chip(
-                              label: Text('Lọc theo: $_selectedSubcategoryFilter', style: TextStyle(fontSize: 11, color: colors.primary, fontWeight: FontWeight.bold)),
-                              backgroundColor: colors.primary.withValues(alpha: 0.1),
-                              deleteIcon: Icon(Icons.close, size: 14, color: colors.primary),
+                              label: Text(
+                                'Lọc theo: $_selectedSubcategoryFilter',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: colors.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              backgroundColor: colors.primary.withValues(
+                                alpha: 0.1,
+                              ),
+                              deleteIcon: Icon(
+                                Icons.close,
+                                size: 14,
+                                color: colors.primary,
+                              ),
                               onDeleted: () {
                                 setState(() {
                                   _selectedSubcategoryFilter = null;
                                 });
                               },
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide.none),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: BorderSide.none,
+                              ),
                             ),
                           ],
                         ),
@@ -556,7 +749,10 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
         error: (err, stack) => Center(
           child: Padding(
             padding: const EdgeInsets.all(32),
-            child: Text('Lỗi tải dữ liệu chi tiết: $err', style: TextStyle(color: colors.expenseRed)),
+            child: Text(
+              'Lỗi tải dữ liệu chi tiết: $err',
+              style: TextStyle(color: colors.expenseRed),
+            ),
           ),
         ),
       ),
@@ -569,22 +765,26 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
       (
         icon: '👀',
         text: 'So sánh chi tiêu $_currentCategoryName với người 20 tuổi',
-        query: 'Hãy so sánh mức chi tiêu cho danh mục $_currentCategoryName của tôi với mức trung bình của những người ở độ tuổi 20.'
+        query:
+            'Hãy so sánh mức chi tiêu cho danh mục $_currentCategoryName của tôi với mức trung bình của những người ở độ tuổi 20.',
       ),
       (
         icon: '✨',
         text: '20 tuổi, chi tiêu $_currentCategoryName như nào?',
-        query: 'Ở tuổi 20, tôi nên chi tiêu cho danh mục $_currentCategoryName như thế nào cho hợp lý và tiết kiệm nhất?'
+        query:
+            'Ở tuổi 20, tôi nên chi tiêu cho danh mục $_currentCategoryName như thế nào cho hợp lý và tiết kiệm nhất?',
       ),
       (
         icon: '💡',
         text: 'Mẹo cắt giảm $_currentCategoryName hiệu quả',
-        query: 'Hãy cho tôi một số mẹo thực tế để cắt giảm chi tiêu trong danh mục $_currentCategoryName.'
+        query:
+            'Hãy cho tôi một số mẹo thực tế để cắt giảm chi tiêu trong danh mục $_currentCategoryName.',
       ),
       (
         icon: '📊',
         text: 'Dự báo $_currentCategoryName tháng tới',
-        query: 'Dựa trên lịch sử giao dịch của tôi, hãy dự báo chi tiêu danh mục $_currentCategoryName trong tháng tới và đưa ra lời khuyên.'
+        query:
+            'Dựa trên lịch sử giao dịch của tôi, hãy dự báo chi tiêu danh mục $_currentCategoryName trong tháng tới và đưa ra lời khuyên.',
       ),
     ];
 
@@ -635,13 +835,19 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                             Container(
                               width: 3,
                               height: 3,
-                              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
                             ),
                             const SizedBox(width: 3),
                             Container(
                               width: 3,
                               height: 3,
-                              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
                             ),
                           ],
                         ),
@@ -668,17 +874,27 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
               ];
 
               final chipIndex = (index - 1) % bgColorsLight.length;
-              final bgColor = isDark ? colors.surface : bgColorsLight[chipIndex];
-              final borderColor = isDark ? colors.textSecondary.withOpacity(0.15) : borderColorsLight[chipIndex];
+              final bgColor = isDark
+                  ? colors.surface
+                  : bgColorsLight[chipIndex];
+              final borderColor = isDark
+                  ? colors.textSecondary.withOpacity(0.15)
+                  : borderColorsLight[chipIndex];
 
               return Padding(
                 padding: const EdgeInsets.only(right: 8.0),
                 child: Center(
                   child: ActionChip(
                     onPressed: () {
-                      context.push(RoutePaths.aiAssistant, extra: suggestion.query);
+                      context.push(
+                        RoutePaths.aiAssistant,
+                        extra: suggestion.query,
+                      );
                     },
-                    avatar: Text(suggestion.icon, style: const TextStyle(fontSize: 13)),
+                    avatar: Text(
+                      suggestion.icon,
+                      style: const TextStyle(fontSize: 13),
+                    ),
                     label: Text(
                       suggestion.text,
                       style: TextStyle(
@@ -688,7 +904,10 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                       ),
                     ),
                     backgroundColor: bgColor,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                       side: BorderSide(color: borderColor, width: 0.8),
@@ -714,7 +933,8 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
         onTap: () {
           setState(() {
             _activeFilterTab = key;
-            _selectedSubcategoryFilter = null; // Clear subcategory filter when changing filter tabs
+            _selectedSubcategoryFilter =
+                null; // Clear subcategory filter when changing filter tabs
           });
         },
         child: AnimatedContainer(
@@ -725,7 +945,9 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
             color: isActive ? colors.primary.withOpacity(0.08) : colors.surface,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isActive ? colors.primary : colors.textSecondary.withOpacity(0.15),
+              color: isActive
+                  ? colors.primary
+                  : colors.textSecondary.withOpacity(0.15),
               width: 1.2,
             ),
           ),
@@ -758,7 +980,10 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
     );
   }
 
-  Widget _buildTransactionListContent(List<TransactionEntity> originalList, AppColorsExtension colors) {
+  Widget _buildTransactionListContent(
+    List<TransactionEntity> originalList,
+    AppColorsExtension colors,
+  ) {
     if (originalList.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 32),
@@ -788,7 +1013,7 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
         itemBuilder: (context, index) {
           final dateStr = keys[index];
           final txs = grouped[dateStr]!;
-          
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -800,7 +1025,11 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                 ),
                 child: Text(
                   dateStr,
-                  style: TextStyle(color: colors.textSecondary, fontSize: 11, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -812,13 +1041,18 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
     } else if (_activeFilterTab == 'top_spend') {
       // Sort by amount descending in user currency
       final sortedList = List<TransactionEntity>.from(originalList)
-        ..sort((a, b) => (b.amount * (b.exchangeRate ?? 1.0)).compareTo(a.amount * (a.exchangeRate ?? 1.0)));
+        ..sort(
+          (a, b) => (b.amount * (b.exchangeRate ?? 1.0)).compareTo(
+            a.amount * (a.exchangeRate ?? 1.0),
+          ),
+        );
 
       return ListView.separated(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: sortedList.length,
-        separatorBuilder: (context, index) => const Divider(height: 12, thickness: 0.5),
+        separatorBuilder: (context, index) =>
+            const Divider(height: 12, thickness: 0.5),
         itemBuilder: (context, index) {
           final tx = sortedList[index];
           return _buildTransactionItemRow(tx, colors);
@@ -829,10 +1063,11 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
       final Map<String, ({double amount, int count})> payeeGroups = {};
 
       for (final tx in originalList) {
-        final String payee = (tx.payeeName != null && tx.payeeName!.trim().isNotEmpty)
+        final String payee =
+            (tx.payeeName != null && tx.payeeName!.trim().isNotEmpty)
             ? tx.payeeName!.trim()
             : tx.title.trim();
-        
+
         final txAmount = tx.amount * (tx.exchangeRate ?? 1.0);
         final existing = payeeGroups[payee];
         if (existing != null) {
@@ -841,21 +1076,21 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
             count: existing.count + 1,
           );
         } else {
-          payeeGroups[payee] = (
-            amount: txAmount,
-            count: 1,
-          );
+          payeeGroups[payee] = (amount: txAmount, count: 1);
         }
       }
 
       final sortedPayees = payeeGroups.keys.toList()
-        ..sort((a, b) => payeeGroups[b]!.amount.compareTo(payeeGroups[a]!.amount));
+        ..sort(
+          (a, b) => payeeGroups[b]!.amount.compareTo(payeeGroups[a]!.amount),
+        );
 
       return ListView.separated(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: sortedPayees.length,
-        separatorBuilder: (context, index) => const Divider(height: 12, thickness: 0.5),
+        separatorBuilder: (context, index) =>
+            const Divider(height: 12, thickness: 0.5),
         itemBuilder: (context, index) {
           final name = sortedPayees[index];
           final data = payeeGroups[name]!;
@@ -895,20 +1130,31 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                     children: [
                       Text(
                         name,
-                        style: TextStyle(color: colors.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '${data.count} giao dịch',
-                        style: TextStyle(color: colors.textSecondary, fontSize: 11, fontWeight: FontWeight.w500),
+                        style: TextStyle(
+                          color: colors.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 Text(
-                  (widget.type == 'expense' ? '-' : '+') + _formatCurrency(data.amount),
+                  (widget.type == 'expense' ? '-' : '+') +
+                      _formatCurrency(data.amount),
                   style: TextStyle(
-                    color: widget.type == 'expense' ? colors.expenseRed : colors.incomeGreen,
+                    color: widget.type == 'expense'
+                        ? colors.expenseRed
+                        : colors.incomeGreen,
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                   ),
@@ -921,7 +1167,13 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
     }
   }
 
-  Widget _buildCategoryDropdownChip(BuildContext context, TransactionEntity tx, Color catColor, IconData catIcon, AppColorsExtension colors) {
+  Widget _buildCategoryDropdownChip(
+    BuildContext context,
+    TransactionEntity tx,
+    Color catColor,
+    IconData catIcon,
+    AppColorsExtension colors,
+  ) {
     final hasCategory = tx.categoryId != null && tx.categoryId!.isNotEmpty;
 
     return GestureDetector(
@@ -945,10 +1197,12 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                 : null,
             onCategorySelected: (newCat) async {
               try {
-                await ref.read(transactionListProvider.notifier).updateTransactionCategoryOptimistic(
-                  transactionId: tx.id,
-                  categoryId: newCat.id,
-                );
+                await ref
+                    .read(transactionListProvider.notifier)
+                    .updateTransactionCategoryOptimistic(
+                      transactionId: tx.id,
+                      categoryId: newCat.id,
+                    );
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -965,7 +1219,10 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
         decoration: BoxDecoration(
           color: catColor.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: catColor.withValues(alpha: 0.2), width: 0.8),
+          border: Border.all(
+            color: catColor.withValues(alpha: 0.2),
+            width: 0.8,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -973,7 +1230,9 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
             Icon(catIcon, color: catColor, size: 12),
             const SizedBox(width: 4),
             Text(
-              hasCategory ? (tx.categoryName?.tr(ref) ?? 'uncategorized'.tr(ref)) : 'uncategorized'.tr(ref),
+              hasCategory
+                  ? (tx.categoryName?.tr(ref) ?? 'uncategorized'.tr(ref))
+                  : 'uncategorized'.tr(ref),
               style: TextStyle(
                 color: catColor,
                 fontSize: 10.5,
@@ -988,17 +1247,26 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
     );
   }
 
-  Widget _buildTransactionItemRow(TransactionEntity tx, AppColorsExtension colors) {
+  Widget _buildTransactionItemRow(
+    TransactionEntity tx,
+    AppColorsExtension colors,
+  ) {
     final hasCategory = tx.categoryId != null && tx.categoryId!.isNotEmpty;
     final catColor = hasCategory
-        ? CategoryUIConstants.getColorFromHex(tx.categoryColor ?? _currentCategoryColor, categoryName: tx.categoryName)
+        ? CategoryUIConstants.getColorFromHex(
+            tx.categoryColor ?? _currentCategoryColor,
+            categoryName: tx.categoryName,
+          )
         : colors.textSecondary;
     final catIcon = hasCategory
-        ? CategoryUIConstants.getIconData(tx.categoryIcon ?? _currentCategoryIcon, categoryName: tx.categoryName)
+        ? CategoryUIConstants.getIconData(
+            tx.categoryIcon ?? _currentCategoryIcon,
+            categoryName: tx.categoryName,
+          )
         : Icons.help_outline_rounded;
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     // Format time (HH:mm)
     final timeStr = DateFormat('HH:mm').format(tx.transactionDate);
 
@@ -1018,10 +1286,9 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
       ),
       child: InkWell(
         onTap: () {
-          context.push(
-            RoutePaths.transactionDetail,
-            extra: tx,
-          ).then((shouldRefresh) {
+          context.push(RoutePaths.transactionDetail, extra: tx).then((
+            shouldRefresh,
+          ) {
             if (shouldRefresh == true) {
               ref.invalidate(transactionListProvider);
               ref.invalidate(filteredTransactionListProvider);
@@ -1042,7 +1309,7 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                 child: Icon(catIcon, color: catColor, size: 20),
               ),
               const SizedBox(width: 12),
-              
+
               // 2. Nội dung thông tin
               Expanded(
                 child: Column(
@@ -1075,18 +1342,27 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                       ],
                     ),
                     const SizedBox(height: 6),
-                    
+
                     // Hàng 2: Dropdown Chip Danh mục + Nhãn Ví
                     Wrap(
                       spacing: 6,
                       runSpacing: 4,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        _buildCategoryDropdownChip(context, tx, catColor, catIcon, colors),
-                        
+                        _buildCategoryDropdownChip(
+                          context,
+                          tx,
+                          catColor,
+                          catIcon,
+                          colors,
+                        ),
+
                         // Tag ví thanh toán
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: colors.textSecondary.withValues(alpha: 0.05),
                             borderRadius: BorderRadius.circular(12),
@@ -1097,7 +1373,9 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                               Icon(
                                 Icons.account_balance_wallet_rounded,
                                 size: 10,
-                                color: colors.textSecondary.withValues(alpha: 0.7),
+                                color: colors.textSecondary.withValues(
+                                  alpha: 0.7,
+                                ),
                               ),
                               const SizedBox(width: 4),
                               Text(
@@ -1113,9 +1391,10 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                         ),
                       ],
                     ),
-                    
+
                     // Hàng 3: Người nhận/Payee (nếu có)
-                    if (tx.payeeName != null && tx.payeeName!.trim().isNotEmpty) ...[
+                    if (tx.payeeName != null &&
+                        tx.payeeName!.trim().isNotEmpty) ...[
                       const SizedBox(height: 6),
                       Row(
                         children: [
@@ -1157,7 +1436,9 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                             child: Text(
                               tx.notes!.trim(),
                               style: TextStyle(
-                                color: colors.textSecondary.withValues(alpha: 0.8),
+                                color: colors.textSecondary.withValues(
+                                  alpha: 0.8,
+                                ),
                                 fontSize: 11.5,
                                 fontStyle: FontStyle.italic,
                               ),
@@ -1172,15 +1453,18 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              
+
               // 3. Số tiền & Đính kèm (nếu có)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    (tx.type == 'expense' ? '-' : '+') + _formatCurrency(tx.amount * (tx.exchangeRate ?? 1.0)),
+                    (tx.type == 'expense' ? '-' : '+') +
+                        _formatCurrency(tx.amount * (tx.exchangeRate ?? 1.0)),
                     style: TextStyle(
-                      color: tx.type == 'expense' ? colors.expenseRed : colors.incomeGreen,
+                      color: tx.type == 'expense'
+                          ? colors.expenseRed
+                          : colors.incomeGreen,
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
                     ),
@@ -1217,18 +1501,26 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
   }
 
   // Generate date ranges for periods
-  List<PeriodBucket> _generatePeriods(DateTime start, DateTime end, String mode) {
+  List<PeriodBucket> _generatePeriods(
+    DateTime start,
+    DateTime end,
+    String mode,
+  ) {
     final List<PeriodBucket> buckets = [];
     if (mode == 'week') {
       // 6 weeks
       for (int i = 0; i < 6; i++) {
         final wStart = start.add(Duration(days: i * 7));
-        final wEnd = wStart.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
-        buckets.add(PeriodBucket(
-          start: wStart,
-          end: wEnd,
-          label: '${wStart.day}/${wStart.month}',
-        ));
+        final wEnd = wStart.add(
+          const Duration(days: 6, hours: 23, minutes: 59, seconds: 59),
+        );
+        buckets.add(
+          PeriodBucket(
+            start: wStart,
+            end: wEnd,
+            label: '${wStart.day}/${wStart.month}',
+          ),
+        );
       }
     } else if (mode == 'month') {
       // 6 months
@@ -1236,21 +1528,27 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
         final date = DateTime(start.year, start.month + i, 1);
         final mStart = DateTime(date.year, date.month, 1);
         final mEnd = DateTime(date.year, date.month + 1, 0, 23, 59, 59);
-        buckets.add(PeriodBucket(
-          start: mStart,
-          end: mEnd,
-          label: i == 0 ? '${mStart.month}/${mStart.year}' : '${mStart.month}',
-        ));
+        buckets.add(
+          PeriodBucket(
+            start: mStart,
+            end: mEnd,
+            label: i == 0
+                ? '${mStart.month}/${mStart.year}'
+                : '${mStart.month}',
+          ),
+        );
       }
     } else {
       // year: 2 years (last year and this year)
       for (int i = 0; i < 2; i++) {
         final year = start.year + i;
-        buckets.add(PeriodBucket(
-          start: DateTime(year, 1, 1),
-          end: DateTime(year, 12, 31, 23, 59, 59),
-          label: '$year',
-        ));
+        buckets.add(
+          PeriodBucket(
+            start: DateTime(year, 1, 1),
+            end: DateTime(year, 12, 31, 23, 59, 59),
+            label: '$year',
+          ),
+        );
       }
     }
     return buckets;
@@ -1281,12 +1579,12 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
   //   final colors = context.colors;
   //   final database = ref.read(appDatabaseProvider);
   //   final allCategories = await database.getAllCategories();
-  //   
+  //
   //   // Filter by type (income vs expense)
   //   final filtered = allCategories.where((c) => c.type == widget.type).toList();
-  // 
+  //
   //   if (!context.mounted) return;
-  // 
+  //
   //   showModalBottomSheet(
   //     context: context,
   //     backgroundColor: colors.surface,
@@ -1312,7 +1610,7 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
   //                   final color = CategoryUIConstants.getColorFromHex(cat.color);
   //                   final icon = CategoryUIConstants.getIconData(cat.icon);
   //                   final isSelected = cat.id == _currentCategoryId;
-  // 
+  //
   //                   return ListTile(
   //                     onTap: () {
   //                       setState(() {
@@ -1360,7 +1658,10 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
     );
   }
 
-  Widget _buildShimmerCard({required double height, required AppColorsExtension colors}) {
+  Widget _buildShimmerCard({
+    required double height,
+    required AppColorsExtension colors,
+  }) {
     return Shimmer.fromColors(
       baseColor: colors.textSecondary.withOpacity(0.08),
       highlightColor: colors.textSecondary.withOpacity(0.03),
@@ -1392,7 +1693,9 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
     bool isSelected,
     String timeMode,
   ) {
-    final barColor = isSelected ? colors.primary : colors.primary.withOpacity(0.25);
+    final barColor = isSelected
+        ? colors.primary
+        : colors.primary.withOpacity(0.25);
     final double barWidth = timeMode == 'year' ? 48.0 : 32.0;
 
     return Column(
@@ -1412,7 +1715,9 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                 height: (110 * pct).clamp(4.0, 110.0),
                 decoration: BoxDecoration(
                   color: barColor,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(4),
+                  ),
                 ),
               ),
               // Tooltip badge above selected column
@@ -1420,14 +1725,21 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                 Positioned(
                   bottom: (110 * pct).clamp(4.0, 110.0) + 4,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: colors.textPrimary,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       _formatCompact(value),
-                      style: TextStyle(color: colors.surface, fontSize: 9, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: colors.surface,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -1464,7 +1776,9 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
       if (amt > maxTx) maxTx = amt;
     }
 
-    double avgTx = selectedPeriodTxs.isEmpty ? 0.0 : (currentPeriodAmount / selectedPeriodTxs.length);
+    double avgTx = selectedPeriodTxs.isEmpty
+        ? 0.0
+        : (currentPeriodAmount / selectedPeriodTxs.length);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1477,7 +1791,7 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
             color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Column(
@@ -1485,7 +1799,11 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
         children: [
           Text(
             'Chỉ số chi tiết',
-            style: TextStyle(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 16),
           GridView.count(
@@ -1506,21 +1824,33 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
               _buildStatItem(
                 title: 'Biến động kỳ trước',
                 value: percentageChange != null
-                    ? (percentageChange > 0 ? '+${percentageChange.toStringAsFixed(1)}%' : '${percentageChange.toStringAsFixed(1)}%')
+                    ? (percentageChange > 0
+                          ? '+${percentageChange.toStringAsFixed(1)}%'
+                          : '${percentageChange.toStringAsFixed(1)}%')
                     : 'N/A',
                 icon: percentageChange == null
                     ? Icons.trending_flat_rounded
-                    : (percentageChange > 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded),
+                    : (percentageChange > 0
+                          ? Icons.trending_up_rounded
+                          : Icons.trending_down_rounded),
                 iconColor: percentageChange == null
                     ? Colors.grey
                     : (percentageChange > 0
-                        ? (widget.type == 'expense' ? colors.expenseRed : colors.incomeGreen)
-                        : (widget.type == 'expense' ? colors.incomeGreen : colors.expenseRed)),
+                          ? (widget.type == 'expense'
+                                ? colors.expenseRed
+                                : colors.incomeGreen)
+                          : (widget.type == 'expense'
+                                ? colors.incomeGreen
+                                : colors.expenseRed)),
                 textColor: percentageChange == null
                     ? colors.textSecondary
                     : (percentageChange > 0
-                        ? (widget.type == 'expense' ? colors.expenseRed : colors.incomeGreen)
-                        : (widget.type == 'expense' ? colors.incomeGreen : colors.expenseRed)),
+                          ? (widget.type == 'expense'
+                                ? colors.expenseRed
+                                : colors.incomeGreen)
+                          : (widget.type == 'expense'
+                                ? colors.incomeGreen
+                                : colors.expenseRed)),
                 colors: colors,
               ),
               _buildStatItem(
@@ -1577,7 +1907,11 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
               children: [
                 Text(
                   title,
-                  style: TextStyle(color: colors.textSecondary, fontSize: 10, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1605,14 +1939,16 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
     List<TransactionEntity> selectedPeriodTxs,
     double currentPeriodAmount,
   ) {
-    if (selectedPeriodTxs.isEmpty || currentPeriodAmount <= 0) return const SizedBox.shrink();
+    if (selectedPeriodTxs.isEmpty || currentPeriodAmount <= 0)
+      return const SizedBox.shrink();
 
     final Map<String, double> subcatSums = {};
     final Map<String, TransactionEntity> subcatSampleTxs = {};
 
     for (final tx in selectedPeriodTxs) {
       final name = tx.categoryName ?? 'Chưa phân loại';
-      subcatSums[name] = (subcatSums[name] ?? 0.0) + (tx.amount * (tx.exchangeRate ?? 1.0));
+      subcatSums[name] =
+          (subcatSums[name] ?? 0.0) + (tx.amount * (tx.exchangeRate ?? 1.0));
       if (!subcatSampleTxs.containsKey(name)) {
         subcatSampleTxs[name] = tx;
       }
@@ -1634,7 +1970,7 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
             color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Column(
@@ -1645,7 +1981,11 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
             children: [
               Text(
                 'Cơ cấu danh mục con',
-                style: TextStyle(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               if (_selectedSubcategoryFilter != null)
                 GestureDetector(
@@ -1656,7 +1996,11 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                   },
                   child: Text(
                     'Xoá lọc',
-                    style: TextStyle(color: colors.primary, fontSize: 12, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: colors.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
             ],
@@ -1677,13 +2021,21 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
               final amount = subcatSums[name]!;
               final pct = amount / currentPeriodAmount;
               final sampleTx = subcatSampleTxs[name]!;
-              
-              final hasCategory = sampleTx.categoryId != null && sampleTx.categoryId!.isNotEmpty;
+
+              final hasCategory =
+                  sampleTx.categoryId != null &&
+                  sampleTx.categoryId!.isNotEmpty;
               final catColor = hasCategory
-                  ? CategoryUIConstants.getColorFromHex(sampleTx.categoryColor ?? _currentCategoryColor, categoryName: sampleTx.categoryName)
+                  ? CategoryUIConstants.getColorFromHex(
+                      sampleTx.categoryColor ?? _currentCategoryColor,
+                      categoryName: sampleTx.categoryName,
+                    )
                   : colors.textSecondary;
               final catIcon = hasCategory
-                  ? CategoryUIConstants.getIconData(sampleTx.categoryIcon ?? _currentCategoryIcon, categoryName: sampleTx.categoryName)
+                  ? CategoryUIConstants.getIconData(
+                      sampleTx.categoryIcon ?? _currentCategoryIcon,
+                      categoryName: sampleTx.categoryName,
+                    )
                   : Icons.help_outline_rounded;
 
               final isSelected = _selectedSubcategoryFilter == name;
@@ -1702,10 +2054,14 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isSelected ? colors.primary.withValues(alpha: 0.06) : Colors.transparent,
+                    color: isSelected
+                        ? colors.primary.withValues(alpha: 0.06)
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isSelected ? colors.primary.withValues(alpha: 0.3) : Colors.transparent,
+                      color: isSelected
+                          ? colors.primary.withValues(alpha: 0.3)
+                          : Colors.transparent,
                       width: 1,
                     ),
                   ),
@@ -1726,7 +2082,9 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                               style: TextStyle(
                                 color: colors.textPrimary,
                                 fontSize: 13.5,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.w600,
                               ),
                             ),
                           ),
@@ -1790,11 +2148,7 @@ class PeriodBucket {
   final DateTime end;
   final String label;
 
-  PeriodBucket({
-    required this.start,
-    required this.end,
-    required this.label,
-  });
+  PeriodBucket({required this.start, required this.end, required this.label});
 }
 
 class DashedLinePainter extends CustomPainter {

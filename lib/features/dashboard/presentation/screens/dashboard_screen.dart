@@ -9,10 +9,10 @@ import 'package:go_router/go_router.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
-import 'package:expense_management/features/profile/category_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/category_provider.dart';
 import 'package:expense_management/shared/widgets/transaction_list_shimmer.dart';
 import 'package:intl/intl.dart';
 import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
@@ -30,7 +30,8 @@ class DashboardScreen extends ConsumerWidget {
     final walletState = ref.watch(walletNotifierProvider);
     final showBalance = ref.watch(showBalanceProvider);
 
-    final userCurrency = ref.watch(currentUserProvider.select((u) => u?.currency)) ?? 'VND';
+    final userCurrency =
+        ref.watch(currentUserProvider.select((u) => u?.currency)) ?? 'VND';
     final currencySymbol = AppConstant.getCurrencySymbol(userCurrency);
     final ratesData = ref.watch(exchangeRatesProvider).value;
 
@@ -47,7 +48,11 @@ class DashboardScreen extends ConsumerWidget {
       final String uCurr = userCurrency.toUpperCase();
       if (wCurr == uCurr) return balance;
       final base = (ratesData?.base ?? 'USD').toUpperCase();
-      final rates = ratesData?.rates.map((k, v) => MapEntry(k.toUpperCase(), v.toDouble())) ?? fallbackRates;
+      final rates =
+          ratesData?.rates.map(
+            (k, v) => MapEntry(k.toUpperCase(), v.toDouble()),
+          ) ??
+          fallbackRates;
       final fromRate = wCurr == base ? 1.0 : (rates[wCurr] ?? 1.0);
       final toRate = uCurr == base ? 1.0 : (rates[uCurr] ?? 1.0);
       return balance * (toRate / fromRate);
@@ -87,9 +92,7 @@ class DashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: colors.background,
-      appBar: SharedTopAppBar(
-        hintText: 'search_hint'.tr(ref),
-      ),
+      appBar: SharedTopAppBar(hintText: 'search_hint'.tr(ref)),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(fetchDashboardSummaryProvider);
@@ -122,7 +125,7 @@ class DashboardScreen extends ConsumerWidget {
                       color: colors.primary.withOpacity(0.3),
                       blurRadius: 12,
                       offset: const Offset(0, 6),
-                    )
+                    ),
                   ],
                 ),
                 child: Column(
@@ -141,7 +144,9 @@ class DashboardScreen extends ConsumerWidget {
                         const SizedBox(width: 6),
                         GestureDetector(
                           onTap: () {
-                            ref.read(showBalanceProvider.notifier).update((state) => !state);
+                            ref
+                                .read(showBalanceProvider.notifier)
+                                .update((state) => !state);
                           },
                           child: Icon(
                             ref.watch(showBalanceProvider)
@@ -193,11 +198,19 @@ class DashboardScreen extends ConsumerWidget {
                                   children: [
                                     Text(
                                       'income_label'.tr(ref),
-                                      style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold),
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                     Text(
                                       monthlyIncomeStr,
-                                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -234,11 +247,19 @@ class DashboardScreen extends ConsumerWidget {
                                   children: [
                                     Text(
                                       'expense_label'.tr(ref),
-                                      style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold),
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                     Text(
                                       monthlyExpenseStr,
-                                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -252,7 +273,7 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 24),
-  
+
               // 💼 2. VÍ CỦA BẠN ROW
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -281,13 +302,15 @@ class DashboardScreen extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 8),
-  
-               // DANH SÁCH VÍ HÀNG NGANG (SCROLL HORIZONTAL)
+
+              // DANH SÁCH VÍ HÀNG NGANG (SCROLL HORIZONTAL)
               SizedBox(
                 height: 125,
                 child: walletState.when(
                   data: (walletList) {
-                    final visibleWallets = walletList.where((w) => !w.isHidden).toList();
+                    final visibleWallets = walletList
+                        .where((w) => !w.isHidden)
+                        .toList();
                     if (visibleWallets.isEmpty) {
                       return Center(
                         child: Text(
@@ -314,14 +337,14 @@ class DashboardScreen extends ConsumerWidget {
                         } catch (_) {
                           itemColor = colors.primary;
                         }
-  
+
                         final showBalance = ref.watch(showBalanceProvider);
-  
+
                         return _buildWalletCard(
                           context: context,
                           title: wallet.name,
-                          amount: showBalance 
-                              ? '${AppConstant.formatMoney(wallet.balance, wallet.currencyCode)} ${wallet.currencyCode}' 
+                          amount: showBalance
+                              ? '${AppConstant.formatMoney(wallet.balance, wallet.currencyCode)} ${wallet.currencyCode}'
                               : '•••••• ${wallet.currencyCode}',
                           icon: _getWalletIcon(wallet.type),
                           iconBgColor: itemColor.withOpacity(0.12),
@@ -349,7 +372,7 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 20),
-  
+
               // THANH PHÍM TẮT MOMO-STYLE (QUICK ACTIONS)
               Text(
                 'Features'.tr(ref),
@@ -371,7 +394,8 @@ class DashboardScreen extends ConsumerWidget {
                             icon: Icons.edit_note_rounded,
                             label: 'manual_input'.tr(ref),
                             iconColor: const Color(0xFF0D9488),
-                            onTap: () => context.push(RoutePaths.addTransaction),
+                            onTap: () =>
+                                context.push(RoutePaths.addTransaction),
                           ),
                         ),
                         Expanded(
@@ -413,7 +437,12 @@ class DashboardScreen extends ConsumerWidget {
                             label: 'budget'.tr(ref),
                             iconColor: const Color(0xFF3B82F6),
                             onTap: () {
-                              ref.read(selectedAnalyticTabProvider.notifier).state = 'budget';
+                              ref
+                                      .read(
+                                        selectedAnalyticTabProvider.notifier,
+                                      )
+                                      .state =
+                                  'budget';
                               context.go('${RoutePaths.analytics}?tab=budget');
                             },
                           ),
@@ -442,7 +471,8 @@ class DashboardScreen extends ConsumerWidget {
                               context: context,
                               isScrollControlled: true,
                               backgroundColor: Colors.transparent,
-                              builder: (context) => const VndToForeignConverterBottomSheet(),
+                              builder: (context) =>
+                                  const VndToForeignConverterBottomSheet(),
                             ),
                           ),
                         ),
@@ -470,7 +500,7 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 24),
-  
+
               // 🧾 3. GIAO DỊCH GẦN ĐÂY ROW
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -498,97 +528,120 @@ class DashboardScreen extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(width: 2),
-                        Icon(Icons.arrow_forward_ios_rounded,
-                            color: colors.primary, size: 12),
+                        Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          color: colors.primary,
+                          size: 12,
+                        ),
                       ],
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
-  
+
               // DANH SÁCH GIAO DỊCH GẦN ĐÂY (5 giao dịch mới nhất)
-              ref.watch(transactionListProvider).when(
-                data: (txList) {
-                  if (txList.isEmpty) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 24.0),
-                      child: Center(
+              ref
+                  .watch(transactionListProvider)
+                  .when(
+                    data: (txList) {
+                      if (txList.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 24.0),
+                          child: Center(
+                            child: Text(
+                              'Chưa có giao dịch nào.',
+                              style: TextStyle(color: colors.textSecondary),
+                            ),
+                          ),
+                        );
+                      }
+
+                      // Sắp xếp: Ưu tiên giao dịch chờ đồng bộ (pending) lên đầu, sau đó sắp xếp theo ngày mới nhất
+                      final sorted = [...txList]
+                        ..sort((a, b) {
+                          final aPending = a.status == 'pending';
+                          final bPending = b.status == 'pending';
+                          if (aPending && !bPending) return -1;
+                          if (!aPending && bPending) return 1;
+                          return b.transactionDate.compareTo(a.transactionDate);
+                        });
+                      final recentTx = sorted.take(5).toList();
+
+                      return Column(
+                        children: recentTx.map((tx) {
+                          final isIncome = tx.type == 'income';
+                          final isTransfer = tx.sourceType == 'transfer';
+                          final sign = isIncome ? '+' : (isTransfer ? '' : '-');
+
+                          // Tra cứu động (Direction A)
+                          final wallets = walletState.value ?? [];
+                          final categories =
+                              ref.watch(categoriesNotifierProvider).value ?? [];
+
+                          final localWallet = wallets
+                              .where((w) => w.id == tx.walletId)
+                              .firstOrNull;
+                          final localCategory = categories
+                              .where((c) => c.id == tx.categoryId)
+                              .firstOrNull;
+
+                          final walletName =
+                              localWallet?.name ?? tx.walletName ?? 'Ví';
+                          final categoryIconStr =
+                              localCategory?.icon ?? tx.categoryIcon;
+                          final categoryColorStr =
+                              localCategory?.color ?? tx.categoryColor;
+
+                          final categoryIcon = CategoryUIConstants.getIconData(
+                            categoryIconStr,
+                          );
+                          final categoryColor =
+                              CategoryUIConstants.getColorFromHex(
+                                categoryColorStr,
+                              );
+
+                          final txCurrency =
+                              (localWallet != null &&
+                                  localWallet.currencyCode
+                                      .toString()
+                                      .isNotEmpty)
+                              ? localWallet.currencyCode.toString()
+                              : (tx.currencyCode ?? 'VND');
+
+                          return _buildRecentTransaction(
+                            ref: ref,
+                            colors: colors,
+                            title: tx.title,
+                            sub:
+                                '$walletName • ${_formatDateTime(tx.transactionDate, tx.timezone, ref)}',
+                            amount:
+                                '$sign${AppConstant.formatMoney(tx.amount, tx.currencyCode)} $txCurrency',
+                            isIncome: isIncome,
+                            icon: categoryIcon,
+                            iconColor: categoryColor,
+                            isPending: tx.status == 'pending',
+                          );
+                        }).toList(),
+                      );
+                    },
+                    loading: () => const TransactionListShimmer(
+                      itemCount: 5,
+                      shrinkWrap: true,
+                      physics: NeverScrollableScrollPhysics(),
+                    ),
+                    error: (err, _) => Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 24.0),
                         child: Text(
-                          'Chưa có giao dịch nào.',
-                          style: TextStyle(color: colors.textSecondary),
+                          'Không thể tải giao dịch.',
+                          style: TextStyle(color: colors.expenseRed),
                         ),
                       ),
-                    );
-                  }
-  
-                  // Sắp xếp: Ưu tiên giao dịch chờ đồng bộ (pending) lên đầu, sau đó sắp xếp theo ngày mới nhất
-                  final sorted = [...txList]
-                    ..sort((a, b) {
-                      final aPending = a.status == 'pending';
-                      final bPending = b.status == 'pending';
-                      if (aPending && !bPending) return -1;
-                      if (!aPending && bPending) return 1;
-                      return b.transactionDate.compareTo(a.transactionDate);
-                    });
-                  final recentTx = sorted.take(5).toList();
-  
-                  return Column(
-                    children: recentTx.map((tx) {
-                      final isIncome = tx.type == 'income';
-                      final isTransfer = tx.sourceType == 'transfer';
-                      final sign = isIncome ? '+' : (isTransfer ? '' : '-');
-  
-                      // Tra cứu động (Direction A)
-                      final wallets = walletState.value ?? [];
-                      final categories = ref.watch(categoriesNotifierProvider).value ?? [];
-  
-                      final localWallet = wallets.where((w) => w.id == tx.walletId).firstOrNull;
-                      final localCategory = categories.where((c) => c.id == tx.categoryId).firstOrNull;
-  
-                      final walletName = localWallet?.name ?? tx.walletName ?? 'Ví';
-                      final categoryIconStr = localCategory?.icon ?? tx.categoryIcon;
-                      final categoryColorStr = localCategory?.color ?? tx.categoryColor;
-  
-                      final categoryIcon = CategoryUIConstants.getIconData(categoryIconStr);
-                      final categoryColor = CategoryUIConstants.getColorFromHex(categoryColorStr);
-  
-                      final txCurrency = (localWallet != null && 
-                          localWallet.currencyCode.toString().isNotEmpty)
-                      ? localWallet.currencyCode.toString()
-                      : (tx.currencyCode ?? 'VND');
-  
-                      return _buildRecentTransaction(
-                        ref: ref,
-                        colors: colors,
-                        title: tx.title,
-                        sub: '$walletName • ${_formatDateTime(tx.transactionDate, tx.timezone, ref)}',
-                        amount: '$sign${AppConstant.formatMoney(tx.amount, tx.currencyCode)} $txCurrency',
-                        isIncome: isIncome,
-                        icon: categoryIcon,
-                        iconColor: categoryColor,
-                        isPending: tx.status == 'pending',
-                      );
-                    }).toList(),
-                  );
-                },
-                loading: () => const TransactionListShimmer(
-                  itemCount: 5,
-                  shrinkWrap: true,
-                  physics: NeverScrollableScrollPhysics(),
-                ),
-                error: (err, _) => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24.0),
-                    child: Text(
-                      'Không thể tải giao dịch.',
-                      style: TextStyle(color: colors.expenseRed),
                     ),
                   ),
-                ),
-              ),
               const SizedBox(height: 20),
-  
+
               // 🎯 4. GỢI Ý TIẾT KIỆM BANNER (GLASS BG)
               Container(
                 width: double.infinity,
@@ -639,7 +692,9 @@ class DashboardScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 80), // Chừa khoảng trống cho Bottom Bar trượt
+              const SizedBox(
+                height: 80,
+              ), // Chừa khoảng trống cho Bottom Bar trượt
             ],
           ),
         ),
@@ -669,7 +724,7 @@ class DashboardScreen extends ConsumerWidget {
             color: Colors.black.withOpacity(0.02),
             blurRadius: 8,
             offset: const Offset(0, 3),
-          )
+          ),
         ],
       ),
       child: Column(
@@ -689,10 +744,7 @@ class DashboardScreen extends ConsumerWidget {
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: colors.textSecondary,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: colors.textSecondary, fontSize: 12),
           ),
           const SizedBox(height: 2),
           FittedBox(
@@ -738,13 +790,15 @@ class DashboardScreen extends ConsumerWidget {
                 : colors.textSecondary.withOpacity(0.04),
             width: isPending ? 1.2 : 1.0,
           ),
-          boxShadow: isPending ? [
-            BoxShadow(
-              color: Colors.orange.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            )
-          ] : null,
+          boxShadow: isPending
+              ? [
+                  BoxShadow(
+                    color: Colors.orange.withOpacity(0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           children: [
@@ -776,10 +830,7 @@ class DashboardScreen extends ConsumerWidget {
                     sub,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: colors.textSecondary,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: colors.textSecondary, fontSize: 12),
                   ),
                   if (isPending) ...[
                     const SizedBox(height: 4),
@@ -790,7 +841,9 @@ class DashboardScreen extends ConsumerWidget {
                           height: 10,
                           child: CircularProgressIndicator(
                             strokeWidth: 1.5,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.orange,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 5),
@@ -868,11 +921,7 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            child: Icon(
-              icon,
-              color: iconColor,
-              size: 26,
-            ),
+            child: Icon(icon, color: iconColor, size: 26),
           ),
           const SizedBox(height: 8),
           Text(

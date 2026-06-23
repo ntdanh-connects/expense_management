@@ -43,11 +43,11 @@ class _ExportHistoryScreenState extends ConsumerState<ExportHistoryScreen> {
           ).show(context);
         }
 
-        final dio = ref.read(dioClientProvider);
+        final repo = ref.read(reportingExportRepositoryProvider);
         final tempDir = await getTemporaryDirectory();
         final savePath = '${tempDir.path}/${item.name}';
         
-        await dio.download(item.pathOrUrl, savePath);
+        await repo.downloadFile(item.pathOrUrl, savePath);
 
         // Open local downloaded file
         await OpenFile.open(savePath);

@@ -47,4 +47,7 @@ abstract class ReportingExportRepository {
 
   /// Deletes all remote report export records and files from the backend.
   Future<void> clearAllRemoteExports();
+
+  /// Downloads a file from remote server to local path.
+  Future<void> downloadFile(String url, String savePath);
 }

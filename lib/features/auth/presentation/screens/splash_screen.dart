@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
-import 'package:expense_management/features/auth/auth_provider.dart';
+import 'package:expense_management/features/auth/presentation/providers/auth_provider.dart';
 import 'package:expense_management/shared/widgets/modern_em_logo.dart';
 
 

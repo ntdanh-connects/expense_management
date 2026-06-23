@@ -2,14 +2,14 @@ import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
-import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
-import 'package:expense_management/features/profile/category_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/category_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
 
@@ -28,13 +28,15 @@ class TransactionCard extends ConsumerWidget {
     final categories = ref.watch(categoriesNotifierProvider).value ?? [];
 
     final localWallet = wallets.where((w) => w.id == tx.walletId).firstOrNull;
-    final localCategory = categories.where((c) => c.id == tx.categoryId).firstOrNull;
+    final localCategory = categories
+        .where((c) => c.id == tx.categoryId)
+        .firstOrNull;
 
     final walletName = localWallet?.name ?? tx.walletName ?? '–';
     final categoryName = localCategory?.name ?? tx.categoryName;
     final categoryIconStr = localCategory?.icon ?? tx.categoryIcon;
     final categoryColorStr = localCategory?.color ?? tx.categoryColor;
-    
+
     // ── Icon & màu danh mục (lấy từ SQLite local nếu có, fallback dữ liệu cũ)
     final categoryIcon = CategoryUIConstants.getIconData(categoryIconStr);
     final categoryColor = CategoryUIConstants.getColorFromHex(categoryColorStr);
@@ -43,10 +45,9 @@ class TransactionCard extends ConsumerWidget {
 
     return InkWell(
       onTap: () {
-        context.push(
-          RoutePaths.transactionDetail,
-          extra: tx,
-        ).then((shouldRefresh) {
+        context.push(RoutePaths.transactionDetail, extra: tx).then((
+          shouldRefresh,
+        ) {
           if (shouldRefresh == true) {
             ref.invalidate(transactionListProvider);
             ref.invalidate(filteredTransactionListProvider);
@@ -129,7 +130,10 @@ class TransactionCard extends ConsumerWidget {
                   if (categoryName != null && categoryName.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: categoryColor.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(6),
@@ -183,17 +187,22 @@ class TransactionCard extends ConsumerWidget {
     );
   }
 
-  Widget _buildAmountWidget(AppColorsExtension colors, dynamic localWallet, WidgetRef ref) {
+  Widget _buildAmountWidget(
+    AppColorsExtension colors,
+    dynamic localWallet,
+    WidgetRef ref,
+  ) {
     final isIncome = tx.type == 'income';
     final isTransfer = tx.sourceType == 'transfer';
     final isFailed = tx.status == 'failed' || tx.status == 'failure';
     final isPending = tx.status == 'pending';
 
-    final String currencySymbol = (localWallet != null && 
-        localWallet.currencyCode != null && 
-        localWallet.currencyCode.toString().isNotEmpty)
-    ? localWallet.currencyCode.toString()
-    : 'đ';
+    final String currencySymbol =
+        (localWallet != null &&
+            localWallet.currencyCode != null &&
+            localWallet.currencyCode.toString().isNotEmpty)
+        ? localWallet.currencyCode.toString()
+        : 'đ';
 
     final formattedAmount = _fmtAmount(tx.amount, currencySymbol);
 
@@ -202,12 +211,15 @@ class TransactionCard extends ConsumerWidget {
     Color amountColor;
 
     if (isFailed) {
-      amountColor = colors.textSecondary; // Số tiền màu xám cho giao dịch thất bại
+      amountColor =
+          colors.textSecondary; // Số tiền màu xám cho giao dịch thất bại
       sign = isIncome ? '+' : '-';
     } else {
       if (isTransfer) {
         sign = isIncome ? '+' : '-';
-        amountColor = isIncome ? colors.incomeGreen : colors.textPrimary; // Chi tiêu/Chuyển đi màu tối
+        amountColor = isIncome
+            ? colors.incomeGreen
+            : colors.textPrimary; // Chi tiêu/Chuyển đi màu tối
       } else if (isIncome) {
         sign = '+';
         amountColor = colors.incomeGreen;
@@ -283,13 +295,13 @@ class TransactionCard extends ConsumerWidget {
       final offsetStr = offset.inMinutes == 0
           ? 'UTC'
           : 'UTC${offset.isNegative ? '-' : '+'}${offset.inHours.abs()}';
-      
+
       final hour = tzDateTime.hour.toString().padLeft(2, '0');
       final minute = tzDateTime.minute.toString().padLeft(2, '0');
       final day = tzDateTime.day.toString().padLeft(2, '0');
       final month = tzDateTime.month.toString().padLeft(2, '0');
       final year = tzDateTime.year.toString();
-      
+
       return '$hour:$minute - $day/$month/$year ($offsetStr)';
     } catch (_) {
       final hour = date.hour.toString().padLeft(2, '0');

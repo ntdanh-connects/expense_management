@@ -4,38 +4,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:expense_management/core/network/dio_client.dart';
-import 'package:expense_management/features/reporting_export/data/datasource/remote/reporting_export_api_service.dart';
 import 'package:expense_management/features/reporting_export/data/models/report_export_dto.dart';
-import 'package:expense_management/features/reporting_export/data/repository_impl/reporting_export_repository_impl.dart';
-import 'package:expense_management/features/reporting_export/domain/repositories/reporting_export_repository.dart';
+import 'package:expense_management/features/reporting_export/domain/di/domain_providers.dart';
+export 'package:expense_management/features/reporting_export/domain/di/domain_providers.dart';
 import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
 import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
 import 'package:expense_management/core/utils/app_logger.dart';
-
-// 1. Api Service Provider
-final reportingExportApiServiceProvider = Provider<ReportingExportApiService>((ref) {
-  final dio = ref.watch(dioClientProvider);
-  return ReportingExportApiService(dio);
-});
-
-// 2. Repository Provider
-final reportingExportRepositoryProvider = Provider<ReportingExportRepository>((ref) {
-  final apiService = ref.watch(reportingExportApiServiceProvider);
-  final reportRepo = ref.watch(reportRepositoryProvider);
-  final transactionRepo = ref.watch(transactionRepositoryProvider);
-  final budgetRepo = ref.watch(budgetRepositoryProvider);
-  return ReportingExportRepositoryImpl(
-    apiService: apiService,
-    reportRepository: reportRepo,
-    transactionRepository: transactionRepo,
-    budgetRepository: budgetRepo,
-  );
-});
+import 'package:expense_management/core/error/error_handler_mixin.dart';
 
 // 3. Entity representing items in history lists
 class ExportHistoryItem {
@@ -59,7 +39,7 @@ class ExportHistoryItem {
 }
 
 // 4. Combined export history notifier (Server CSV + Local PDF)
-class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> {
+class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> with ErrorHandlerMixin {
   Timer? _pollingTimer;
 
   @override

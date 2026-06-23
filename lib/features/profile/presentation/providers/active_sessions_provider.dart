@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:expense_management/features/profile/data/models/user_session_dto.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
-import 'package:expense_management/features/auth/auth_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
+import 'package:expense_management/features/auth/presentation/providers/auth_provider.dart';
 import 'package:expense_management/features/auth/domain/auth_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

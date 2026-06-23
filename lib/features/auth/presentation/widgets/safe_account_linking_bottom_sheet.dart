@@ -2,7 +2,7 @@ import 'package:elegant_notification/elegant_notification.dart';
 import 'package:elegant_notification/resources/arrays.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/utils/app_logger.dart';
-import 'package:expense_management/features/auth/auth_provider.dart';
+import 'package:expense_management/features/auth/presentation/providers/auth_provider.dart';
 import 'package:expense_management/shared/widgets/custom_text_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

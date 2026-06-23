@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
-import 'package:expense_management/features/wallet/presentation/provider/wallet_provider.dart';
-import 'package:expense_management/features/auth/auth_provider.dart';
+import 'package:expense_management/features/wallet/domain/di/domain_providers.dart';
+import 'package:expense_management/features/auth/presentation/providers/auth_provider.dart';
 import 'package:expense_management/features/auth/domain/auth_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

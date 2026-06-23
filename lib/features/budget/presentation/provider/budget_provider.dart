@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:expense_management/features/budget/data/models/budget_dto.dart';
-import 'package:expense_management/features/budget/domain/repositories/budget_repository.dart';
-import 'package:expense_management/features/budget/data/repository_impl/budget_repository_impl.dart';
-import 'package:expense_management/features/budget/data/data_source/remote/budget_api_service.dart';
+import 'package:expense_management/features/budget/domain/di/domain_providers.dart';
+export 'package:expense_management/features/budget/domain/di/domain_providers.dart';
 import 'package:expense_management/core/network/dio_client.dart';
+import 'package:expense_management/core/error/error_handler_mixin.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
@@ -11,22 +11,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
 import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
-
-final budgetApiServiceProvider = Provider<BudgetApiService>((ref) {
-  final dio = ref.watch(dioClientProvider);
-  return BudgetApiService(dio);
-});
-
-final budgetRepositoryProvider = Provider<BudgetRepository>((ref) {
-  final apiService = ref.watch(budgetApiServiceProvider);
-  return BudgetRepositoryImpl(apiService);
-});
+import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 
 final selectedBudgetMonthProvider = StateProvider<int>((ref) => DateTime.now().month);
 final selectedBudgetYearProvider = StateProvider<int>((ref) => DateTime.now().year);
 
-class BudgetListNotifier extends AsyncNotifier<List<BudgetDto>> {
+class BudgetListNotifier extends AsyncNotifier<List<BudgetDto>> with ErrorHandlerMixin {
   @override
   FutureOr<List<BudgetDto>> build() async {
     final month = ref.watch(selectedBudgetMonthProvider);
@@ -129,13 +119,18 @@ Future<List<BudgetDto>> _overrideBudgetUsages(Ref ref, List<BudgetDto> budgets, 
     }).toList();
 
     finalBudgets = _recalculateOverallBudgetUsage(updatedBudgets, report.totalAmount);
-  } catch (e) {
+  } catch (e, stack) {
+    // Log exception using a temporary instance of ErrorHandlerMixin helper
+    final logger = _BudgetErrorLogger();
+    logger.logException(e, stack, tag: 'Budget_overrideBudgetUsages');
     finalBudgets = _recalculateOverallBudgetUsage(budgets, 0.0);
   }
 
   _checkBudgetThresholds(ref, finalBudgets);
   return finalBudgets;
 }
+
+class _BudgetErrorLogger with ErrorHandlerMixin {}
 
 void _checkBudgetThresholds(Ref ref, List<BudgetDto> budgets) async {
   try {
@@ -148,25 +143,23 @@ void _checkBudgetThresholds(Ref ref, List<BudgetDto> budgets) async {
       if (b.limitAmount <= 0) continue;
       final ratio = b.usedAmount / b.limitAmount;
       final categoryName = b.category?.name ?? 'Ngân sách chung';
-      final formattedUsed = b.usedAmount.toStringAsFixed(0);
       final formattedLimit = b.limitAmount.toStringAsFixed(0);
+      final formattedUsed = b.usedAmount.toStringAsFixed(0);
 
-      final notified80Key = 'notified_budget_80_${b.id}';
-      final notified100Key = 'notified_budget_100_${b.id}';
+      final notified80Key = 'budget_notified_80_${b.id}_${b.month}_${b.year}';
+      final notified100Key = 'budget_notified_100_${b.id}_${b.month}_${b.year}';
 
       if (ratio >= 1.0) {
-        final alreadyNotified100 = prefs.getBool(notified100Key) ?? false;
-        if (!alreadyNotified100) {
-          final title = 'Vượt hạn mức ngân sách';
-          final body = 'Chi tiêu cho "$categoryName" đã đạt 100% hạn mức (đã dùng $formattedUsed đ / $formattedLimit đ).';
-
+        if (!prefs.containsKey(notified100Key)) {
+          final title = 'Vượt giới hạn ngân sách';
+          final body = 'Ngân sách "$categoryName" đã chi tiêu $formattedUsed đ / $formattedLimit đ (Vượt quá 100%)!';
+          
           await LocalNotificationService.showNotification(
             id: b.id.hashCode + 100,
             title: title,
             body: body,
           );
           await prefs.setBool(notified100Key, true);
-          await prefs.setBool(notified80Key, true);
 
           final userId = ref.read(currentUserProvider)?.id ?? '';
           if (userId.isNotEmpty) {
@@ -189,11 +182,10 @@ void _checkBudgetThresholds(Ref ref, List<BudgetDto> budgets) async {
           }
         }
       } else if (ratio >= 0.8) {
-        final alreadyNotified80 = prefs.getBool(notified80Key) ?? false;
-        if (!alreadyNotified80) {
-          final title = 'Cảnh báo hạn mức ngân sách';
-          final body = 'Chi tiêu cho "$categoryName" đã đạt 80% hạn mức (đã dùng $formattedUsed đ / $formattedLimit đ).';
-
+        if (!prefs.containsKey(notified80Key)) {
+          final title = 'Cảnh báo ngân sách chạm ngưỡng';
+          final body = 'Ngân sách "$categoryName" đã chi tiêu $formattedUsed đ / $formattedLimit đ (Đạt ngưỡng 80%)!';
+          
           await LocalNotificationService.showNotification(
             id: b.id.hashCode + 80,
             title: title,

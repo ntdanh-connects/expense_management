@@ -33,14 +33,14 @@ class SavingsRepositoryImpl implements SavingsRepository {
     String? sourceWalletId,
   }) async {
     try {
-      final response = await _apiService.createSavingsGoal(
-        name: name,
-        targetAmount: targetAmount,
-        targetDate: targetDate,
-        autoSaveFrequency: autoSaveFrequency,
-        autoSaveAmount: autoSaveAmount,
-        sourceWalletId: sourceWalletId,
-      );
+      final response = await _apiService.createSavingsGoal({
+        'name': name,
+        'target_amount': targetAmount,
+        if (targetDate != null) 'target_date': targetDate,
+        if (autoSaveFrequency != null) 'auto_save_frequency': autoSaveFrequency,
+        if (autoSaveAmount != null) 'auto_save_amount': autoSaveAmount,
+        if (sourceWalletId != null) 'source_wallet_id': sourceWalletId,
+      });
       final dataMap = response['data'] as Map<String, dynamic>;
       return SavingsGoalDto.fromJson(dataMap).toEntity();
     } catch (e, stackTrace) {
@@ -70,10 +70,12 @@ class SavingsRepositoryImpl implements SavingsRepository {
   }) async {
     try {
       final response = await _apiService.depositSavingsGoal(
-        id: id,
-        amount: amount,
-        sourceWalletId: sourceWalletId,
-        notes: notes,
+        id,
+        {
+          'amount': amount,
+          'source_wallet_id': sourceWalletId,
+          if (notes != null) 'notes': notes,
+        },
       );
       final dataMap = response['data'] as Map<String, dynamic>;
       return SavingsGoalDto.fromJson(dataMap).toEntity();
@@ -92,10 +94,12 @@ class SavingsRepositoryImpl implements SavingsRepository {
   }) async {
     try {
       final response = await _apiService.withdrawSavingsGoal(
-        id: id,
-        amount: amount,
-        sourceWalletId: sourceWalletId,
-        notes: notes,
+        id,
+        {
+          'amount': amount,
+          'source_wallet_id': sourceWalletId,
+          if (notes != null) 'notes': notes,
+        },
       );
       final dataMap = response['data'] as Map<String, dynamic>;
       return SavingsGoalDto.fromJson(dataMap).toEntity();

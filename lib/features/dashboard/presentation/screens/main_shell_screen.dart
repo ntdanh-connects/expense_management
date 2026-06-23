@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:expense_management/shared/widgets/custom_sliding_bottom_bar.dart';
-import 'package:expense_management/features/auth/auth_provider.dart'; // Import provider auth của ní vào
+import 'package:expense_management/features/auth/presentation/providers/auth_provider.dart'; // Import provider auth của ní vào
 import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
 
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';

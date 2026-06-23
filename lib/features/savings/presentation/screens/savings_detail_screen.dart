@@ -5,7 +5,7 @@ import 'package:expense_management/features/savings/presentation/provider/saving
 import 'package:currency_text_input_formatter/currency_text_input_formatter.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/core/language/app_provider.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -36,7 +36,10 @@ class SavingsDetailScreen extends ConsumerWidget {
         backgroundColor: colors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded, color: colors.textPrimary),
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: colors.textPrimary,
+          ),
           onPressed: () {
             ref.invalidate(savingsListProvider);
             context.pop();
@@ -64,7 +67,12 @@ class SavingsDetailScreen extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () => _openTransactionDialog(context, ref, goal, 'deposit'),
+                        onPressed: () => _openTransactionDialog(
+                          context,
+                          ref,
+                          goal,
+                          'deposit',
+                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: colors.incomeGreen,
                           foregroundColor: Colors.white,
@@ -76,9 +84,17 @@ class SavingsDetailScreen extends ConsumerWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.add_circle_outline_rounded, size: 20),
+                            const Icon(
+                              Icons.add_circle_outline_rounded,
+                              size: 20,
+                            ),
                             const SizedBox(width: 8),
-                            Text('savings_deposit_btn'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
+                            Text(
+                              'savings_deposit_btn'.tr(ref),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -86,7 +102,12 @@ class SavingsDetailScreen extends ConsumerWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () => _openTransactionDialog(context, ref, goal, 'withdraw'),
+                        onPressed: () => _openTransactionDialog(
+                          context,
+                          ref,
+                          goal,
+                          'withdraw',
+                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: colors.primary,
                           foregroundColor: Colors.white,
@@ -98,9 +119,17 @@ class SavingsDetailScreen extends ConsumerWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.remove_circle_outline_rounded, size: 20),
+                            const Icon(
+                              Icons.remove_circle_outline_rounded,
+                              size: 20,
+                            ),
                             const SizedBox(width: 8),
-                            Text('savings_withdraw_btn'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
+                            Text(
+                              'savings_withdraw_btn'.tr(ref),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -126,7 +155,9 @@ class SavingsDetailScreen extends ConsumerWidget {
         loading: () => const _SavingsDetailShimmer(),
         error: (err, _) => Center(
           child: Text(
-            'savings_detail_error'.tr(ref).replaceAll('{error}', err.toString()),
+            'savings_detail_error'
+                .tr(ref)
+                .replaceAll('{error}', err.toString()),
             style: TextStyle(color: colors.expenseRed),
           ),
         ),
@@ -134,11 +165,17 @@ class SavingsDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildProgressCard(BuildContext context, SavingsGoalEntity goal, AppColorsExtension colors, WidgetRef ref) {
+  Widget _buildProgressCard(
+    BuildContext context,
+    SavingsGoalEntity goal,
+    AppColorsExtension colors,
+    WidgetRef ref,
+  ) {
     final currencyFormat = NumberFormat('#,###', 'vi_VN');
     final targetStr = currencyFormat.format(goal.targetAmount);
     final currentStr = currencyFormat.format(goal.currentAmount);
-    final isCompleted = goal.status == 'completed' || goal.currentAmount >= goal.targetAmount;
+    final isCompleted =
+        goal.status == 'completed' || goal.currentAmount >= goal.targetAmount;
 
     return Container(
       width: double.infinity,
@@ -172,18 +209,19 @@ class SavingsDetailScreen extends ConsumerWidget {
                   Text(
                     '${goal.progressPercent.toStringAsFixed(1)}%',
                     style: TextStyle(
-                      color: isCompleted ? colors.incomeGreen : colors.textPrimary,
+                      color: isCompleted
+                          ? colors.incomeGreen
+                          : colors.textPrimary,
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    isCompleted ? 'savings_status_completed'.tr(ref) : 'savings_status_saving'.tr(ref),
-                    style: TextStyle(
-                      color: colors.textSecondary,
-                      fontSize: 12,
-                    ),
+                    isCompleted
+                        ? 'savings_status_completed'.tr(ref)
+                        : 'savings_status_saving'.tr(ref),
+                    style: TextStyle(color: colors.textSecondary, fontSize: 12),
                   ),
                 ],
               ),
@@ -201,22 +239,44 @@ class SavingsDetailScreen extends ConsumerWidget {
           const SizedBox(height: 16),
           const Divider(height: 1),
           const SizedBox(height: 16),
-          _buildDetailRow('savings_accumulated'.tr(ref), '$currentStr đ', colors, valueColor: colors.primary),
+          _buildDetailRow(
+            'savings_accumulated'.tr(ref),
+            '$currentStr đ',
+            colors,
+            valueColor: colors.primary,
+          ),
           const SizedBox(height: 12),
-          _buildDetailRow('savings_target_amount_label'.tr(ref), '$targetStr đ', colors),
+          _buildDetailRow(
+            'savings_target_amount_label'.tr(ref),
+            '$targetStr đ',
+            colors,
+          ),
           if (goal.targetDate != null) ...[
             const SizedBox(height: 12),
-            _buildDetailRow('savings_target_date_label'.tr(ref), DateFormat('dd/MM/yyyy').format(goal.targetDate!), colors),
+            _buildDetailRow(
+              'savings_target_date_label'.tr(ref),
+              DateFormat('dd/MM/yyyy').format(goal.targetDate!),
+              colors,
+            ),
           ],
           if (goal.sourceWalletName != null) ...[
             const SizedBox(height: 12),
-            _buildDetailRow('savings_linked_wallet_label'.tr(ref), goal.sourceWalletName!, colors),
+            _buildDetailRow(
+              'savings_linked_wallet_label'.tr(ref),
+              goal.sourceWalletName!,
+              colors,
+            ),
           ],
-          if (goal.autoSaveFrequency != null && goal.autoSaveAmount != null) ...[
+          if (goal.autoSaveFrequency != null &&
+              goal.autoSaveAmount != null) ...[
             const SizedBox(height: 12),
             _buildDetailRow(
               'savings_auto_save_title'.tr(ref),
-              '${currencyFormat.format(goal.autoSaveAmount)}đ (${goal.autoSaveFrequency == 'daily' ? 'savings_freq_daily'.tr(ref) : goal.autoSaveFrequency == 'weekly' ? 'savings_freq_weekly'.tr(ref) : 'savings_freq_monthly'.tr(ref)})',
+              '${currencyFormat.format(goal.autoSaveAmount)}đ (${goal.autoSaveFrequency == 'daily'
+                  ? 'savings_freq_daily'.tr(ref)
+                  : goal.autoSaveFrequency == 'weekly'
+                  ? 'savings_freq_weekly'.tr(ref)
+                  : 'savings_freq_monthly'.tr(ref)})',
               colors,
             ),
           ],
@@ -225,7 +285,12 @@ class SavingsDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDetailRow(String label, String value, AppColorsExtension colors, {Color? valueColor}) {
+  Widget _buildDetailRow(
+    String label,
+    String value,
+    AppColorsExtension colors, {
+    Color? valueColor,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -245,7 +310,12 @@ class SavingsDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTransactionHistoryList(BuildContext context, SavingsGoalEntity goal, AppColorsExtension colors, WidgetRef ref) {
+  Widget _buildTransactionHistoryList(
+    BuildContext context,
+    SavingsGoalEntity goal,
+    AppColorsExtension colors,
+    WidgetRef ref,
+  ) {
     final list = goal.transactions ?? [];
     if (list.isEmpty) {
       return Container(
@@ -278,7 +348,7 @@ class SavingsDetailScreen extends ConsumerWidget {
         final displayColor = isDeposit ? colors.incomeGreen : colors.expenseRed;
         final amountText = '$amountSign${currencyFormat.format(tx.amount)} đ';
         final dateText = _formatDateTime(tx.transactionDate, ref);
-        
+
         // Chữ tiền bằng chữ theo ngôn ngữ hiện tại
         final amountWords = formatNumberToWords(tx.amount, localeCode);
 
@@ -300,7 +370,9 @@ class SavingsDetailScreen extends ConsumerWidget {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  isDeposit ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+                  isDeposit
+                      ? Icons.arrow_downward_rounded
+                      : Icons.arrow_upward_rounded,
                   color: displayColor,
                   size: 18,
                 ),
@@ -311,7 +383,10 @@ class SavingsDetailScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      tx.notes ?? (isDeposit ? 'savings_default_deposit_note'.tr(ref) : 'savings_default_withdraw_note'.tr(ref)),
+                      tx.notes ??
+                          (isDeposit
+                              ? 'savings_default_deposit_note'.tr(ref)
+                              : 'savings_default_withdraw_note'.tr(ref)),
                       style: TextStyle(
                         color: colors.textPrimary,
                         fontWeight: FontWeight.bold,
@@ -367,13 +442,14 @@ class SavingsDetailScreen extends ConsumerWidget {
         backgroundColor: colors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text('savings_delete_dialog_title'.tr(ref)),
-        content: Text(
-          'savings_delete_dialog_desc'.tr(ref),
-        ),
+        content: Text('savings_delete_dialog_desc'.tr(ref)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: Text('cancel'.tr(ref), style: TextStyle(color: colors.textSecondary)),
+            child: Text(
+              'cancel'.tr(ref),
+              style: TextStyle(color: colors.textSecondary),
+            ),
           ),
           TextButton(
             onPressed: () async {
@@ -382,7 +458,8 @@ class SavingsDetailScreen extends ConsumerWidget {
                 showDialog(
                   context: context,
                   barrierDismissible: false,
-                  builder: (context) => const Center(child: CircularProgressIndicator()),
+                  builder: (context) =>
+                      const Center(child: CircularProgressIndicator()),
                 );
 
                 await ref.read(savingsListProvider.notifier).deleteGoal(goalId);
@@ -398,12 +475,24 @@ class SavingsDetailScreen extends ConsumerWidget {
                 if (context.mounted) {
                   Navigator.pop(context); // Close loading
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('savings_delete_error'.tr(ref).replaceAll('{error}', e.toString()))),
+                    SnackBar(
+                      content: Text(
+                        'savings_delete_error'
+                            .tr(ref)
+                            .replaceAll('{error}', e.toString()),
+                      ),
+                    ),
                   );
                 }
               }
             },
-            child: Text('delete'.tr(ref), style: TextStyle(color: colors.expenseRed, fontWeight: FontWeight.bold)),
+            child: Text(
+              'delete'.tr(ref),
+              style: TextStyle(
+                color: colors.expenseRed,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -510,17 +599,20 @@ class _SavingsDetailShimmer extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             // History List Placeholders
-            ...List.generate(3, (index) => Padding(
-              padding: const EdgeInsets.only(bottom: 12.0),
-              child: Container(
-                width: double.infinity,
-                height: 70,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+            ...List.generate(
+              3,
+              (index) => Padding(
+                padding: const EdgeInsets.only(bottom: 12.0),
+                child: Container(
+                  width: double.infinity,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
               ),
-            )),
+            ),
           ],
         ),
       ),
@@ -540,10 +632,12 @@ class _TransactionDialogContent extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_TransactionDialogContent> createState() => _TransactionDialogContentState();
+  ConsumerState<_TransactionDialogContent> createState() =>
+      _TransactionDialogContentState();
 }
 
-class _TransactionDialogContentState extends ConsumerState<_TransactionDialogContent> {
+class _TransactionDialogContentState
+    extends ConsumerState<_TransactionDialogContent> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   final _notesController = TextEditingController();
@@ -612,7 +706,9 @@ class _TransactionDialogContentState extends ConsumerState<_TransactionDialogCon
             ),
             const SizedBox(height: 16),
             Text(
-              widget.type == 'deposit' ? 'savings_deposit_title'.tr(ref) : 'savings_withdraw_title'.tr(ref),
+              widget.type == 'deposit'
+                  ? 'savings_deposit_title'.tr(ref)
+                  : 'savings_withdraw_title'.tr(ref),
               style: TextStyle(
                 color: colors.textPrimary,
                 fontSize: 18,
@@ -627,7 +723,9 @@ class _TransactionDialogContentState extends ConsumerState<_TransactionDialogCon
               keyboardType: TextInputType.number,
               inputFormatters: [_amountFormatter],
               style: TextStyle(
-                color: widget.type == 'deposit' ? colors.incomeGreen : colors.primary,
+                color: widget.type == 'deposit'
+                    ? colors.incomeGreen
+                    : colors.primary,
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
               ),
@@ -658,8 +756,14 @@ class _TransactionDialogContentState extends ConsumerState<_TransactionDialogCon
                 if (amount > 500000000) {
                   return 'savings_max_amount_error'.tr(ref);
                 }
-                if (widget.type == 'withdraw' && amount > widget.goal.currentAmount) {
-                  return 'savings_withdraw_exceed_error'.tr(ref).replaceAll('{amount}', NumberFormat('#,###').format(widget.goal.currentAmount));
+                if (widget.type == 'withdraw' &&
+                    amount > widget.goal.currentAmount) {
+                  return 'savings_withdraw_exceed_error'
+                      .tr(ref)
+                      .replaceAll(
+                        '{amount}',
+                        NumberFormat('#,###').format(widget.goal.currentAmount),
+                      );
                 }
                 return null;
               },
@@ -684,7 +788,9 @@ class _TransactionDialogContentState extends ConsumerState<_TransactionDialogCon
                   style: TextStyle(color: colors.textPrimary, fontSize: 14),
                   value: _selectedWalletId,
                   decoration: InputDecoration(
-                    labelText: widget.type == 'deposit' ? 'savings_source_wallet_label'.tr(ref) : 'savings_dest_wallet_label'.tr(ref),
+                    labelText: widget.type == 'deposit'
+                        ? 'savings_source_wallet_label'.tr(ref)
+                        : 'savings_dest_wallet_label'.tr(ref),
                     labelStyle: TextStyle(color: colors.textSecondary),
                     filled: true,
                     fillColor: colors.background,
@@ -696,7 +802,9 @@ class _TransactionDialogContentState extends ConsumerState<_TransactionDialogCon
                   items: list.map((wallet) {
                     return DropdownMenuItem<String>(
                       value: wallet.id,
-                      child: Text('${wallet.name} (${NumberFormat('#,###', 'vi_VN').format(wallet.balance)} đ)'),
+                      child: Text(
+                        '${wallet.name} (${NumberFormat('#,###', 'vi_VN').format(wallet.balance)} đ)',
+                      ),
                     );
                   }).toList(),
                   onChanged: _isDialogLoading
@@ -716,8 +824,12 @@ class _TransactionDialogContentState extends ConsumerState<_TransactionDialogCon
               },
               loading: () {
                 final isDark = Theme.of(context).brightness == Brightness.dark;
-                final baseColor = isDark ? Colors.grey[900]! : Colors.grey[300]!;
-                final highlightColor = isDark ? Colors.grey[800]! : Colors.grey[100]!;
+                final baseColor = isDark
+                    ? Colors.grey[900]!
+                    : Colors.grey[300]!;
+                final highlightColor = isDark
+                    ? Colors.grey[800]!
+                    : Colors.grey[100]!;
                 return Shimmer.fromColors(
                   baseColor: baseColor,
                   highlightColor: highlightColor,
@@ -731,7 +843,11 @@ class _TransactionDialogContentState extends ConsumerState<_TransactionDialogCon
                   ),
                 );
               },
-              error: (err, _) => Text('savings_wallet_load_error'.tr(ref).replaceAll('{error}', err.toString())),
+              error: (err, _) => Text(
+                'savings_wallet_load_error'
+                    .tr(ref)
+                    .replaceAll('{error}', err.toString()),
+              ),
             ),
             const SizedBox(height: 16),
             // Notes TextField
@@ -759,13 +875,17 @@ class _TransactionDialogContentState extends ConsumerState<_TransactionDialogCon
                     ? null
                     : () async {
                         if (!_formKey.currentState!.validate()) return;
-                        
+
                         final amount = _amountFormatter.getDouble().toDouble();
                         final walletId = _selectedWalletId!;
-                        final notes = _notesController.text.trim().isEmpty 
-                            ? (widget.type == 'deposit' 
-                                ? 'savings_auto_note_deposit'.tr(ref).replaceAll('{name}', widget.goal.name) 
-                                : 'savings_auto_note_withdraw'.tr(ref).replaceAll('{name}', widget.goal.name))
+                        final notes = _notesController.text.trim().isEmpty
+                            ? (widget.type == 'deposit'
+                                  ? 'savings_auto_note_deposit'
+                                        .tr(ref)
+                                        .replaceAll('{name}', widget.goal.name)
+                                  : 'savings_auto_note_withdraw'
+                                        .tr(ref)
+                                        .replaceAll('{name}', widget.goal.name))
                             : _notesController.text.trim();
 
                         setState(() {
@@ -773,7 +893,9 @@ class _TransactionDialogContentState extends ConsumerState<_TransactionDialogCon
                         });
 
                         try {
-                          final detailNotifier = ref.read(savingsDetailProvider(widget.goal.id).notifier);
+                          final detailNotifier = ref.read(
+                            savingsDetailProvider(widget.goal.id).notifier,
+                          );
                           if (widget.type == 'deposit') {
                             await detailNotifier.deposit(
                               amount: amount,
@@ -792,20 +914,26 @@ class _TransactionDialogContentState extends ConsumerState<_TransactionDialogCon
                           ref.invalidate(walletNotifierProvider);
                           ref.invalidate(transactionListProvider);
                           ref.invalidate(savingsListProvider);
-                          
+
                           if (mounted) {
                             Navigator.pop(context); // Close bottom sheet
-                            ScaffoldMessenger.of(widget.screenContext).showSnackBar(
+                            ScaffoldMessenger.of(
+                              widget.screenContext,
+                            ).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  widget.type == 'deposit' 
-                                      ? 'savings_deposit_success'.tr(ref) 
+                                  widget.type == 'deposit'
+                                      ? 'savings_deposit_success'.tr(ref)
                                       : 'savings_withdraw_success'.tr(ref),
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                                 backgroundColor: colors.incomeGreen,
                                 behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
                             );
                           }
@@ -817,19 +945,27 @@ class _TransactionDialogContentState extends ConsumerState<_TransactionDialogCon
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  'savings_detail_error'.tr(ref).replaceAll('{error}', e.toString()),
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                  'savings_detail_error'
+                                      .tr(ref)
+                                      .replaceAll('{error}', e.toString()),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                                 backgroundColor: colors.expenseRed,
                                 behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
                             );
                           }
                         }
                       },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: widget.type == 'deposit' ? colors.incomeGreen : colors.primary,
+                  backgroundColor: widget.type == 'deposit'
+                      ? colors.incomeGreen
+                      : colors.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
@@ -842,12 +978,19 @@ class _TransactionDialogContentState extends ConsumerState<_TransactionDialogCon
                         width: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
                         ),
                       )
                     : Text(
-                        widget.type == 'deposit' ? 'savings_confirm_deposit'.tr(ref) : 'savings_confirm_withdraw'.tr(ref),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        widget.type == 'deposit'
+                            ? 'savings_confirm_deposit'.tr(ref)
+                            : 'savings_confirm_withdraw'.tr(ref),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
               ),
             ),

@@ -12,14 +12,14 @@ import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/core/database/app_database.dart';
 import 'package:drift/drift.dart';
 import 'package:expense_management/features/transaction/data/datasource/remote/transaction_remote_datasource.dart';
-import 'package:expense_management/features/transaction/data/repository_impl/transaction_repository_impl.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_params.dart';
 import 'package:expense_management/features/transaction/domain/repositories/transaction_repository.dart';
-import 'package:expense_management/features/transaction/domain/use_case/add_transaction_usecase.dart';
-import 'package:expense_management/features/transaction/domain/use_case/get_transactions_usecase.dart';
+import 'package:expense_management/features/transaction/domain/di/domain_providers.dart';
+export 'package:expense_management/features/transaction/domain/di/domain_providers.dart';
+import 'package:expense_management/features/transaction/data/di/data_providers.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 import 'package:elegant_notification/elegant_notification.dart';
 import 'package:elegant_notification/resources/arrays.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,33 +31,7 @@ import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
 import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
-
-final transactionApiServiceProvider = Provider<TransactionApiService>((ref) {
-  final dio = ref.watch(dioClientProvider);
-  return TransactionApiService(dio);
-});
-
-final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
-  final apiService = ref.watch(transactionApiServiceProvider);
-  final dio = ref.watch(dioClientProvider);
-  final database = ref.watch(appDatabaseProvider);
-  return TransactionRepositoryImpl(
-    apiService,
-    dio,
-    database,
-    () => ref.read(currentUserProvider)?.id ?? '',
-  );
-});
-
-final addTransactionUseCaseProvider = Provider<AddTransactionUseCase>((ref) {
-  final repository = ref.watch(transactionRepositoryProvider);
-  return AddTransactionUseCase(repository);
-});
-
-final getTransactionsUseCaseProvider = Provider<GetTransactionsUseCase>((ref) {
-  final repository = ref.watch(transactionRepositoryProvider);
-  return GetTransactionsUseCase(repository);
-});
+import 'package:expense_management/core/error/error_handler_mixin.dart';
 
 TransactionEntity _mapLocalTransactionToEntity(
   LocalTransaction row,
@@ -101,7 +75,7 @@ TransactionEntity _mapLocalTransactionToEntity(
   );
 }
 
-class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
+class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> with ErrorHandlerMixin {
   Timer? _syncTimer;
   bool _isSyncing = false;
 
@@ -315,55 +289,43 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
               activeSourceType = 'transfer';
             }
 
-            final dio = ref.read(dioClientProvider);
-            final Map<String, dynamic> data = {
-              'title': tx.title,
-              if (tx.categoryId != null) 'category_id': tx.categoryId,
-              if (tx.notes != null) 'notes': tx.notes,
-              if (activePayeeId != null) 'payee_id': activePayeeId,
-              if (activeSourceType != null) 'source_type': activeSourceType,
-              'type': tx.type,
-            };
-            final formData = FormData.fromMap(data);
-            final url = ApiEndpoints.updateTransaction.replaceAll(
-              '{id}',
-              tx.id,
+            final repository = ref.read(transactionRepositoryProvider);
+            final entity = await repository.updateTransaction(
+              id: tx.id,
+              title: tx.title,
+              categoryId: tx.categoryId,
+              notes: tx.notes,
+              payeeId: activePayeeId,
+              sourceType: activeSourceType,
+              type: tx.type,
+              attachment: attachmentFile,
             );
-            final response = await dio.post(url, data: formData);
 
-            final responseData = response.data;
-            if (responseData != null && responseData['data'] != null) {
-              final dto = TransactionDto.fromJson(
-                responseData['data'] as Map<String, dynamic>,
-              );
-              final entity = TransactionMapper.toEntity(dto);
-
-              final localTx = LocalTransaction(
-                id: entity.id,
-                userId: userId,
-                walletId: entity.walletId,
-                categoryId: entity.categoryId,
-                amount: entity.amount,
-                amountInUserCurrency:
-                    entity.amount * (entity.exchangeRate ?? 1.0),
-                type: entity.type,
-                title: entity.title,
-                notes: entity.notes,
-                transactionDate: entity.transactionDate,
-                sourceType: entity.sourceType,
-                sourceId: entity.sourceId,
-                createdAt: entity.createdAt ?? DateTime.now(),
-                updatedAt: DateTime.now(),
-                isSynced: true,
-                payeeId: entity.payeeId,
-                payeeName: entity.payeeName,
-                payeeAccountNumber: entity.payeeAccountNumber,
-                payeeBankName: entity.payeeBankName,
-                isTransferLocked: entity.isTransferLocked,
-              );
-              await database.saveTransaction(localTx);
-              anySuccess = true;
-            }
+            final localTx = LocalTransaction(
+              id: entity.id,
+              userId: userId,
+              walletId: entity.walletId,
+              categoryId: entity.categoryId,
+              amount: entity.amount,
+              amountInUserCurrency:
+                  entity.amount * (entity.exchangeRate ?? 1.0),
+              type: entity.type,
+              title: entity.title,
+              notes: entity.notes,
+              transactionDate: entity.transactionDate,
+              sourceType: entity.sourceType,
+              sourceId: entity.sourceId,
+              createdAt: entity.createdAt ?? DateTime.now(),
+              updatedAt: DateTime.now(),
+              isSynced: true,
+              payeeId: entity.payeeId,
+              payeeName: entity.payeeName,
+              payeeAccountNumber: entity.payeeAccountNumber,
+              payeeBankName: entity.payeeBankName,
+              isTransferLocked: entity.isTransferLocked,
+            );
+            await database.saveTransaction(localTx);
+            anySuccess = true;
           }
 
           final context = rootNavigatorKey.currentContext;
@@ -713,21 +675,9 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     }
 
     // 3. Fallback to API call
-    final dio = ref.read(dioClientProvider);
-    final url = ApiEndpoints.showTransaction.replaceAll('{id}', transactionId);
-
     try {
-      final response = await dio.get(url);
-      final responseData = response.data;
-
-      if (responseData != null && responseData['data'] != null) {
-        final dto = TransactionDto.fromJson(
-          responseData['data'] as Map<String, dynamic>,
-        );
-        return TransactionMapper.toEntity(dto);
-      } else {
-        throw Exception('Không tìm thấy dữ liệu giao dịch hợp lệ');
-      }
+      final repository = ref.read(transactionRepositoryProvider);
+      return await repository.getTransactionById(transactionId);
     } catch (e, stackTrace) {
       AppLogger.error(
         '[TransactionNotifier] getTransactionById error: $e',
@@ -779,18 +729,14 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
 
   Future<void> deleteTransaction(String transactionId) async {
     await ref.read(cacheStoreProvider).clean();
-    final dio = ref.read(dioClientProvider);
 
     final currentList = state.value ?? [];
     final tx = currentList.where((t) => t.id == transactionId).firstOrNull;
 
     if (tx != null &&
         (tx.status != 'pending' || !transactionId.startsWith('temp_'))) {
-      final url = ApiEndpoints.deleteTransaction.replaceAll(
-        '{id}',
-        transactionId,
-      );
-      await dio.delete(url);
+      final repository = ref.read(transactionRepositoryProvider);
+      await repository.deleteTransaction(transactionId);
     }
 
     // Xóa local
@@ -818,7 +764,6 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
     String? type,
   }) async {
     await ref.read(cacheStoreProvider).clean();
-    final dio = ref.read(dioClientProvider);
     final database = ref.read(appDatabaseProvider);
 
     String? activePayeeId = payeeId;
@@ -855,61 +800,46 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> {
       activeSourceType = 'transfer';
     }
 
-    final Map<String, dynamic> data = {
-      'title': title,
-      if (categoryId != null) 'category_id': categoryId,
-      if (notes != null) 'notes': notes,
-      if (activePayeeId != null) 'payee_id': activePayeeId,
-      if (activeSourceType != null) 'source_type': activeSourceType,
-      if (activeType != null) 'type': activeType,
-      if (attachments != null && attachments.isNotEmpty) ...{
-        'attachment': attachments.first.clone(),
-        'attachments[]': attachments.map((e) => e.clone()).toList(),
-      },
-    };
-    final formData = FormData.fromMap(data);
-    final url = ApiEndpoints.updateTransaction.replaceAll(
-      '{id}',
-      transactionId,
-    );
-    final response = await dio.post(url, data: formData);
-
     try {
-      final responseData = response.data;
-      if (responseData != null && responseData['data'] != null) {
-        final dto = TransactionDto.fromJson(
-          responseData['data'] as Map<String, dynamic>,
-        );
-        final entity = TransactionMapper.toEntity(dto);
-        final database = ref.read(appDatabaseProvider);
-        final userId = ref.read(currentUserProvider)?.id ?? '';
+      final repository = ref.read(transactionRepositoryProvider);
+      final entity = await repository.updateTransaction(
+        id: transactionId,
+        title: title,
+        categoryId: categoryId,
+        notes: notes,
+        payeeId: activePayeeId,
+        sourceType: activeSourceType,
+        type: activeType,
+        attachment: (attachments != null && attachments.isNotEmpty) ? attachments.first : null,
+      );
 
-        final localTx = LocalTransaction(
-          id: entity.id,
-          userId: userId,
-          walletId: entity.walletId,
-          categoryId: entity.categoryId,
-          amount: entity.amount,
-          amountInUserCurrency: entity.amount * (entity.exchangeRate ?? 1.0),
-          type: entity.type,
-          title: entity.title,
-          notes: entity.notes,
-          transactionDate: entity.transactionDate,
-          sourceType: entity.sourceType,
-          sourceId: entity.sourceId,
-          createdAt: entity.createdAt ?? DateTime.now(),
-          updatedAt: DateTime.now(),
-          isSynced: true,
-          payeeId: entity.payeeId,
-          payeeName: entity.payeeName,
-          payeeAccountNumber: entity.payeeAccountNumber,
-          payeeBankName: entity.payeeBankName,
-          isTransferLocked: entity.isTransferLocked,
-        );
-        await database.saveTransaction(localTx);
-      }
+      final userId = ref.read(currentUserProvider)?.id ?? '';
+
+      final localTx = LocalTransaction(
+        id: entity.id,
+        userId: userId,
+        walletId: entity.walletId,
+        categoryId: entity.categoryId,
+        amount: entity.amount,
+        amountInUserCurrency: entity.amount * (entity.exchangeRate ?? 1.0),
+        type: entity.type,
+        title: entity.title,
+        notes: entity.notes,
+        transactionDate: entity.transactionDate,
+        sourceType: entity.sourceType,
+        sourceId: entity.sourceId,
+        createdAt: entity.createdAt ?? DateTime.now(),
+        updatedAt: DateTime.now(),
+        isSynced: true,
+        payeeId: entity.payeeId,
+        payeeName: entity.payeeName,
+        payeeAccountNumber: entity.payeeAccountNumber,
+        payeeBankName: entity.payeeBankName,
+        isTransferLocked: entity.isTransferLocked,
+      );
+      await database.saveTransaction(localTx);
     } catch (e) {
-      AppLogger.error('🚨 [updateTransaction] Failed to update local DB: $e');
+      AppLogger.error('🚨 [updateTransaction] Failed to update transaction: $e');
     }
 
     ref.invalidate(transactionListProvider);

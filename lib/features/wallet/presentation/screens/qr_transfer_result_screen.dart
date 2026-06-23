@@ -11,7 +11,7 @@ import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/features/wallet/presentation/provider/qr_transfer_provider.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 import 'package:expense_management/core/utils/currency_utils.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
@@ -26,10 +26,12 @@ class QrTransferResultScreen extends ConsumerStatefulWidget {
   const QrTransferResultScreen({super.key, required this.resultData});
 
   @override
-  ConsumerState<QrTransferResultScreen> createState() => _QrTransferResultScreenState();
+  ConsumerState<QrTransferResultScreen> createState() =>
+      _QrTransferResultScreenState();
 }
 
-class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen> with SingleTickerProviderStateMixin {
+class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
 
@@ -130,10 +132,12 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
       AppLogger.info("🔄 [QR-Result-BG] Syncing wallets...");
       if (!mounted) return;
       await ref.read(walletNotifierProvider.notifier).refreshWallets();
-      
+
       AppLogger.info("🔄 [QR-Result-BG] Refreshing transaction history...");
       if (!mounted) return;
-      await ref.read(transactionListProvider.notifier).refreshTransactions(silent: true);
+      await ref
+          .read(transactionListProvider.notifier)
+          .refreshTransactions(silent: true);
 
       AppLogger.info("🔄 [QR-Result-BG] Refreshing notifications...");
       if (!mounted) return;
@@ -153,13 +157,24 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
       // Trigger system and local notifications
       try {
         final wallets = ref.read(walletNotifierProvider).value ?? [];
-        final selectedWallet = wallets.firstWhere((w) => w.id == fromWalletId, orElse: () => wallets.first);
-        final currencySymbol = AppConstant.getCurrencySymbol(selectedWallet.currencyCode);
-        final formattedAmount = AppConstant.formatMoney(amount, selectedWallet.currencyCode);
+        final selectedWallet = wallets.firstWhere(
+          (w) => w.id == fromWalletId,
+          orElse: () => wallets.first,
+        );
+        final currencySymbol = AppConstant.getCurrencySymbol(
+          selectedWallet.currencyCode,
+        );
+        final formattedAmount = AppConstant.formatMoney(
+          amount,
+          selectedWallet.currencyCode,
+        );
         final walletPart = ' ví "${selectedWallet.name}"';
-        final destination = isInternal ? payeeName : '$bankName - $identifier ($payeeName)';
+        final destination = isInternal
+            ? payeeName
+            : '$bankName - $identifier ($payeeName)';
         final title = 'Chuyển tiền';
-        final body = 'Đã chuyển $formattedAmount $currencySymbol từ$walletPart đến "$destination".';
+        final body =
+            'Đã chuyển $formattedAmount $currencySymbol từ$walletPart đến "$destination".';
 
         await LocalNotificationService.showNotification(
           id: DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF,
@@ -178,7 +193,9 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
           );
           if (localNotif != null) {
             if (!mounted) return;
-            ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
+            ref
+                .read(notificationNotifierProvider.notifier)
+                .addLocalNotification(localNotif);
           }
         }
       } catch (e) {
@@ -199,7 +216,11 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
     return '${NumberFormat('#,###', 'vi_VN').format(amount)} đ';
   }
 
-  Widget _buildShimmerBlock({required double width, required double height, double borderRadius = 6}) {
+  Widget _buildShimmerBlock({
+    required double width,
+    required double height,
+    double borderRadius = 6,
+  }) {
     return Container(
       width: width,
       height: height,
@@ -228,29 +249,41 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
     final color = context.colors;
     final localeCode = ref.watch(localeProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     // Parse result payload
     final result = _apiResult ?? {};
     final data = result['data'] as Map<String, dynamic>? ?? {};
-    
-    final double rawAmount = double.tryParse(data['amount']?.toString() ?? '') ?? 
+
+    final double rawAmount =
+        double.tryParse(data['amount']?.toString() ?? '') ??
         (double.tryParse(widget.resultData['amount']?.toString() ?? '') ?? 0.0);
-    
+
     // Recipient Name
-    final rawRecipientName = (data['payee_name'] ?? data['recipient_name'] ?? widget.resultData['payee_name'] ?? '').toString().trim();
-    final recipientName = (rawRecipientName.isEmpty || rawRecipientName.toUpperCase() == 'UNKNOWN RECIPIENT')
+    final rawRecipientName =
+        (data['payee_name'] ??
+                data['recipient_name'] ??
+                widget.resultData['payee_name'] ??
+                '')
+            .toString()
+            .trim();
+    final recipientName =
+        (rawRecipientName.isEmpty ||
+            rawRecipientName.toUpperCase() == 'UNKNOWN RECIPIENT')
         ? 'qr_transfer_unknown'.tr(ref)
         : rawRecipientName;
 
     final senderWallet = widget.resultData['sender_wallet'] ?? 'Ví mặc định';
     final notes = widget.resultData['notes'] ?? 'Chuyển khoản QR';
     final bankName = widget.resultData['bank_name'] ?? '';
-    final identifier = widget.resultData['identifier'] ?? data['account_number'] ?? '';
+    final identifier =
+        widget.resultData['identifier'] ?? data['account_number'] ?? '';
     final type = widget.resultData['type'] ?? 'internal';
     final isInternal = type == 'internal';
-    
+
     final transactionId = data['transfer_id'] ?? data['expense_id'] ?? '';
-    final formattedTime = DateFormat('dd/MM/yyyy - HH:mm').format(DateTime.now());
+    final formattedTime = DateFormat(
+      'dd/MM/yyyy - HH:mm',
+    ).format(DateTime.now());
 
     return Scaffold(
       backgroundColor: color.background,
@@ -265,12 +298,16 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
                   child: Column(
                     children: [
                       const SizedBox(height: 32),
-                      
+
                       // Animated checkmark, error mark or shimmer circle
                       _isExecuting
                           ? Shimmer.fromColors(
-                              baseColor: isDark ? Colors.grey[800]! : Colors.grey[300]!,
-                              highlightColor: isDark ? Colors.grey[700]! : Colors.grey[100]!,
+                              baseColor: isDark
+                                  ? Colors.grey[800]!
+                                  : Colors.grey[300]!,
+                              highlightColor: isDark
+                                  ? Colors.grey[700]!
+                                  : Colors.grey[100]!,
                               child: Container(
                                 width: 84,
                                 height: 84,
@@ -286,30 +323,42 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
                                 width: 84,
                                 height: 84,
                                 decoration: BoxDecoration(
-                                  color: _isSuccess ? color.incomeGreen : color.expenseRed,
+                                  color: _isSuccess
+                                      ? color.incomeGreen
+                                      : color.expenseRed,
                                   shape: BoxShape.circle,
                                   boxShadow: [
                                     BoxShadow(
-                                      color: (_isSuccess ? color.incomeGreen : color.expenseRed).withOpacity(0.2),
+                                      color:
+                                          (_isSuccess
+                                                  ? color.incomeGreen
+                                                  : color.expenseRed)
+                                              .withOpacity(0.2),
                                       blurRadius: 16,
                                       offset: const Offset(0, 8),
                                     ),
                                   ],
                                 ),
                                 child: Icon(
-                                  _isSuccess ? Icons.check_rounded : Icons.close_rounded,
+                                  _isSuccess
+                                      ? Icons.check_rounded
+                                      : Icons.close_rounded,
                                   color: Colors.white,
                                   size: 48,
                                 ),
                               ),
                             ),
                       const SizedBox(height: 24),
-                      
+
                       // Title and description or shimmer
                       _isExecuting
                           ? Shimmer.fromColors(
-                              baseColor: isDark ? Colors.grey[800]! : Colors.grey[300]!,
-                              highlightColor: isDark ? Colors.grey[700]! : Colors.grey[100]!,
+                              baseColor: isDark
+                                  ? Colors.grey[800]!
+                                  : Colors.grey[300]!,
+                              highlightColor: isDark
+                                  ? Colors.grey[700]!
+                                  : Colors.grey[100]!,
                               child: Column(
                                 children: [
                                   _buildShimmerBlock(width: 180, height: 24),
@@ -321,18 +370,25 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
                           : Column(
                               children: [
                                 Text(
-                                  _isSuccess ? 'qr_transfer_success_title'.tr(ref) : 'qr_transfer_failed_title'.tr(ref),
+                                  _isSuccess
+                                      ? 'qr_transfer_success_title'.tr(ref)
+                                      : 'qr_transfer_failed_title'.tr(ref),
                                   style: TextStyle(
-                                    color: _isSuccess ? color.incomeGreen : color.expenseRed,
+                                    color: _isSuccess
+                                        ? color.incomeGreen
+                                        : color.expenseRed,
                                     fontSize: 22,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  _isSuccess 
-                                      ? 'qr_transfer_success_desc'.tr(ref) 
-                                      : (_errorMessage ?? (result['message'] ?? 'qr_transfer_failed_default_desc'.tr(ref))),
+                                  _isSuccess
+                                      ? 'qr_transfer_success_desc'.tr(ref)
+                                      : (_errorMessage ??
+                                            (result['message'] ??
+                                                'qr_transfer_failed_default_desc'
+                                                    .tr(ref))),
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     color: color.textSecondary,
@@ -342,14 +398,16 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
                               ],
                             ),
                       const SizedBox(height: 32),
-                      
+
                       // Receipt Card
                       Container(
                         width: double.infinity,
                         decoration: BoxDecoration(
                           color: color.surface,
                           borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: color.textSecondary.withOpacity(0.08)),
+                          border: Border.all(
+                            color: color.textSecondary.withOpacity(0.08),
+                          ),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.02),
@@ -367,27 +425,42 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
                                 children: [
                                   _isExecuting
                                       ? Shimmer.fromColors(
-                                          baseColor: isDark ? Colors.grey[800]! : Colors.grey[300]!,
-                                          highlightColor: isDark ? Colors.grey[700]! : Colors.grey[100]!,
+                                          baseColor: isDark
+                                              ? Colors.grey[800]!
+                                              : Colors.grey[300]!,
+                                          highlightColor: isDark
+                                              ? Colors.grey[700]!
+                                              : Colors.grey[100]!,
                                           child: Column(
                                             children: [
-                                              _buildShimmerBlock(width: 160, height: 32),
+                                              _buildShimmerBlock(
+                                                width: 160,
+                                                height: 32,
+                                              ),
                                               const SizedBox(height: 8),
-                                              _buildShimmerBlock(width: 100, height: 14),
+                                              _buildShimmerBlock(
+                                                width: 100,
+                                                height: 14,
+                                              ),
                                             ],
                                           ),
                                         )
                                       : Column(
                                           children: [
                                             Text(
-                                              _isSuccess ? '- ${_formatAmount(rawAmount)}' : '0 đ',
+                                              _isSuccess
+                                                  ? '- ${_formatAmount(rawAmount)}'
+                                                  : '0 đ',
                                               style: TextStyle(
-                                                color: _isSuccess ? color.expenseRed : color.textPrimary,
+                                                color: _isSuccess
+                                                    ? color.expenseRed
+                                                    : color.textPrimary,
                                                 fontSize: 32,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
-                                            if (_isSuccess && rawAmount > 0) ...[
+                                            if (_isSuccess &&
+                                                rawAmount > 0) ...[
                                               const SizedBox(height: 4),
                                               Text(
                                                 '(${formatNumberToWords(rawAmount, localeCode)})',
@@ -402,7 +475,12 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
                                             ],
                                             const SizedBox(height: 8),
                                             Text(
-                                              isInternal ? 'qr_transfer_p2p_internal'.tr(ref) : 'qr_transfer_vietqr'.tr(ref),
+                                              isInternal
+                                                  ? 'qr_transfer_p2p_internal'
+                                                        .tr(ref)
+                                                  : 'qr_transfer_vietqr'.tr(
+                                                      ref,
+                                                    ),
                                               style: TextStyle(
                                                 color: color.textSecondary,
                                                 fontSize: 14,
@@ -414,16 +492,20 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
                                 ],
                               ),
                             ),
-                            
+
                             // Dotted separator line
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24.0,
+                              ),
                               child: CustomPaint(
                                 size: const Size(double.infinity, 1),
-                                painter: DottedLinePainter(color: color.textSecondary.withOpacity(0.2)),
+                                painter: DottedLinePainter(
+                                  color: color.textSecondary.withOpacity(0.2),
+                                ),
                               ),
                             ),
-                            
+
                             // Body receipt fields
                             Padding(
                               padding: const EdgeInsets.all(24.0),
@@ -431,8 +513,12 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
                                 children: [
                                   _isExecuting
                                       ? Shimmer.fromColors(
-                                          baseColor: isDark ? Colors.grey[800]! : Colors.grey[300]!,
-                                          highlightColor: isDark ? Colors.grey[700]! : Colors.grey[100]!,
+                                          baseColor: isDark
+                                              ? Colors.grey[800]!
+                                              : Colors.grey[300]!,
+                                          highlightColor: isDark
+                                              ? Colors.grey[700]!
+                                              : Colors.grey[100]!,
                                           child: Column(
                                             children: [
                                               _buildReceiptShimmerRow(),
@@ -445,19 +531,56 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
                                         )
                                       : Column(
                                           children: [
-                                            _buildReceiptRow(color, 'qr_transfer_sender'.tr(ref), senderWallet),
-                                            _buildReceiptRow(color, 'qr_transfer_recipient'.tr(ref), recipientName, isBoldValue: true),
-                                            if (!isInternal && bankName.isNotEmpty)
-                                              _buildReceiptRow(color, 'qr_transfer_recipient_bank'.tr(ref), bankName),
                                             _buildReceiptRow(
-                                              color, 
-                                              isInternal ? 'qr_transfer_identifier'.tr(ref) : 'qr_transfer_account_number'.tr(ref), 
-                                              identifier
+                                              color,
+                                              'qr_transfer_sender'.tr(ref),
+                                              senderWallet,
                                             ),
-                                            _buildReceiptRow(color, 'qr_transfer_notes'.tr(ref), notes),
-                                            _buildReceiptRow(color, 'qr_transfer_time'.tr(ref), formattedTime),
-                                            if (_isSuccess && transactionId.isNotEmpty)
-                                              _buildReceiptRow(color, 'qr_transfer_transaction_id'.tr(ref), transactionId, valueColor: color.primary),
+                                            _buildReceiptRow(
+                                              color,
+                                              'qr_transfer_recipient'.tr(ref),
+                                              recipientName,
+                                              isBoldValue: true,
+                                            ),
+                                            if (!isInternal &&
+                                                bankName.isNotEmpty)
+                                              _buildReceiptRow(
+                                                color,
+                                                'qr_transfer_recipient_bank'.tr(
+                                                  ref,
+                                                ),
+                                                bankName,
+                                              ),
+                                            _buildReceiptRow(
+                                              color,
+                                              isInternal
+                                                  ? 'qr_transfer_identifier'.tr(
+                                                      ref,
+                                                    )
+                                                  : 'qr_transfer_account_number'
+                                                        .tr(ref),
+                                              identifier,
+                                            ),
+                                            _buildReceiptRow(
+                                              color,
+                                              'qr_transfer_notes'.tr(ref),
+                                              notes,
+                                            ),
+                                            _buildReceiptRow(
+                                              color,
+                                              'qr_transfer_time'.tr(ref),
+                                              formattedTime,
+                                            ),
+                                            if (_isSuccess &&
+                                                transactionId.isNotEmpty)
+                                              _buildReceiptRow(
+                                                color,
+                                                'qr_transfer_transaction_id'.tr(
+                                                  ref,
+                                                ),
+                                                transactionId,
+                                                valueColor: color.primary,
+                                              ),
                                           ],
                                         ),
                                 ],
@@ -471,7 +594,7 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
                 ),
               ),
               const SizedBox(height: 24),
-              
+
               // Bottom Action Buttons
               Row(
                 children: [
@@ -486,7 +609,9 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
                             },
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(
-                          color: _isExecuting ? Colors.grey.shade300 : color.primary,
+                          color: _isExecuting
+                              ? Colors.grey.shade300
+                              : color.primary,
                           width: 1.5,
                         ),
                         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -497,7 +622,9 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
                       child: Text(
                         'qr_transfer_scan_other'.tr(ref),
                         style: TextStyle(
-                          color: _isExecuting ? Colors.grey.shade400 : color.primary,
+                          color: _isExecuting
+                              ? Colors.grey.shade400
+                              : color.primary,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
@@ -514,7 +641,9 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
                               context.go('/dashboard');
                             },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _isExecuting ? Colors.grey.shade300 : color.primary,
+                        backgroundColor: _isExecuting
+                            ? Colors.grey.shade300
+                            : color.primary,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -524,7 +653,9 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
                       child: Text(
                         'qr_transfer_go_home'.tr(ref),
                         style: TextStyle(
-                          color: _isExecuting ? Colors.grey.shade500 : Colors.white,
+                          color: _isExecuting
+                              ? Colors.grey.shade500
+                              : Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
@@ -555,10 +686,7 @@ class _QrTransferResultScreenState extends ConsumerState<QrTransferResultScreen>
         children: [
           Text(
             label,
-            style: TextStyle(
-              color: color.textSecondary,
-              fontSize: 14,
-            ),
+            style: TextStyle(color: color.textSecondary, fontSize: 14),
           ),
           const SizedBox(width: 16),
           Expanded(

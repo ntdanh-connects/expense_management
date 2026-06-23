@@ -7,7 +7,7 @@ import 'package:expense_management/shared/widgets/shared_top_app_bar.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_entity.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
-import 'package:expense_management/features/profile/category_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/category_provider.dart';
 import 'package:expense_management/features/profile/data/models/category_dto.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:expense_management/features/transaction/presentation/widgets/transaction_card.dart';
@@ -17,7 +17,7 @@ import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/shared/widgets/transaction_list_shimmer.dart';
 import 'package:intl/intl.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 
 class TransactionHistoryScreen extends ConsumerStatefulWidget {
   /// Nếu 'recent' → chỉ hiện 5 giao dịch mới nhất (từ dashboard)

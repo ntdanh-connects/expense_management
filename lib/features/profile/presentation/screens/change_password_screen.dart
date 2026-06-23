@@ -2,7 +2,7 @@ import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/storage/secure_storage_service.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
-import 'package:expense_management/features/profile/change_password_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/change_password_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';

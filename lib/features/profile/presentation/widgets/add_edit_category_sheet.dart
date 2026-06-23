@@ -1,4 +1,4 @@
-import 'package:expense_management/features/profile/category_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/category_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';

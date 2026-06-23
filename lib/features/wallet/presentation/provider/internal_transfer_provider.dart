@@ -1,13 +1,14 @@
+import 'package:expense_management/core/network/dio_client.dart';
+import 'package:expense_management/core/error/error_handler_mixin.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/domain/entities/internal_transfer_record.dart';
 import 'package:expense_management/features/wallet/domain/repository/wallet_repository.dart';
-import 'package:expense_management/features/wallet/presentation/provider/wallet_provider.dart';
-import 'package:expense_management/core/utils/app_logger.dart';
+import 'package:expense_management/features/wallet/domain/di/domain_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 
-class InternalTransferHistoryNotifier extends StateNotifier<AsyncValue<List<InternalTransferRecord>>> {
+class InternalTransferHistoryNotifier extends StateNotifier<AsyncValue<List<InternalTransferRecord>>> with ErrorHandlerMixin {
   final WalletRepository _repository;
   final Ref _ref;
 
@@ -29,7 +30,7 @@ class InternalTransferHistoryNotifier extends StateNotifier<AsyncValue<List<Inte
       final history = await _repository.getTransferHistory();
       state = AsyncValue.data(history);
     } catch (e, stack) {
-      AppLogger.error("🚨 [Transfer-History] Lỗi tải lịch sử chuyển tiền: $e", tag: "Transfer-History", stackTrace: stack);
+      logException(e, stack, tag: 'InternalTransferHistoryNotifier_fetch');
       state = AsyncValue.error(e, stack);
     }
   }
@@ -68,6 +69,13 @@ class InternalTransferHistoryNotifier extends StateNotifier<AsyncValue<List<Inte
         timezone: timezone,
       );
 
+      // Clean HTTP Cache store on successful transfer to ensure fresh data
+      try {
+        await _ref.read(cacheStoreProvider).clean();
+      } catch (e, stack) {
+        logException(e, stack, tag: 'InternalTransferHistoryNotifier_cleanCache');
+      }
+
       final newRecord = InternalTransferRecord(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         fromWalletName: fromWallet.name,
@@ -79,7 +87,8 @@ class InternalTransferHistoryNotifier extends StateNotifier<AsyncValue<List<Inte
       );
       state = AsyncValue.data([newRecord, ...(state.value ?? [])]);
       return null; // Thành công
-    } catch (e) {
+    } catch (e, stack) {
+      logException(e, stack, tag: 'InternalTransferHistoryNotifier_execute');
       return e.toString().replaceFirst('Exception: ', '');
     }
   }

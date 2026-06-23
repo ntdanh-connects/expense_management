@@ -1,60 +1,28 @@
 import 'package:dio/dio.dart';
+import 'package:retrofit/retrofit.dart';
 import 'package:expense_management/core/network/api_endpoints.dart';
 
-class ReportingExportApiService {
-  final Dio _dio;
+part 'reporting_export_api_service.g.dart';
 
-  ReportingExportApiService(this._dio);
+@RestApi()
+abstract class ReportingExportApiService {
+  factory ReportingExportApiService(Dio dio) = _ReportingExportApiService;
 
-  /// POST /api/transactions/export
-  /// Triggers a background CSV export job on the Laravel backend.
-  Future<Map<String, dynamic>> requestExport({
-    required String startDate,
-    required String endDate,
-    String? walletId,
-    String? categoryId,
-    String? transactionType,
-  }) async {
-    final response = await _dio.post(
-      ApiEndpoints.exportTransactions,
-      data: {
-        'start_date': startDate,
-        'end_date': endDate,
-        if (walletId != null) 'wallet_id': walletId,
-        if (categoryId != null) 'category_id': categoryId,
-        if (transactionType != null) 'type': transactionType,
-      },
-    );
-    return response.data as Map<String, dynamic>;
-  }
+  @POST(ApiEndpoints.exportTransactions)
+  Future<dynamic> requestExport(
+    @Body() Map<String, dynamic> body,
+  );
 
-  /// GET /api/transactions/exports
-  /// Retrieves a paginated history list of export jobs from the backend.
-  Future<Map<String, dynamic>> listExports({int page = 1}) async {
-    final response = await _dio.get(
-      ApiEndpoints.listExports,
-      queryParameters: {
-        'page': page,
-      },
-    );
-    return response.data as Map<String, dynamic>;
-  }
+  @GET(ApiEndpoints.listExports)
+  Future<dynamic> listExports({
+    @Query('page') int? page,
+  });
 
-  /// DELETE /api/transactions/exports/{id}
-  /// Deletes a specific export record (and its file) on the backend.
-  Future<Map<String, dynamic>> deleteExport(String exportId) async {
-    final response = await _dio.delete(
-      '${ApiEndpoints.listExports}/$exportId',
-    );
-    return response.data as Map<String, dynamic>;
-  }
+  @DELETE('${ApiEndpoints.listExports}/{id}')
+  Future<dynamic> deleteExport(
+    @Path('id') String id,
+  );
 
-  /// DELETE /api/transactions/exports
-  /// Deletes all export records (and their files) on the backend.
-  Future<Map<String, dynamic>> clearAllExports() async {
-    final response = await _dio.delete(
-      ApiEndpoints.listExports,
-    );
-    return response.data as Map<String, dynamic>;
-  }
+  @DELETE(ApiEndpoints.listExports)
+  Future<dynamic> clearAllExports();
 }

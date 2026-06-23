@@ -5,7 +5,7 @@ import 'package:expense_management/core/language/app_language.dart';
 import 'package:go_router/go_router.dart';
 import 'package:expense_management/core/router/app_route.dart';
 import 'profile_menu_item.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
 import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
 import 'package:expense_management/core/constants/app_constant.dart';

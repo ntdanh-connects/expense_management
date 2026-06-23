@@ -178,4 +178,66 @@ class TransactionRepositoryImpl implements TransactionRepository {
       rethrow;
     }
   }
+
+  @override
+  Future<TransactionEntity> getTransactionById(String id) async {
+    try {
+      final response = await _apiService.getRemoteTransaction(id);
+      return TransactionMapper.toEntity(response.data);
+    } catch (e, stackTrace) {
+      AppLogger.error(
+        '🚨 [TransactionRepo] getTransactionById error: $e',
+        tag: 'TransactionRepo',
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
+  }
+
+  @override
+  Future<TransactionEntity> updateTransaction({
+    required String id,
+    required String title,
+    String? categoryId,
+    String? notes,
+    String? payeeId,
+    String? sourceType,
+    String? type,
+    MultipartFile? attachment,
+  }) async {
+    try {
+      final response = await _apiService.updateRemoteTransaction(
+        id: id,
+        title: title,
+        categoryId: categoryId,
+        notes: notes,
+        payeeId: payeeId,
+        sourceType: sourceType,
+        type: type,
+        attachment: attachment,
+      );
+      return TransactionMapper.toEntity(response.data);
+    } catch (e, stackTrace) {
+      AppLogger.error(
+        '🚨 [TransactionRepo] updateTransaction error: $e',
+        tag: 'TransactionRepo',
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> deleteTransaction(String id) async {
+    try {
+      await _apiService.deleteRemoteTransaction(id);
+    } catch (e, stackTrace) {
+      AppLogger.error(
+        '🚨 [TransactionRepo] deleteTransaction error: $e',
+        tag: 'TransactionRepo',
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
+  }
 }

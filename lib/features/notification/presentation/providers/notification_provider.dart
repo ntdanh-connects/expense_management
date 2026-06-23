@@ -1,50 +1,16 @@
 import 'dart:async';
 import 'package:expense_management/core/network/dio_client.dart';
-import 'package:expense_management/features/notification/data/datasource/remote/notification_api_service.dart';
 import 'package:expense_management/features/notification/data/models/notification_dto.dart';
-import 'package:expense_management/features/notification/data/repository_impl/notification_repository_impl.dart';
-import 'package:expense_management/features/notification/domain/repositories/notification_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
-import 'package:expense_management/features/notification/data/datasource/remote/fcm_service.dart';
+import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:flutter/foundation.dart';
+import 'package:expense_management/features/notification/domain/di/domain_providers.dart';
+export 'package:expense_management/features/notification/domain/di/domain_providers.dart';
+import 'package:expense_management/core/error/error_handler_mixin.dart';
 
-// ---------------------------------------------------------------------------
-// Service & Repository providers
-// ---------------------------------------------------------------------------
-
-final notificationApiServiceProvider = Provider<NotificationApiService>((ref) {
-  final dio = ref.watch(dioClientProvider);
-  return NotificationApiService(dio);
-});
-
-final fcmServiceProvider = Provider<FcmService>((ref) {
-  final apiService = ref.watch(notificationApiServiceProvider);
-  final fcmService = FcmService(apiService, ref);
-  fcmService.onDataChanged = () {
-    try {
-      ref.invalidate(fetchDashboardSummaryProvider);
-      ref.read(fetchDashboardSummaryProvider.future).then((_) {
-        ref.invalidate(transactionListProvider);
-        ref.invalidate(filteredTransactionListProvider);
-        ref.read(notificationNotifierProvider.notifier).refresh();
-      }).catchError((e) {
-        debugPrint("🚨 [FCM-Service] Error refreshing aggregate dashboard summary: $e");
-      });
-    } catch (e) {
-      debugPrint("🚨 [FCM-Service] Error in onDataChanged callback: $e");
-    }
-  };
-  return fcmService;
-});
-
-final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
-  final apiService = ref.watch(notificationApiServiceProvider);
-  return NotificationRepositoryImpl(apiService);
-});
 
 // ---------------------------------------------------------------------------
 // Notification list state
@@ -84,7 +50,7 @@ class NotificationState {
   }
 }
 
-class NotificationNotifier extends AsyncNotifier<NotificationState> {
+class NotificationNotifier extends AsyncNotifier<NotificationState> with ErrorHandlerMixin {
   @override
   FutureOr<NotificationState> build() async {
     return _fetchPage(1, []);

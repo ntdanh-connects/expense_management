@@ -27,7 +27,10 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
     try {
       final state = GoRouterState.of(context);
       final tab = state.uri.queryParameters['tab'];
-      if (tab != null && (tab == 'statistics' || tab == 'balance_fluctuations' || tab == 'budget')) {
+      if (tab != null &&
+          (tab == 'statistics' ||
+              tab == 'balance_fluctuations' ||
+              tab == 'budget')) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             ref.read(selectedAnalyticTabProvider.notifier).state = tab;
@@ -46,19 +49,18 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
 
     return Scaffold(
       backgroundColor: colors.background,
-      appBar: SharedTopAppBar(
-        hintText: 'search_hint'.tr(ref),
-      ),
+      appBar: SharedTopAppBar(hintText: 'search_hint'.tr(ref)),
       floatingActionButton: () {
         if (selectedSubTab != 'budget') return null;
-        
+
         final month = ref.watch(selectedBudgetMonthProvider);
         final year = ref.watch(selectedBudgetYearProvider);
         final now = DateTime.now();
-        final isPastMonth = year < now.year || (year == now.year && month < now.month);
-        
+        final isPastMonth =
+            year < now.year || (year == now.year && month < now.month);
+
         if (isPastMonth) return null;
-        
+
         return FloatingActionButton(
           backgroundColor: colors.primary,
           child: const Icon(Icons.add, color: Colors.white),
@@ -72,8 +74,12 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
       body: RefreshIndicator(
         onRefresh: () async {
           // 1. Refresh transactions
-          await ref.read(transactionListProvider.notifier).refreshTransactions();
-          await ref.read(filteredTransactionListProvider.notifier).refreshTransactions();
+          await ref
+              .read(transactionListProvider.notifier)
+              .refreshTransactions();
+          await ref
+              .read(filteredTransactionListProvider.notifier)
+              .refreshTransactions();
 
           // 2. Refresh wallets
           await ref.read(walletNotifierProvider.notifier).refreshWallets();
@@ -113,7 +119,7 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
                 ),
               ),
               const SizedBox(height: 18),
-  
+
               // 🟢 Conditional Rendering depending on active SubTab
               if (selectedSubTab == 'statistics') ...[
                 const StatisticsTab(),
@@ -122,7 +128,9 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
               ] else if (selectedSubTab == 'budget') ...[
                 const BudgetTab(),
               ],
-              const SizedBox(height: 80), // Dành khoảng trống cho Bottom Bar trượt
+              const SizedBox(
+                height: 80,
+              ), // Dành khoảng trống cho Bottom Bar trượt
             ],
           ),
         ),
@@ -142,7 +150,9 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? colors.primary : colors.textSecondary.withOpacity(0.08),
+          color: isSelected
+              ? colors.primary
+              : colors.textSecondary.withOpacity(0.08),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(

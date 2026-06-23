@@ -1,31 +1,26 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
-import 'package:expense_management/core/network/dio_client.dart';
-import 'package:expense_management/core/utils/app_logger.dart';
-import '../../data/data_source/remote/qr_transfer_api_service.dart';
-
-// API Service provider
-final qrTransferApiServiceProvider = Provider<QrTransferApiService>((ref) {
-  final dio = ref.read(dioClientProvider);
-  return QrTransferApiService(dio);
-});
+import 'package:expense_management/core/error/error_handler_mixin.dart';
+import 'package:expense_management/features/wallet/domain/repository/qr_transfer_repository.dart';
+import 'package:expense_management/features/wallet/domain/di/domain_providers.dart';
 
 // StateNotifier for managing QR Transfer flows
-class QrTransferNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>?>> {
-  final QrTransferApiService _apiService;
+class QrTransferNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>?>> with ErrorHandlerMixin {
+  final QrTransferRepository _repository;
 
-  QrTransferNotifier(this._apiService) : super(const AsyncValue.data(null));
+  QrTransferNotifier(this._repository) : super(const AsyncValue.data(null));
 
   // Step 1: Decode QR string
   Future<Map<String, dynamic>?> decodeQrCode(String qrString) async {
     state = const AsyncValue.loading();
     try {
-      final response = await _apiService.decodeQr(qrString);
+      final response = await _repository.decodeQrCode(qrString);
       final mapData = response.data as Map<String, dynamic>?;
       state = AsyncValue.data(mapData);
       return mapData;
     } catch (e, stack) {
+      logException(e, stack, tag: 'QrTransferNotifier_decodeQrCode');
       state = AsyncValue.error(e, stack);
       return null;
     }
@@ -60,14 +55,14 @@ class QrTransferNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>?>
         if (isQr != null) 'is_qr': isQr,
       };
 
-      final response = await _apiService.transferQr(payload);
+      final response = await _repository.executeTransfer(payload);
       return {
         'status': 'success',
         'message': response.message,
         'data': response.data,
       };
     } catch (e, stack) {
-      AppLogger.error("🚨 [QR-Transfer] Exception during executeTransfer: $e\n$stack");
+      logException(e, stack, tag: 'QrTransferNotifier_executeTransfer');
       if (e is DioException && e.response?.data != null) {
         final data = e.response?.data;
         if (data is Map<String, dynamic>) {
@@ -92,13 +87,14 @@ class QrTransferNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>?>
     String? description,
   }) async {
     try {
-      final response = await _apiService.generateMyQr(
+      final response = await _repository.generateMyQrCode(
         walletId: walletId,
         amount: amount,
         description: description,
       );
       return response.data as Map<String, dynamic>?;
-    } catch (e) {
+    } catch (e, stack) {
+      logException(e, stack, tag: 'QrTransferNotifier_generateMyQrCode');
       return null;
     }
   }
@@ -110,13 +106,14 @@ class QrTransferNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>?>
     int? page,
   }) async {
     try {
-      final response = await _apiService.getPayees(
+      final response = await _repository.fetchPayees(
         search: search,
         perPage: perPage,
         page: page,
       );
       return response.data as Map<String, dynamic>?;
-    } catch (e) {
+    } catch (e, stack) {
+      logException(e, stack, tag: 'QrTransferNotifier_fetchPayees');
       return null;
     }
   }
@@ -124,9 +121,10 @@ class QrTransferNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>?>
   // Step 5: Delete Saved Payee
   Future<bool> removePayee(String id) async {
     try {
-      await _apiService.deletePayee(id);
+      await _repository.removePayee(id);
       return true;
-    } catch (e) {
+    } catch (e, stack) {
+      logException(e, stack, tag: 'QrTransferNotifier_removePayee');
       return false;
     }
   }
@@ -134,6 +132,6 @@ class QrTransferNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>?>
 
 // Provider definition
 final qrTransferProvider = StateNotifierProvider<QrTransferNotifier, AsyncValue<Map<String, dynamic>?>>((ref) {
-  final apiService = ref.watch(qrTransferApiServiceProvider);
-  return QrTransferNotifier(apiService);
+  final repository = ref.watch(qrTransferRepositoryProvider);
+  return QrTransferNotifier(repository);
 });

@@ -34,4 +34,19 @@ abstract class TransactionRepository {
     String? payeeId,
     String? sourceType,
   });
+
+  Future<TransactionEntity> getTransactionById(String id);
+
+  Future<TransactionEntity> updateTransaction({
+    required String id,
+    required String title,
+    String? categoryId,
+    String? notes,
+    String? payeeId,
+    String? sourceType,
+    String? type,
+    MultipartFile? attachment,
+  });
+
+  Future<void> deleteTransaction(String id);
 }

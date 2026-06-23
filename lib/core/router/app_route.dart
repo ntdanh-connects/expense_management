@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:expense_management/features/analytic/presentation/screens/analytic_screen.dart';
 import 'package:expense_management/features/analytic/presentation/screens/category_detail_screen.dart';
-import 'package:expense_management/features/auth/auth_provider.dart';
+import 'package:expense_management/features/auth/presentation/providers/auth_provider.dart';
 import 'package:expense_management/features/auth/domain/auth_state.dart';
 import 'package:expense_management/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:expense_management/features/auth/presentation/screens/login_screen.dart';

@@ -1,48 +1,16 @@
 import 'package:expense_management/core/network/dio_client.dart';
-import 'package:expense_management/features/dashboard/data/datasource/remote/recurring_api_service.dart';
-import 'package:expense_management/features/dashboard/data/repository_impl/recurring_repository_impl.dart';
 import 'package:expense_management/features/dashboard/domain/entities/recurring_rule_entity.dart';
-import 'package:expense_management/features/dashboard/domain/repositories/recurring_repository.dart';
-import 'package:expense_management/features/dashboard/domain/use_case/recurring_use_case.dart';
+import 'package:expense_management/features/dashboard/domain/di/domain_providers.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
 import 'package:expense_management/features/notification/data/models/notification_dto.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-// ─── DI Providers ───────────────────────────────────────────────
-
-final recurringApiServiceProvider = Provider<RecurringApiService>((ref) {
-  return RecurringApiService(ref.watch(dioClientProvider));
-});
-
-final recurringRepositoryProvider = Provider<RecurringRepository>((ref) {
-  return RecurringRepositoryImpl(ref.watch(recurringApiServiceProvider));
-});
-
-final getRulesUseCaseProvider = Provider<GetRecurringRulesUseCase>((ref) {
-  return GetRecurringRulesUseCase(ref.watch(recurringRepositoryProvider));
-});
-
-final createRuleUseCaseProvider = Provider<CreateRecurringRuleUseCase>((ref) {
-  return CreateRecurringRuleUseCase(ref.watch(recurringRepositoryProvider));
-});
-
-final updateRuleUseCaseProvider = Provider<UpdateRecurringRuleUseCase>((ref) {
-  return UpdateRecurringRuleUseCase(ref.watch(recurringRepositoryProvider));
-});
-
-final deleteRuleUseCaseProvider = Provider<DeleteRecurringRuleUseCase>((ref) {
-  return DeleteRecurringRuleUseCase(ref.watch(recurringRepositoryProvider));
-});
-
-final toggleRuleUseCaseProvider = Provider<ToggleRecurringRuleUseCase>((ref) {
-  return ToggleRecurringRuleUseCase(ref.watch(recurringRepositoryProvider));
-});
+import 'package:expense_management/core/error/error_handler_mixin.dart';
 
 // ─── Notifier ───────────────────────────────────────────────────
 
-class RecurringNotifier extends AsyncNotifier<List<RecurringRuleEntity>> {
+class RecurringNotifier extends AsyncNotifier<List<RecurringRuleEntity>> with ErrorHandlerMixin {
   @override
   Future<List<RecurringRuleEntity>> build() async {
     final rules = await ref.watch(getRulesUseCaseProvider).execute();

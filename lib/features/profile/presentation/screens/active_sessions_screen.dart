@@ -1,6 +1,6 @@
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
-import 'package:expense_management/features/auth/auth_provider.dart';
+import 'package:expense_management/features/auth/presentation/providers/auth_provider.dart';
 import 'package:expense_management/features/profile/data/models/user_session_dto.dart';
 import 'package:expense_management/features/profile/presentation/providers/active_sessions_provider.dart';
 import 'package:flutter/material.dart';

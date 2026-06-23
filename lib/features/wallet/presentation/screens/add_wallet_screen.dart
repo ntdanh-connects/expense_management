@@ -5,12 +5,12 @@ import 'package:go_router/go_router.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/data/models/create_wallet_request.dart';
-import 'package:expense_management/features/wallet/presentation/provider/wallet_provider.dart';
+import 'package:expense_management/features/wallet/domain/di/domain_providers.dart';
 import 'package:expense_management/features/wallet/presentation/widget/wallet_constants.dart';
 import 'package:expense_management/features/wallet/presentation/widget/swipe_to_confirm_button.dart';
 import 'package:expense_management/features/wallet/presentation/widget/wallet_preview_card.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/features/wallet/presentation/widget/vcb_rate_reference_widget.dart';
 

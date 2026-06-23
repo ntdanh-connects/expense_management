@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_params.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
@@ -28,16 +28,15 @@ enum TransactionStatus { processing, success, failure, offlineSuccess }
 class TransactionResultScreen extends ConsumerStatefulWidget {
   final TransactionParams params;
 
-  const TransactionResultScreen({
-    super.key,
-    required this.params,
-  });
+  const TransactionResultScreen({super.key, required this.params});
 
   @override
-  ConsumerState<TransactionResultScreen> createState() => _TransactionResultScreenState();
+  ConsumerState<TransactionResultScreen> createState() =>
+      _TransactionResultScreenState();
 }
 
-class _TransactionResultScreenState extends ConsumerState<TransactionResultScreen> {
+class _TransactionResultScreenState
+    extends ConsumerState<TransactionResultScreen> {
   TransactionStatus _status = TransactionStatus.processing;
   String? _errorMessage;
   String? _transactionId;
@@ -94,10 +93,10 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
       // Làm mới dữ liệu các ví và danh sách giao dịch
       await ref.read(walletNotifierProvider.notifier).refreshWallets();
       await ref.read(transactionListProvider.notifier).refreshTransactions();
-      
+
       // Làm mới danh sách thông báo để cập nhật badge và danh sách realtime
       await ref.read(notificationNotifierProvider.notifier).refresh();
-      
+
       // Invalidate dashboard and reports providers
       ref.invalidate(fetchDashboardSummaryProvider);
       ref.invalidate(dashboardSummaryProvider);
@@ -110,27 +109,36 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
       ref.invalidate(currentMonthBudgetsProvider);
       ref.invalidate(filteredTransactionListProvider);
       // Force rebuild to trigger budget threshold checks
-      ref.read(currentMonthBudgetsProvider.future).catchError((_) => <BudgetDto>[]);
+      ref
+          .read(currentMonthBudgetsProvider.future)
+          .catchError((_) => <BudgetDto>[]);
 
       // Hiển thị thông báo giao dịch thành công ngoài app
       try {
         final currencyCode = widget.params.currencyCode ?? 'VND';
         final currencySymbol = AppConstant.getCurrencySymbol(currencyCode);
-        final formattedAmount = AppConstant.formatMoney(widget.params.amount, currencyCode);
+        final formattedAmount = AppConstant.formatMoney(
+          widget.params.amount,
+          currencyCode,
+        );
         final walletPart = ' ví "${widget.params.walletName}"';
 
         String notifTitle = 'Biến động số dư';
         String notifBody = '';
 
         if (widget.params.type.toLowerCase() == 'income') {
-          notifBody = '+$formattedAmount $currencySymbol vào$walletPart. Nội dung: ${widget.params.title}';
+          notifBody =
+              '+$formattedAmount $currencySymbol vào$walletPart. Nội dung: ${widget.params.title}';
         } else if (widget.params.type.toLowerCase() == 'expense') {
-          notifBody = '-$formattedAmount $currencySymbol từ$walletPart. Nội dung: ${widget.params.title}';
+          notifBody =
+              '-$formattedAmount $currencySymbol từ$walletPart. Nội dung: ${widget.params.title}';
         } else if (widget.params.type.toLowerCase() == 'transfer') {
           notifTitle = 'Chuyển tiền';
-          notifBody = 'Chuyển $formattedAmount $currencySymbol từ$walletPart. Nội dung: ${widget.params.title}';
+          notifBody =
+              'Chuyển $formattedAmount $currencySymbol từ$walletPart. Nội dung: ${widget.params.title}';
         } else {
-          notifBody = 'Giao dịch mới: $formattedAmount $currencySymbol - ${widget.params.title}';
+          notifBody =
+              'Giao dịch mới: $formattedAmount $currencySymbol - ${widget.params.title}';
         }
 
         await LocalNotificationService.showNotification(
@@ -148,7 +156,9 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
             body: notifBody,
           );
           if (localNotif != null) {
-            ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
+            ref
+                .read(notificationNotifierProvider.notifier)
+                .addLocalNotification(localNotif);
           }
         }
       } catch (_) {}
@@ -159,18 +169,21 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
         });
       }
     } catch (e) {
-      final isNetError = e is SocketException || (e is DioException && (
-        e.type == DioExceptionType.connectionTimeout ||
-        e.type == DioExceptionType.sendTimeout ||
-        e.type == DioExceptionType.receiveTimeout ||
-        e.type == DioExceptionType.connectionError ||
-        e.error is SocketException ||
-        e.message?.contains('SocketException') == true
-      ));
+      final isNetError =
+          e is SocketException ||
+          (e is DioException &&
+              (e.type == DioExceptionType.connectionTimeout ||
+                  e.type == DioExceptionType.sendTimeout ||
+                  e.type == DioExceptionType.receiveTimeout ||
+                  e.type == DioExceptionType.connectionError ||
+                  e.error is SocketException ||
+                  e.message?.contains('SocketException') == true));
 
       if (isNetError) {
         try {
-          await ref.read(transactionListProvider.notifier).addPendingTransaction(widget.params);
+          await ref
+              .read(transactionListProvider.notifier)
+              .addPendingTransaction(widget.params);
           if (mounted) {
             setState(() {
               _status = TransactionStatus.offlineSuccess;
@@ -207,7 +220,7 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
     final format = currencyCode == 'VND' ? '#,###' : '#,##0.00';
     final formatted = NumberFormat(format).format(amount);
     final symbol = _getCurrencySymbol(currencyCode);
-    
+
     // Thu nhập + , Chi tiêu -
     final prefix = widget.params.type == 'income' ? '+' : '-';
     return '$prefix$formatted $symbol';
@@ -316,14 +329,20 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
                             child: Column(
                               children: [
                                 Text(
-                                  _formatAmount(widget.params.amount, widget.params.currencyCode),
+                                  _formatAmount(
+                                    widget.params.amount,
+                                    widget.params.currencyCode,
+                                  ),
                                   style: TextStyle(
-                                    color: isIncome ? colors.incomeGreen : colors.expenseRed,
+                                    color: isIncome
+                                        ? colors.incomeGreen
+                                        : colors.expenseRed,
                                     fontSize: 32,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                if (widget.params.currencyCode == 'VND' || widget.params.currencyCode == null) ...[
+                                if (widget.params.currencyCode == 'VND' ||
+                                    widget.params.currencyCode == null) ...[
                                   const SizedBox(height: 4),
                                   Text(
                                     '(${formatNumberToWords(widget.params.amount, localeCode)})',
@@ -338,11 +357,13 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
                                 ],
                                 const SizedBox(height: 8),
                                 Text(
-                                  (_finalTitle != null && _finalTitle!.isNotEmpty)
+                                  (_finalTitle != null &&
+                                          _finalTitle!.isNotEmpty)
                                       ? _finalTitle!
                                       : (widget.params.title.isNotEmpty
-                                          ? widget.params.title
-                                          : (widget.params.categoryName ?? 'uncategorized'.tr(ref))),
+                                            ? widget.params.title
+                                            : (widget.params.categoryName ??
+                                                  'uncategorized'.tr(ref))),
                                   style: TextStyle(
                                     color: colors.textSecondary,
                                     fontSize: 15,
@@ -354,7 +375,9 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
                           ),
                           // Đường đứt nét ngăn cách hóa đơn
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24.0,
+                            ),
                             child: DottedLine(
                               color: colors.textSecondary.withOpacity(0.2),
                               height: 1.5,
@@ -368,12 +391,16 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
                                 _buildReceiptRow(
                                   context,
                                   'transaction_type'.tr(ref),
-                                  isIncome ? 'income'.tr(ref) : 'expense'.tr(ref),
+                                  isIncome
+                                      ? 'income'.tr(ref)
+                                      : 'expense'.tr(ref),
                                 ),
                                 _buildReceiptRow(
                                   context,
                                   'category_label'.tr(ref),
-                                  _finalCategoryName ?? widget.params.categoryName ?? 'uncategorized'.tr(ref),
+                                  _finalCategoryName ??
+                                      widget.params.categoryName ??
+                                      'uncategorized'.tr(ref),
                                 ),
                                 _buildReceiptRow(
                                   context,
@@ -391,7 +418,8 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
                                     'transaction_code'.tr(ref),
                                     _transactionId!,
                                   ),
-                                if (widget.params.notes != null && widget.params.notes!.isNotEmpty)
+                                if (widget.params.notes != null &&
+                                    widget.params.notes!.isNotEmpty)
                                   _buildReceiptRow(
                                     context,
                                     'description'.tr(ref),
@@ -519,7 +547,9 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
                       context.pop();
                     },
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: colors.textSecondary.withOpacity(0.5)),
+                      side: BorderSide(
+                        color: colors.textSecondary.withOpacity(0.5),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -588,10 +618,7 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
                       duration: const Duration(milliseconds: 600),
                       curve: Curves.elasticOut,
                       builder: (context, value, child) {
-                        return Transform.scale(
-                          scale: value,
-                          child: child,
-                        );
+                        return Transform.scale(scale: value, child: child);
                       },
                       child: Container(
                         width: 80,
@@ -644,14 +671,20 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
                             child: Column(
                               children: [
                                 Text(
-                                  _formatAmount(widget.params.amount, widget.params.currencyCode),
+                                  _formatAmount(
+                                    widget.params.amount,
+                                    widget.params.currencyCode,
+                                  ),
                                   style: TextStyle(
-                                    color: isIncome ? colors.incomeGreen : colors.expenseRed,
+                                    color: isIncome
+                                        ? colors.incomeGreen
+                                        : colors.expenseRed,
                                     fontSize: 32,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                if (widget.params.currencyCode == 'VND' || widget.params.currencyCode == null) ...[
+                                if (widget.params.currencyCode == 'VND' ||
+                                    widget.params.currencyCode == null) ...[
                                   const SizedBox(height: 4),
                                   Text(
                                     '(${formatNumberToWords(widget.params.amount, localeCode)})',
@@ -668,7 +701,8 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
                                 Text(
                                   widget.params.title.isNotEmpty
                                       ? widget.params.title
-                                      : (widget.params.categoryName ?? 'uncategorized'.tr(ref)),
+                                      : (widget.params.categoryName ??
+                                            'uncategorized'.tr(ref)),
                                   style: TextStyle(
                                     color: colors.textSecondary,
                                     fontSize: 15,
@@ -679,7 +713,9 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
                             ),
                           ),
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24.0,
+                            ),
                             child: DottedLine(
                               color: colors.textSecondary.withOpacity(0.2),
                               height: 1.5,
@@ -692,12 +728,15 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
                                 _buildReceiptRow(
                                   context,
                                   'transaction_type'.tr(ref),
-                                  isIncome ? 'income'.tr(ref) : 'expense'.tr(ref),
+                                  isIncome
+                                      ? 'income'.tr(ref)
+                                      : 'expense'.tr(ref),
                                 ),
                                 _buildReceiptRow(
                                   context,
                                   'category_label'.tr(ref),
-                                  widget.params.categoryName ?? 'uncategorized'.tr(ref),
+                                  widget.params.categoryName ??
+                                      'uncategorized'.tr(ref),
                                 ),
                                 _buildReceiptRow(
                                   context,
@@ -716,7 +755,8 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
                                   valueColor: Colors.orange,
                                   isBoldValue: true,
                                 ),
-                                if (widget.params.notes != null && widget.params.notes!.isNotEmpty)
+                                if (widget.params.notes != null &&
+                                    widget.params.notes!.isNotEmpty)
                                   _buildReceiptRow(
                                     context,
                                     'description'.tr(ref),
@@ -734,11 +774,17 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
                       decoration: BoxDecoration(
                         color: Colors.orange.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.orange.withOpacity(0.15)),
+                        border: Border.all(
+                          color: Colors.orange.withOpacity(0.15),
+                        ),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.cloud_off_rounded, color: Colors.orange, size: 24),
+                          const Icon(
+                            Icons.cloud_off_rounded,
+                            color: Colors.orange,
+                            size: 24,
+                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
@@ -833,10 +879,7 @@ class _TransactionResultScreenState extends ConsumerState<TransactionResultScree
         children: [
           Text(
             label,
-            style: TextStyle(
-              color: colors.textSecondary,
-              fontSize: 14,
-            ),
+            style: TextStyle(color: colors.textSecondary, fontSize: 14),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -860,11 +903,7 @@ class DottedLine extends StatelessWidget {
   final Color color;
   final double height;
 
-  const DottedLine({
-    super.key,
-    required this.color,
-    this.height = 1.0,
-  });
+  const DottedLine({super.key, required this.color, this.height = 1.0});
 
   @override
   Widget build(BuildContext context) {
@@ -880,9 +919,7 @@ class DottedLine extends StatelessWidget {
             return SizedBox(
               width: dashWidth,
               height: height,
-              child: DecoratedBox(
-                decoration: BoxDecoration(color: color),
-              ),
+              child: DecoratedBox(decoration: BoxDecoration(color: color)),
             );
           }),
         );
@@ -899,7 +936,8 @@ class AnimatedCheckmark extends StatefulWidget {
   State<AnimatedCheckmark> createState() => _AnimatedCheckmarkState();
 }
 
-class _AnimatedCheckmarkState extends State<AnimatedCheckmark> with SingleTickerProviderStateMixin {
+class _AnimatedCheckmarkState extends State<AnimatedCheckmark>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
 
@@ -910,12 +948,10 @@ class _AnimatedCheckmarkState extends State<AnimatedCheckmark> with SingleTicker
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-    _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.elasticOut,
-      ),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
     _controller.forward();
   }
 
@@ -938,7 +974,8 @@ class _AnimatedCheckmarkState extends State<AnimatedCheckmark> with SingleTicker
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: (widget.isSuccess ? colors.incomeGreen : colors.expenseRed).withOpacity(0.3),
+              color: (widget.isSuccess ? colors.incomeGreen : colors.expenseRed)
+                  .withOpacity(0.3),
               blurRadius: 16,
               offset: const Offset(0, 8),
             ),

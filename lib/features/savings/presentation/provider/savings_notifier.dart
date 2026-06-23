@@ -1,22 +1,16 @@
-import 'package:expense_management/core/network/dio_client.dart';
-import 'package:expense_management/features/savings/data/datasource/remote/savings_api_service.dart';
-import 'package:expense_management/features/savings/data/repository_impl/savings_repository_impl.dart';
+import 'package:expense_management/core/error/error_handler_mixin.dart';
 import 'package:expense_management/features/savings/domain/entities/savings_goal.dart';
 import 'package:expense_management/features/savings/domain/repository/savings_repository.dart';
+import 'package:expense_management/features/savings/domain/di/domain_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
-
-final savingsRepositoryProvider = Provider<SavingsRepository>((ref) {
-  final dio = ref.watch(dioClientProvider);
-  return SavingsRepositoryImpl(SavingsApiService(dio));
-});
 
 final savingsListProvider = StateNotifierProvider<SavingsListNotifier, AsyncValue<List<SavingsGoalEntity>>>((ref) {
   final repo = ref.watch(savingsRepositoryProvider);
   return SavingsListNotifier(repo);
 });
 
-class SavingsListNotifier extends StateNotifier<AsyncValue<List<SavingsGoalEntity>>> {
+class SavingsListNotifier extends StateNotifier<AsyncValue<List<SavingsGoalEntity>>> with ErrorHandlerMixin {
   final SavingsRepository _repository;
 
   SavingsListNotifier(this._repository) : super(const AsyncValue.loading()) {
@@ -29,6 +23,7 @@ class SavingsListNotifier extends StateNotifier<AsyncValue<List<SavingsGoalEntit
       final list = await _repository.getSavingsGoals();
       state = AsyncValue.data(list);
     } catch (e, st) {
+      logException(e, st, tag: 'SavingsListNotifier_loadGoals');
       state = AsyncValue.error(e, st);
     }
   }
@@ -52,7 +47,8 @@ class SavingsListNotifier extends StateNotifier<AsyncValue<List<SavingsGoalEntit
       );
       await loadGoals();
       return goal;
-    } catch (e) {
+    } catch (e, st) {
+      logException(e, st, tag: 'SavingsListNotifier_createGoal');
       rethrow;
     }
   }
@@ -61,7 +57,8 @@ class SavingsListNotifier extends StateNotifier<AsyncValue<List<SavingsGoalEntit
     try {
       await _repository.deleteSavingsGoal(id);
       await loadGoals();
-    } catch (e) {
+    } catch (e, st) {
+      logException(e, st, tag: 'SavingsListNotifier_deleteGoal');
       rethrow;
     }
   }
@@ -72,7 +69,7 @@ final savingsDetailProvider = StateNotifierProvider.family<SavingsDetailNotifier
   return SavingsDetailNotifier(repo, id);
 });
 
-class SavingsDetailNotifier extends StateNotifier<AsyncValue<SavingsGoalEntity>> {
+class SavingsDetailNotifier extends StateNotifier<AsyncValue<SavingsGoalEntity>> with ErrorHandlerMixin {
   final SavingsRepository _repository;
   final String _id;
 
@@ -85,6 +82,7 @@ class SavingsDetailNotifier extends StateNotifier<AsyncValue<SavingsGoalEntity>>
       final goal = await _repository.getSavingsGoalDetail(_id);
       state = AsyncValue.data(goal);
     } catch (e, st) {
+      logException(e, st, tag: 'SavingsDetailNotifier_loadDetail');
       state = AsyncValue.error(e, st);
     }
   }
@@ -102,7 +100,8 @@ class SavingsDetailNotifier extends StateNotifier<AsyncValue<SavingsGoalEntity>>
         notes: notes,
       );
       state = AsyncValue.data(updated);
-    } catch (e) {
+    } catch (e, st) {
+      logException(e, st, tag: 'SavingsDetailNotifier_deposit');
       rethrow;
     }
   }
@@ -120,7 +119,8 @@ class SavingsDetailNotifier extends StateNotifier<AsyncValue<SavingsGoalEntity>>
         notes: notes,
       );
       state = AsyncValue.data(updated);
-    } catch (e) {
+    } catch (e, st) {
+      logException(e, st, tag: 'SavingsDetailNotifier_withdraw');
       rethrow;
     }
   }

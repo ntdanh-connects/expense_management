@@ -43,4 +43,27 @@ abstract class TransactionApiService {
     @Part(name: 'payee_id') String? payeeId,
     @Part(name: 'source_type') String? sourceType,
   });
+
+  @GET(ApiEndpoints.showTransaction)
+  Future<BaseResponseDto<TransactionDto>> getRemoteTransaction(
+    @Path('id') String id,
+  );
+
+  @POST(ApiEndpoints.updateTransaction)
+  @MultiPart()
+  Future<BaseResponseDto<TransactionDto>> updateRemoteTransaction({
+    @Path('id') required String id,
+    @Part(name: 'title') required String title,
+    @Part(name: 'category_id') String? categoryId,
+    @Part(name: 'notes') String? notes,
+    @Part(name: 'payee_id') String? payeeId,
+    @Part(name: 'source_type') String? sourceType,
+    @Part(name: 'type') String? type,
+    @Part(name: 'attachment') MultipartFile? attachment,
+  });
+
+  @DELETE(ApiEndpoints.deleteTransaction)
+  Future<BaseResponseDto<dynamic>> deleteRemoteTransaction(
+    @Path('id') String id,
+  );
 }

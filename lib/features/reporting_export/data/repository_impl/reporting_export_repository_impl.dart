@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:expense_management/features/reporting_export/data/datasource/remote/reporting_export_api_service.dart';
 import 'package:expense_management/features/reporting_export/data/models/report_export_dto.dart';
@@ -17,12 +18,14 @@ class ReportingExportRepositoryImpl implements ReportingExportRepository {
   final ReportRepository reportRepository;
   final TransactionRepository transactionRepository;
   final BudgetRepository budgetRepository;
+  final Dio dio;
 
   ReportingExportRepositoryImpl({
     required this.apiService,
     required this.reportRepository,
     required this.transactionRepository,
     required this.budgetRepository,
+    required this.dio,
   });
 
   @override
@@ -33,13 +36,13 @@ class ReportingExportRepositoryImpl implements ReportingExportRepository {
     String? categoryId,
     String? transactionType,
   }) async {
-    await apiService.requestExport(
-      startDate: startDate,
-      endDate: endDate,
-      walletId: walletId,
-      categoryId: categoryId,
-      transactionType: transactionType,
-    );
+    await apiService.requestExport({
+      'start_date': startDate,
+      'end_date': endDate,
+      if (walletId != null) 'wallet_id': walletId,
+      if (categoryId != null) 'category_id': categoryId,
+      if (transactionType != null) 'type': transactionType,
+    });
   }
 
   @override
@@ -231,5 +234,10 @@ class ReportingExportRepositoryImpl implements ReportingExportRepository {
   @override
   Future<void> clearAllRemoteExports() async {
     await apiService.clearAllExports();
+  }
+
+  @override
+  Future<void> downloadFile(String url, String savePath) async {
+    await dio.download(url, savePath);
   }
 }

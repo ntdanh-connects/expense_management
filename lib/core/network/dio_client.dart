@@ -8,7 +8,7 @@ import 'package:expense_management/core/language/app_provider.dart';
 import 'package:expense_management/core/utils/app_logger.dart';
 import '../storage/secure_storage_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:expense_management/features/auth/auth_provider.dart';
+import 'package:expense_management/features/auth/presentation/providers/auth_provider.dart';
 import 'package:expense_management/features/auth/domain/auth_state.dart';
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';

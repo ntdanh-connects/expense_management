@@ -8,10 +8,10 @@ import 'package:expense_management/features/security/presentation/providers/secu
 import 'package:flutter/services.dart';
 import 'package:expense_management/core/utils/app_logger.dart';
 import 'package:expense_management/core/utils/log_console_screen.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/core/language/app_provider.dart';
-import 'package:expense_management/features/profile/category_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/category_provider.dart';
 import 'package:expense_management/features/budget/presentation/provider/budget_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

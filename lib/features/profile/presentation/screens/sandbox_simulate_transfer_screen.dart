@@ -1,7 +1,7 @@
 import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
-import 'package:expense_management/features/wallet/presentation/provider/wallet_provider.dart';
+import 'package:expense_management/features/wallet/domain/di/domain_providers.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:expense_management/features/wallet/presentation/widget/swipe_to_confirm_button.dart';
 import 'package:flutter/material.dart';
@@ -9,23 +9,24 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/core/language/app_provider.dart';
 import 'package:expense_management/core/utils/currency_utils.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
 import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 
 class SandboxSimulateTransferScreen extends ConsumerStatefulWidget {
   const SandboxSimulateTransferScreen({super.key});
 
   @override
-  ConsumerState<SandboxSimulateTransferScreen> createState() => _SandboxSimulateTransferScreenState();
+  ConsumerState<SandboxSimulateTransferScreen> createState() =>
+      _SandboxSimulateTransferScreenState();
 }
 
-class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateTransferScreen> {
+class _SandboxSimulateTransferScreenState
+    extends ConsumerState<SandboxSimulateTransferScreen> {
   final _amountController = TextEditingController(text: '500.000');
   final _senderNameController = TextEditingController(text: 'NGUYEN VAN B');
   final _notesController = TextEditingController(text: 'Chuyển tiền ăn trưa');
@@ -47,7 +48,10 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
       return;
     }
 
-    final cleanAmount = _amountController.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final cleanAmount = _amountController.text.replaceAll(
+      RegExp(r'[^0-9]'),
+      '',
+    );
     final amount = double.tryParse(cleanAmount);
     if (amount == null || amount <= 0) {
       _showSnackBar('Số tiền chuyển không hợp lệ!', isError: true);
@@ -67,7 +71,9 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
     });
 
     try {
-      final transactionId = await ref.read(simulateSandboxTransferUseCaseProvider).execute(
+      final transactionId = await ref
+          .read(simulateSandboxTransferUseCaseProvider)
+          .execute(
             walletId: _selectedWallet!.id,
             amount: amount,
             senderName: senderName,
@@ -80,9 +86,14 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
 
       if (showPush) {
         final notifId = DateTime.now().millisecondsSinceEpoch.hashCode;
-        final formattedAmount = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ', decimalDigits: 0).format(amount);
+        final formattedAmount = NumberFormat.currency(
+          locale: 'vi_VN',
+          symbol: 'đ',
+          decimalDigits: 0,
+        ).format(amount);
         final title = 'Biến động số dư';
-        final body = 'Ví "${_selectedWallet!.name}" nhận +$formattedAmount từ $senderName.';
+        final body =
+            'Ví "${_selectedWallet!.name}" nhận +$formattedAmount từ $senderName.';
 
         await LocalNotificationService.showNotification(
           id: notifId,
@@ -106,13 +117,13 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
             },
           );
           if (localNotif != null) {
-            ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
+            ref
+                .read(notificationNotifierProvider.notifier)
+                .addLocalNotification(localNotif);
           }
         }
       }
 
-      // Dọn dẹp HTTP cache để các báo cáo/thống kê kéo dữ liệu mới
-      await ref.read(cacheStoreProvider).clean();
       // Làm mới danh sách giao dịch
       ref.invalidate(transactionListProvider);
       // Làm mới ví để cập nhật số dư
@@ -123,10 +134,10 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
       });
 
       if (!mounted) return;
-      
+
       // Thành công thì thông báo
       _showSnackBar('Giả lập nạp tiền Sandbox thành công!', isError: false);
-      
+
       // Quay lại màn hình cũ
       context.pop();
     } catch (e) {
@@ -175,17 +186,16 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
         ),
         title: const Text(
           'Sandbox Simulate',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
       ),
       body: walletsAsync.when(
         data: (wallets) {
           // Lọc bỏ ví tiền mặt và ví ngoại tệ (chỉ giữ lại ví khác cash và dùng VND)
-          final filteredWallets = wallets.where((w) => w.type != 'cash' && w.currencyCode == 'VND').toList();
+          final filteredWallets = wallets
+              .where((w) => w.type != 'cash' && w.currencyCode == 'VND')
+              .toList();
 
           if (filteredWallets.isEmpty) {
             return Center(
@@ -194,11 +204,18 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.account_balance_wallet_outlined, size: 64, color: colors.textSecondary),
+                    Icon(
+                      Icons.account_balance_wallet_outlined,
+                      size: 64,
+                      color: colors.textSecondary,
+                    ),
                     const SizedBox(height: 16),
                     const Text(
                       'Không tìm thấy ví hợp lệ',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -211,9 +228,14 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
                       onPressed: () => context.pop(),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: colors.primary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                      child: const Text('Quay lại', style: TextStyle(color: Colors.white)),
+                      child: const Text(
+                        'Quay lại',
+                        style: TextStyle(color: Colors.white),
+                      ),
                     ),
                   ],
                 ),
@@ -222,7 +244,8 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
           }
 
           // Khởi tạo ví đầu tiên nếu chưa chọn hoặc ví cũ không còn nằm trong danh sách lọc
-          if (_selectedWallet == null || !filteredWallets.any((w) => w.id == _selectedWallet!.id)) {
+          if (_selectedWallet == null ||
+              !filteredWallets.any((w) => w.id == _selectedWallet!.id)) {
             _selectedWallet = filteredWallets.first;
           }
 
@@ -230,7 +253,10 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
             children: [
               SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -247,7 +273,11 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.info_outline_rounded, color: colors.primary, size: 24),
+                          Icon(
+                            Icons.info_outline_rounded,
+                            color: colors.primary,
+                            size: 24,
+                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
@@ -275,11 +305,18 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
                     ),
                     const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
-                        color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF3F4F6),
+                        color: isDark
+                            ? Colors.white.withOpacity(0.04)
+                            : const Color(0xFFF3F4F6),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: colors.textSecondary.withOpacity(0.15)),
+                        border: Border.all(
+                          color: colors.textSecondary.withOpacity(0.15),
+                        ),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<WalletEntity>(
@@ -300,12 +337,19 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
                                     width: 12,
                                     height: 12,
                                     decoration: BoxDecoration(
-                                      color: Color(int.parse(wallet.color.replaceAll('#', 'FF'), radix: 16)),
+                                      color: Color(
+                                        int.parse(
+                                          wallet.color.replaceAll('#', 'FF'),
+                                          radix: 16,
+                                        ),
+                                      ),
                                       shape: BoxShape.circle,
                                     ),
                                   ),
                                   const SizedBox(width: 12),
-                                  Text('${wallet.name} (${AppConstant.formatMoney(wallet.balance, wallet.currencyCode)} đ)'),
+                                  Text(
+                                    '${wallet.name} (${AppConstant.formatMoney(wallet.balance, wallet.currencyCode)} đ)',
+                                  ),
                                 ],
                               ),
                             );
@@ -335,7 +379,9 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       decoration: BoxDecoration(
-                        color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF3F4F6),
+                        color: isDark
+                            ? Colors.white.withOpacity(0.04)
+                            : const Color(0xFFF3F4F6),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: TextField(
@@ -352,16 +398,24 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
                         ),
                         onChanged: (val) {
                           if (val.isEmpty) return;
-                          final cleanString = val.replaceAll(RegExp(r'[^0-9]'), '');
+                          final cleanString = val.replaceAll(
+                            RegExp(r'[^0-9]'),
+                            '',
+                          );
                           double? amt = double.tryParse(cleanString);
                           if (amt != null) {
                             if (amt > 500000000) {
                               amt = 500000000;
                             }
-                            final formatted = NumberFormat('#,###', 'vi_VN').format(amt);
+                            final formatted = NumberFormat(
+                              '#,###',
+                              'vi_VN',
+                            ).format(amt);
                             _amountController.value = TextEditingValue(
                               text: formatted,
-                              selection: TextSelection.fromPosition(TextPosition(offset: formatted.length)),
+                              selection: TextSelection.fromPosition(
+                                TextPosition(offset: formatted.length),
+                              ),
                             );
                           }
                         },
@@ -370,12 +424,18 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
                     ValueListenableBuilder<TextEditingValue>(
                       valueListenable: _amountController,
                       builder: (context, value, child) {
-                        final cleanString = value.text.replaceAll(RegExp(r'[^0-9]'), '');
+                        final cleanString = value.text.replaceAll(
+                          RegExp(r'[^0-9]'),
+                          '',
+                        );
                         final double? amt = double.tryParse(cleanString);
                         if (amt == null || amt == 0) {
                           return const SizedBox.shrink();
                         }
-                        final wordRepresentation = formatNumberToWords(amt, localeCode);
+                        final wordRepresentation = formatNumberToWords(
+                          amt,
+                          localeCode,
+                        );
                         return Padding(
                           padding: const EdgeInsets.only(top: 8.0, left: 4.0),
                           child: Text(
@@ -405,7 +465,9 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       decoration: BoxDecoration(
-                        color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF3F4F6),
+                        color: isDark
+                            ? Colors.white.withOpacity(0.04)
+                            : const Color(0xFFF3F4F6),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: TextField(
@@ -436,7 +498,9 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       decoration: BoxDecoration(
-                        color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF3F4F6),
+                        color: isDark
+                            ? Colors.white.withOpacity(0.04)
+                            : const Color(0xFFF3F4F6),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: TextField(
@@ -472,7 +536,9 @@ class _SandboxSimulateTransferScreenState extends ConsumerState<SandboxSimulateT
                     color: Colors.black.withOpacity(0.4),
                     child: Center(
                       child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          colors.primary,
+                        ),
                       ),
                     ),
                   ),
