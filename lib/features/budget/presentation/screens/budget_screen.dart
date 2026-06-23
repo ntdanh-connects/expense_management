@@ -52,7 +52,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(budgetListProvider.notifier).refreshBudgets();
+      ref.read(budgetListProvider.notifier).refreshBudgets(silent: true);
     });
   }
 
@@ -243,7 +243,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                     if (categoryBudgets.isNotEmpty && !isPastMonth)
                       TextButton(
                         onPressed: () => context.push(RoutePaths.budgetCreate).then((_) {
-                          ref.read(budgetListProvider.notifier).refreshBudgets();
+                          ref.read(budgetListProvider.notifier).refreshBudgets(silent: true);
                         }),
                         child: Text(
                           'add_new'.tr(ref),
@@ -292,7 +292,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                               icon: const Icon(Icons.add, size: 18),
                               label: Text('add_category_budget_button'.tr(ref)),
                               onPressed: () => context.push(RoutePaths.budgetCreate).then((_) {
-                                ref.read(budgetListProvider.notifier).refreshBudgets();
+                                ref.read(budgetListProvider.notifier).refreshBudgets(silent: true);
                               }),
                             ),
                           ],
@@ -383,7 +383,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                         ),
                         child: InkWell(
                           onTap: () => context.push(RoutePaths.budgetEdit, extra: item).then((_) {
-                            ref.read(budgetListProvider.notifier).refreshBudgets();
+                            ref.read(budgetListProvider.notifier).refreshBudgets(silent: true);
                           }),
                           borderRadius: BorderRadius.circular(20),
                           child: Column(
@@ -449,7 +449,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                     Center(
                       child: TextButton.icon(
                         onPressed: () => context.push(RoutePaths.budgetCreate).then((_) {
-                          ref.read(budgetListProvider.notifier).refreshBudgets();
+                          ref.read(budgetListProvider.notifier).refreshBudgets(silent: true);
                         }),
                         icon: Icon(Icons.add_circle_outline_rounded, color: colors.primary),
                         label: Text(
@@ -506,7 +506,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
       ),
       child: InkWell(
         onTap: () => context.push(RoutePaths.budgetEdit, extra: generalBudget).then((_) {
-          ref.read(budgetListProvider.notifier).refreshBudgets();
+          ref.read(budgetListProvider.notifier).refreshBudgets(silent: true);
         }),
         borderRadius: BorderRadius.circular(24),
         child: Column(
@@ -673,7 +673,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                   ),
                 ),
                 onPressed: () => context.push(RoutePaths.budgetCreate).then((_) {
-                  ref.read(budgetListProvider.notifier).refreshBudgets();
+                  ref.read(budgetListProvider.notifier).refreshBudgets(silent: true);
                 }),
                 child: Text(
                   'setup_overall_budget_now'.tr(ref),

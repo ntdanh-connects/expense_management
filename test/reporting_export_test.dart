@@ -5,11 +5,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:expense_management/features/reporting_export/presentation/providers/reporting_export_providers.dart';
 import 'package:expense_management/features/reporting_export/domain/repositories/reporting_export_repository.dart';
 import 'package:expense_management/features/reporting_export/data/models/report_export_dto.dart';
-import 'package:expense_management/features/profile/user_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 import 'package:expense_management/shared/domain/user_entity.dart';
 import 'dart:io';
 
 class FakeReportingExportRepository implements ReportingExportRepository {
+  @override
+  Future<void> downloadFile(String url, String savePath) async {}
+
   @override
   Future<void> triggerRemoteExport({
     required String startDate,

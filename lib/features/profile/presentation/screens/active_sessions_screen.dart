@@ -74,12 +74,12 @@ class ActiveSessionsScreen extends ConsumerWidget {
               try {
                 if (session.isCurrent) {
                   // Nếu thu hồi chính thiết bị hiện tại -> Đăng xuất khỏi ứng dụng
-                  await ref.read(activeSessionsProvider.notifier).revokeSession(session.id);
+                  await ref.read(activeSessionsProvider.notifier).revokeSession(session.id, silent: true);
                   if (context.mounted) {
                     ref.read(authNotifierProvider.notifier).logout();
                   }
                 } else {
-                  await ref.read(activeSessionsProvider.notifier).revokeSession(session.id);
+                  await ref.read(activeSessionsProvider.notifier).revokeSession(session.id, silent: true);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -197,7 +197,7 @@ class ActiveSessionsScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => ref.read(activeSessionsProvider.notifier).refreshSessions(),
+            onPressed: () => ref.read(activeSessionsProvider.notifier).refreshSessions(silent: true),
           ),
         ],
       ),

@@ -33,7 +33,7 @@ class SavingsListScreen extends ConsumerWidget {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          await ref.read(savingsListProvider.notifier).loadGoals();
+          await ref.read(savingsListProvider.notifier).loadGoals(silent: true);
         },
         child: savingsState.when(
           data: (goals) {

@@ -480,7 +480,7 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
       // Sync Month/Year selectors of parent screens to this created budget date
       ref.read(selectedBudgetMonthProvider.notifier).state = _selectedMonth;
       ref.read(selectedBudgetYearProvider.notifier).state = _selectedYear;
-      await ref.read(budgetListProvider.notifier).refreshBudgets();
+      await ref.read(budgetListProvider.notifier).refreshBudgets(silent: true);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

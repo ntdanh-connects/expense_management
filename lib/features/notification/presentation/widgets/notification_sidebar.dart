@@ -103,7 +103,7 @@ class _NotificationPanelState extends ConsumerState<_NotificationPanel> {
     _scrollController.addListener(_onScroll);
     // Refresh when panel opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(notificationNotifierProvider.notifier).refresh();
+      ref.read(notificationNotifierProvider.notifier).refresh(silent: true);
     });
   }
 
@@ -177,7 +177,7 @@ class _NotificationPanelState extends ConsumerState<_NotificationPanel> {
                     return RefreshIndicator(
                       onRefresh: () => ref
                           .read(notificationNotifierProvider.notifier)
-                          .refresh(),
+                          .refresh(silent: true),
                       child: ListView.separated(
                         controller: _scrollController,
                         padding: const EdgeInsets.symmetric(vertical: 8),

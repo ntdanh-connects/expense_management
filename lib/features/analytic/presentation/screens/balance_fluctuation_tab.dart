@@ -865,7 +865,7 @@ class _BalanceFluctuationTabState extends ConsumerState<BalanceFluctuationTab> {
             uiItems.sort((a, b) => b.amount.compareTo(a.amount));
 
             // Compute comparison differences if previous period categories are available
-            final prevData = prevCategoriesAsync?.asData?.value;
+            final prevData = prevCategoriesAsync?.value;
             final Map<String, double> prevAmounts = {};
             if (prevData != null) {
               if (_typeMode == 'expense' && _categoryMode == 'parent') {

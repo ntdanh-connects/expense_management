@@ -30,8 +30,10 @@ class CategoriesNotifier extends AsyncNotifier<List<CategoryDto>> with ErrorHand
     }
   }
 
-  Future<void> refreshCategories() async {
-    state = const AsyncValue.loading();
+  Future<void> refreshCategories({bool silent = false}) async {
+    if (!silent) {
+      state = const AsyncValue.loading();
+    }
     try {
       final repo = ref.read(categoryRepositoryProvider);
       final remoteCategories = await repo.getCategories();
@@ -64,7 +66,7 @@ class CategoriesNotifier extends AsyncNotifier<List<CategoryDto>> with ErrorHand
       color: color,
       sortOrder: sortOrder,
     );
-    await refreshCategories();
+    await refreshCategories(silent: true);
   }
 
   Future<void> updateCategory({
@@ -82,13 +84,13 @@ class CategoriesNotifier extends AsyncNotifier<List<CategoryDto>> with ErrorHand
       color: color,
       sortOrder: sortOrder,
     );
-    await refreshCategories();
+    await refreshCategories(silent: true);
   }
 
   Future<void> deleteCategory(String id) async {
     final repo = ref.read(categoryRepositoryProvider);
     await repo.deleteCategory(id);
-    await refreshCategories();
+    await refreshCategories(silent: true);
   }
 
   Future<void> mergeCategories({
@@ -100,7 +102,7 @@ class CategoriesNotifier extends AsyncNotifier<List<CategoryDto>> with ErrorHand
       fromCategoryId: fromCategoryId,
       toCategoryId: toCategoryId,
     );
-    await refreshCategories();
+    await refreshCategories(silent: true);
   }
 }
 
