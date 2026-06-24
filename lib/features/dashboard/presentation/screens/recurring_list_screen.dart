@@ -948,7 +948,7 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
       payeeName: rule.payeeName,
       payeeAccountNumber: rule.payeeAccountNumber,
       payeeBankName: rule.payeeBankName,
-      sourceType: 'recurring',
+      sourceType: (rule.payeeId != null && rule.payeeId!.isNotEmpty) ? 'transfer' : 'recurring',
     );
 
     try {

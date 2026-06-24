@@ -216,6 +216,7 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
   void _showWalletSheet() {
     final wallets = ref.read(walletNotifierProvider).value ?? [];
     final colors = context.colors;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -239,38 +240,95 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            Text('recurring_select_wallet'.tr(ref), style: TextStyle(color: colors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(
+              'recurring_select_wallet'.tr(ref),
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 16),
-            ...wallets.where((w) => !w.isHidden && w.type.toLowerCase() != 'cash').map((w) {
-              final isSelected = _selectedWallet?.id == w.id;
-              final hexColor = w.color.replaceAll('#', '');
-              Color itemColor;
-              try { itemColor = Color(int.parse('FF$hexColor', radix: 16)); }
-              catch (_) { itemColor = colors.primary; }
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: itemColor.withOpacity(0.12), shape: BoxShape.circle),
-                  child: Icon(
-                    w.type.toLowerCase() == 'bank' ? Icons.account_balance_rounded
-                        : w.type.toLowerCase() == 'e-wallet' ? Icons.qr_code_scanner_rounded
-                        : Icons.payments_rounded,
-                    color: itemColor, size: 20,
-                  ),
-                ),
-                title: Text(w.name, style: TextStyle(
-                  color: isSelected ? colors.primary : colors.textPrimary,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                )),
-                subtitle: Text(
-                  '${AppConstant.formatMoney(w.balance, w.currencyCode)} ${_getCurrencySymbol(w.currencyCode)}',
-                  style: TextStyle(color: colors.textSecondary, fontSize: 12),
-                ),
-                trailing: isSelected ? Icon(Icons.check_circle_rounded, color: colors.primary) : null,
-                onTap: () { setState(() => _selectedWallet = w); Navigator.pop(ctx); },
-              );
-            }),
+            Builder(
+              builder: (context) {
+                final filtered = wallets.where((w) {
+                  final type = w.type.toLowerCase();
+                  return !w.isHidden && 
+                         (type == 'bank' || type == 'e-wallet' || type == 'e_wallet') && 
+                         w.currencyCode == 'VND';
+                }).toList();
+
+                if (filtered.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Text(
+                        'recurring_transaction_wallet_warning'.tr(ref),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: colors.textSecondary, fontSize: 13),
+                      ),
+                    ),
+                  );
+                }
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: filtered.map((w) {
+                    final isSelected = _selectedWallet?.id == w.id;
+                    final hexColor = w.color.replaceAll('#', '');
+                    Color itemColor;
+                    try {
+                      itemColor = Color(int.parse('FF$hexColor', radix: 16));
+                    } catch (_) {
+                      itemColor = colors.primary;
+                    }
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: itemColor.withOpacity(0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          w.type.toLowerCase() == 'bank'
+                              ? Icons.account_balance_rounded
+                              : w.type.toLowerCase() == 'cash'
+                                  ? Icons.payments_rounded
+                                  : Icons.qr_code_scanner_rounded,
+                          color: itemColor, size: 20,
+                        ),
+                      ),
+                      title: Text(
+                        w.name,
+                        style: TextStyle(
+                          color: isSelected ? colors.primary : colors.textPrimary,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '${AppConstant.formatMoney(w.balance, w.currencyCode)} ${_getCurrencySymbol(w.currencyCode)}',
+                        style: TextStyle(color: colors.textSecondary, fontSize: 12),
+                      ),
+                      trailing: isSelected
+                          ? Icon(Icons.check_circle_rounded, color: colors.primary)
+                          : null,
+                      onTap: () {
+                        setState(() {
+                          _selectedWallet = w;
+                          if (w.type.toLowerCase() == 'cash') {
+                            _selectedPayee = null;
+                            _recipientWalletName = null;
+                          }
+                        });
+                        Navigator.pop(ctx);
+                      },
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
           ],
         ),
       ),

@@ -742,5 +742,16 @@
   "savings_enter_autosave_amount_error": "Please enter the auto-save amount",
   "savings_create_btn": "Create Savings Piggy Bank",
   "savings_select_wallet_for_autosave_error": "Please select a source wallet if Auto-Save is enabled!",
-  "savings_create_success": "Savings piggy bank created successfully!"
+  "savings_create_success": "Savings piggy bank created successfully!",
+  "walkthrough_welcome_title": "Welcome to Expense Management!",
+  "walkthrough_welcome_desc": "Let's quickly explore the core features that will help you manage your personal finance easily and effectively.",
+  "walkthrough_wallet_title": "Wallet & Asset Management",
+  "walkthrough_wallet_desc": "The system automatically creates a default cash wallet with 0 VND. You can add other bank or e-wallet accounts to track your overall cash flow.",
+  "walkthrough_recurring_title": "Convenient Recurring Transactions",
+  "walkthrough_recurring_desc": "Set up automated expense rules (rent, bills...). You can attach a beneficiary to automatically execute P2P transfers when manually recorded.",
+  "walkthrough_budget_title": "Smart Budgeting",
+  "walkthrough_budget_desc": "Set up overall or category budgets to keep spending under control, and receive smart alerts when reaching 80% or 100% limits.",
+  "walkthrough_next": "Next",
+  "walkthrough_skip": "Skip",
+  "walkthrough_finish": "Get Started"
 }

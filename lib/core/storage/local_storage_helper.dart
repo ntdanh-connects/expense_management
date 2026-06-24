@@ -95,4 +95,28 @@ class LocalStorageHelper {
       return false;
     }
   }
+
+  bool hasSeenWalkthrough(String userId) {
+    return _prefs.getBool('seen_walkthrough_$userId') ?? false;
+  }
+
+  Future<bool> setSeenWalkthrough(String userId, bool seen) async {
+    return await _prefs.setBool('seen_walkthrough_$userId', seen);
+  }
+
+  bool isJustRegistered(String email) {
+    return _prefs.getBool('just_registered_${email.trim().toLowerCase()}') ?? false;
+  }
+
+  Future<bool> setJustRegistered(String email, bool value) async {
+    return await _prefs.setBool('just_registered_${email.trim().toLowerCase()}', value);
+  }
+
+  bool needsNewUserSetup(String userId) {
+    return _prefs.getBool('needs_new_user_setup_$userId') ?? false;
+  }
+
+  Future<bool> setNeedsNewUserSetup(String userId, bool value) async {
+    return await _prefs.setBool('needs_new_user_setup_$userId', value);
+  }
 }
