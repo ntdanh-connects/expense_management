@@ -92,11 +92,21 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       if (qr['description'] != null) {
         _notesController.text = qr['description'].toString();
       }
+      if (qr['date'] != null && qr['date'] is DateTime) {
+        _selectedDate = qr['date'] as DateTime;
+      }
       final rawPayeeName = qr['payee_name']?.toString().trim() ?? '';
       final payeeName = (rawPayeeName.isEmpty || rawPayeeName.toUpperCase() == 'UNKNOWN RECIPIENT')
           ? ''
           : rawPayeeName;
       _payeeController.text = payeeName;
+      if (qr['title'] != null) {
+        _titleController.text = qr['title'].toString();
+      } else if (payeeName.isNotEmpty) {
+        _titleController.text = payeeName;
+      } else if (qr['description'] != null) {
+        _titleController.text = qr['description'].toString();
+      }
 
       _recipientWalletName = qr['recipient_wallet_name']?.toString() ?? qr['wallet_name']?.toString() ?? qr['recipient_wallet']?.toString();
       _toWalletId = qr['to_wallet_id']?.toString();
@@ -688,7 +698,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     }
 
     // Nếu là giao dịch chuyển khoản từ QR Code
-    if (widget.qrData != null) {
+    if (widget.qrData != null && widget.qrData!['is_qr'] == true) {
       if (amount > _selectedWallet!.balance) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -785,7 +795,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
 
   Widget _buildQrRecipientCard(AppColorsExtension colors) {
-    if (widget.qrData == null) return const SizedBox.shrink();
+    if (widget.qrData == null || widget.qrData!['is_qr'] != true) return const SizedBox.shrink();
     
     final qr = widget.qrData!;
     final isInternal = qr['type'] == 'internal' || qr['payee_type'] == 'internal';
@@ -963,7 +973,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
     // Extract parent categories dynamically
     final allCats = categoriesAsync.value ?? [];
-    final bool isQr = widget.qrData != null;
+    final bool isQr = widget.qrData != null && widget.qrData!['is_qr'] == true;
     final parentCategories = allCats.where((c) {
       if (c.parentId != null) return false;
       if (isQr && c.type == 'income') return false; // Loại bỏ Thu nhập khi quét QR
@@ -1172,7 +1182,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                if (widget.qrData != null) ...[
+                if (widget.qrData != null && widget.qrData!['is_qr'] == true) ...[
                   Text(
                     'recipient_info'.tr(ref),
                     style: TextStyle(
@@ -1756,58 +1766,120 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
                     if (_imageFile != null) ...[
                       const SizedBox(width: 16),
-                      // Preview Card
-                      Stack(
+                      // Preview Card with OCR Helper Button
+                      Column(
                         children: [
-                          Container(
-                            width: 100,
-                            height: 120,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(20),
-                              image: DecorationImage(
-                                image: FileImage(_imageFile!),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                          if (_isLoading)
-                            Positioned.fill(
-                              child: Container(
+                          Stack(
+                            children: [
+                              Container(
+                                width: 100,
+                                height: 120,
                                 decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.4),
                                   borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Center(
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2.5,
+                                  image: DecorationImage(
+                                    image: FileImage(_imageFile!),
+                                    fit: BoxFit.cover,
                                   ),
                                 ),
                               ),
-                            ),
-                          Positioned(
-                            right: 4,
-                            top: 4,
-                            child: GestureDetector(
-                              onTap: _isLoading
-                                  ? null
-                                  : () {
-                                      setState(() {
-                                        _imageFile = null;
-                                      });
-                                    },
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: Colors.black54,
-                                  shape: BoxShape.circle,
+                              if (_isLoading)
+                                Positioned.fill(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.4),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: const Center(
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2.5,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                                child: const Icon(
-                                  Icons.close,
-                                  color: Colors.white,
-                                  size: 14,
+                              Positioned(
+                                right: 4,
+                                top: 4,
+                                child: GestureDetector(
+                                  onTap: _isLoading
+                                      ? null
+                                      : () {
+                                          setState(() {
+                                            _imageFile = null;
+                                          });
+                                        },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.black54,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.close,
+                                      color: Colors.white,
+                                      size: 14,
+                                    ),
+                                  ),
                                 ),
                               ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          TextButton.icon(
+                            onPressed: _isLoading
+                                ? null
+                                : () async {
+                                    final result = await context.push(
+                                      RoutePaths.ocrHelper,
+                                      extra: _imageFile!.path,
+                                    );
+                                    if (result != null &&
+                                        result is Map<String, dynamic> &&
+                                        mounted) {
+                                      setState(() {
+                                        if (result['amount'] != null) {
+                                          _amountController.text =
+                                              _formatter.formatDouble(
+                                                  result['amount'] as double);
+                                        }
+                                        if (result['payee_name'] != null &&
+                                            result['payee_name']
+                                                .toString()
+                                                .isNotEmpty) {
+                                          final payeeStr =
+                                              result['payee_name'].toString();
+                                          _payeeController.text = payeeStr;
+                                          _titleController.text = payeeStr;
+                                        }
+                                        if (result['description'] != null &&
+                                            result['description']
+                                                .toString()
+                                                .isNotEmpty) {
+                                          final descStr =
+                                              result['description'].toString();
+                                          _notesController.text = descStr;
+                                          if (_titleController.text.isEmpty) {
+                                            _titleController.text = descStr;
+                                          }
+                                        }
+                                        if (result['date'] != null &&
+                                            result['date'] is DateTime) {
+                                          _selectedDate =
+                                              result['date'] as DateTime;
+                                        }
+                                      });
+                                    }
+                                  },
+                            icon: const Icon(Icons.auto_awesome_rounded, size: 14),
+                            label: const Text(
+                              'Đọc hóa đơn',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
                           ),
                         ],

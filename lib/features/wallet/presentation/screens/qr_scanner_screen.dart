@@ -15,6 +15,7 @@ import 'package:expense_management/features/wallet/presentation/provider/qr_tran
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:elegant_notification/elegant_notification.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:expense_management/core/router/app_route.dart';
 
 final myQrCacheProvider = StateProvider<Map<String, Map<String, dynamic>>>((ref) => {});
 
@@ -198,10 +199,59 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
         if (mounted) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
-              ElegantNotification.error(
-                title: Text('error'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
-                description: const Text('Không tìm thấy mã QR trong ảnh được chọn!'),
-              ).show(context);
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: context.colors.surface,
+                  title: Row(
+                    children: [
+                      Icon(Icons.auto_awesome_rounded, color: context.colors.primary),
+                      const SizedBox(width: 8),
+                      Text('Quét OCR Hóa Đơn', style: TextStyle(color: context.colors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  content: Text(
+                    'Không tìm thấy mã QR trong ảnh được chọn. Bạn có muốn chuyển sang chế độ quét chữ (OCR) trên hóa đơn để tự động điền giao dịch thủ công không?',
+                    style: TextStyle(color: context.colors.textSecondary, fontSize: 14),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: Text('Hủy', style: TextStyle(color: context.colors.textSecondary)),
+                    ),
+                    ElevatedButton(
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        final result = await context.push(
+                          RoutePaths.ocrHelper,
+                          extra: image.path,
+                        );
+                        if (result != null &&
+                            result is Map<String, dynamic> &&
+                            mounted) {
+                          final qrData = {
+                            'amount': result['amount'],
+                            'description': result['description'],
+                            'payee_name': result['payee_name'],
+                            'date': result['date'],
+                            'title': result['payee_name'] ?? result['description'],
+                            'is_qr': false,
+                          };
+                          context.push(RoutePaths.addTransaction, extra: qrData);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: context.colors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Đọc hóa đơn'),
+                    ),
+                  ],
+                ),
+              );
             }
           });
         }
@@ -216,6 +266,44 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
             ).show(context);
           }
         });
+      }
+    }
+  }
+
+  Future<void> _scanReceiptOcr() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      if (image == null) return;
+
+      if (mounted) {
+        final result = await context.push(
+          RoutePaths.ocrHelper,
+          extra: image.path,
+        );
+        if (result != null && result is Map<String, dynamic> && mounted) {
+          final qrData = {
+            'amount': result['amount'],
+            'description': result['description'],
+            'payee_name': result['payee_name'],
+            'date': result['date'],
+            'title': result['payee_name'] ?? result['description'],
+            'is_qr': false,
+          };
+          context.push(RoutePaths.addTransaction, extra: qrData);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ElegantNotification.error(
+          title: Text('error'.tr(ref), style: const TextStyle(fontWeight: FontWeight.bold)),
+          description: Text('Có lỗi xảy ra: $e'),
+        ).show(context);
       }
     }
   }
@@ -400,6 +488,11 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> with SingleTi
                 style: IconButton.styleFrom(backgroundColor: Colors.black54, padding: const EdgeInsets.all(12)),
                 icon: const Icon(Icons.photo_library_rounded, color: Colors.white, size: 28),
                 onPressed: _scanFromGallery,
+              ),
+              IconButton(
+                style: IconButton.styleFrom(backgroundColor: Colors.black54, padding: const EdgeInsets.all(12)),
+                icon: const Icon(Icons.document_scanner_rounded, color: Colors.white, size: 28),
+                onPressed: _scanReceiptOcr,
               ),
             ],
           ),

@@ -24,6 +24,7 @@ import 'package:expense_management/features/transaction/presentation/screens/tra
 import 'package:expense_management/features/transaction/presentation/screens/add_transaction_screen.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_params.dart';
 import 'package:expense_management/features/transaction/presentation/screens/transaction_result_screen.dart';
+import 'package:expense_management/features/transaction/presentation/screens/ocr_helper_screen.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/presentation/screens/wallet_screen.dart';
 import 'package:expense_management/features/wallet/presentation/screens/add_wallet_screen.dart';
@@ -79,6 +80,7 @@ class RoutePaths {
   static const export = '/profile/export';
   static const exportHistory = '/profile/export-history';
   static const qrScanner = '/qr-scanner';
+  static const ocrHelper = '/ocr-helper';
   static const qrTransferConfirm = '/qr-transfer-confirm';
   static const qrTransferResult = '/qr-transfer-result';
   static const notificationSettings = '/profile/notifications';
@@ -193,6 +195,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.qrScanner,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const QrScannerScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.ocrHelper,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final imagePath = state.extra as String;
+          return OcrHelperScreen(imagePath: imagePath);
+        },
       ),
       GoRoute(
         path: RoutePaths.qrTransferConfirm,
