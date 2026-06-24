@@ -54,19 +54,13 @@ final dioClientProvider = Provider<Dio>((ref) {
   dio.interceptors.add(InterceptorsWrapper(
     onRequest: (options, handler) {
       if (options.method == 'GET') {
-        if (options.path.contains('categories')) {
-          // Ép buộc cache 10 phút (600 giây) cho danh mục
-          final customOptions = cacheOptions.copyWith(
-            policy: CachePolicy.forceCache,
-            maxStale: Nullable(const Duration(minutes: 10)),
-          );
-          options.extra.addAll(customOptions.toExtra());
-        } else if (options.path.contains('wallets') || 
-                   options.path.contains('transactions') || 
-                   options.path.contains('notifications') ||
-                   options.path.contains('dashboard') ||
-                   options.path.contains('reports')) {
-          // Bỏ qua cache hoàn toàn cho ví, giao dịch, thông báo, dashboard và báo cáo (reports) để đảm bảo dữ liệu luôn mới nhất
+        if (options.path.contains('categories') ||
+            options.path.contains('wallets') || 
+            options.path.contains('transactions') || 
+            options.path.contains('notifications') ||
+            options.path.contains('dashboard') ||
+            options.path.contains('reports')) {
+          // Bỏ qua cache hoàn toàn để đảm bảo dữ liệu luôn mới nhất
           final customOptions = cacheOptions.copyWith(
             policy: CachePolicy.noCache,
           );

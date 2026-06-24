@@ -9,10 +9,12 @@ class CategoriesNotifier extends AsyncNotifier<List<CategoryDto>> with ErrorHand
   Future<List<CategoryDto>> build() async {
     final repo = ref.read(categoryRepositoryProvider);
     
-    // Tải dữ liệu từ local database trước để UI load lập tức không bị xoay vòng xoay loading
+    // Tải dữ liệu từ local database trước để UI load lập tức
     final localCategories = await repo.getCategoriesFromLocal();
     if (localCategories.isNotEmpty) {
-      _fetchRemoteInBackground();
+      // Set state với local data ngay lập tức để UI render
+      // Sau đó fetch remote ngầm mà không block
+      Future.microtask(() => _fetchRemoteInBackground());
       return localCategories;
     }
     
@@ -27,6 +29,7 @@ class CategoriesNotifier extends AsyncNotifier<List<CategoryDto>> with ErrorHand
       state = AsyncValue.data(remoteCategories);
     } catch (e, stack) {
       logException(e, stack, tag: 'CategoriesNotifier_background');
+      // Lỗi ngầm — giữ nguyên data cũ, không show error
     }
   }
 

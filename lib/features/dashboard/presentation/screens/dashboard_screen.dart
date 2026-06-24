@@ -95,6 +95,7 @@ class DashboardScreen extends ConsumerWidget {
       appBar: SharedTopAppBar(hintText: 'search_hint'.tr(ref)),
       body: RefreshIndicator(
         onRefresh: () async {
+          ref.read(categoriesNotifierProvider.notifier).refreshCategories(silent: true);
           ref.invalidate(fetchDashboardSummaryProvider);
           try {
             await ref.read(fetchDashboardSummaryProvider.future);
