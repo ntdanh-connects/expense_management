@@ -748,5 +748,16 @@
   "savings_enter_autosave_amount_error": "Vui lòng nhập số tiền trích tự động",
   "savings_create_btn": "Tạo Heo Đất Tích Lũy",
   "savings_select_wallet_for_autosave_error": "Vui lòng chọn ví nguồn nếu kích hoạt Auto-Save!",
-  "savings_create_success": "Tạo heo đất tích lũy thành công!"
+  "savings_create_success": "Tạo heo đất tích lũy thành công!",
+  "walkthrough_welcome_title": "Chào mừng bạn đến với Expense Management!",
+  "walkthrough_welcome_desc": "Hãy cùng khám phá nhanh các tính năng cốt lõi giúp bạn làm chủ tài chính cá nhân một cách dễ dàng và hiệu quả nhất.",
+  "walkthrough_wallet_title": "Quản lý ví & Tài sản",
+  "walkthrough_wallet_desc": "Hệ thống tự động tạo cho bạn một Ví tiền mặt ban đầu với số dư 0đ. Bạn có thể thêm các ví Ngân hàng hoặc Ví điện tử khác để theo dõi dòng tiền toàn diện.",
+  "walkthrough_recurring_title": "Giao dịch định kỳ tiện lợi",
+  "walkthrough_recurring_desc": "Tạo các giao dịch chi tiêu định kỳ (tiền nhà, hóa đơn...). Bạn có thể thêm người thụ hưởng để tự động thực hiện giao dịch chuyển khoản P2P nhanh chóng khi ghi nhận.",
+  "walkthrough_budget_title": "Thiết lập ngân sách thông minh",
+  "walkthrough_budget_desc": "Lập ngân sách tổng hoặc ngân sách danh mục chi tiết để kiểm soát chi tiêu, nhận cảnh báo thông minh khi chạm ngưỡng 80% hoặc 100% hạn mức.",
+  "walkthrough_next": "Tiếp theo",
+  "walkthrough_skip": "Bỏ qua",
+  "walkthrough_finish": "Bắt đầu ngay"
 }

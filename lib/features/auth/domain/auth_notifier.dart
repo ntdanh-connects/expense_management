@@ -28,6 +28,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:expense_management/features/security/presentation/providers/security_provider.dart';
+import 'package:expense_management/core/storage/storage_provider.dart';
 
 class AuthNotifier extends StateNotifier<AuthState> {
   final LoginUseCase _loginUseCase;
@@ -62,6 +63,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       ref.read(appLanguageProvider.notifier).changeLocale(userEntity.language);
       ref.read(themeProvider.notifier).setTheme(userEntity.theme == 'dark' ? ThemeMode.dark : ThemeMode.light);
+
+      try {
+        final storage = ref.read(localStoreHelperProvider);
+        if (storage.isJustRegistered(email)) {
+          await storage.setNeedsNewUserSetup(userEntity.id, true);
+          await storage.setJustRegistered(email, false);
+        }
+      } catch (_) {}
 
       _startWatchingUser(userEntity.id);
     } on AppException catch (e) {
@@ -118,6 +127,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
         password,
         password,
       );
+
+      try {
+        await ref.read(localStoreHelperProvider).setJustRegistered(email, true);
+      } catch (_) {}
 
       state = AuthState.registered(message: successMessage);
     } on AppException catch (e) {

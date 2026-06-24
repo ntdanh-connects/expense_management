@@ -230,7 +230,9 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
                         child: Icon(
                           w.type.toLowerCase() == 'bank'
                               ? Icons.account_balance_rounded
-                              : Icons.qr_code_scanner_rounded,
+                              : w.type.toLowerCase() == 'cash'
+                                  ? Icons.payments_rounded
+                                  : Icons.qr_code_scanner_rounded,
                           color: itemColor, size: 20,
                         ),
                       ),
@@ -249,7 +251,13 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
                           ? Icon(Icons.check_circle_rounded, color: colors.primary)
                           : null,
                       onTap: () {
-                        setState(() => _selectedWallet = w);
+                        setState(() {
+                          _selectedWallet = w;
+                          if (w.type.toLowerCase() == 'cash') {
+                            _selectedPayee = null;
+                            _recipientWalletName = null;
+                          }
+                        });
                         Navigator.pop(ctx);
                       },
                     );
@@ -521,10 +529,6 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
                   // ── Category (like add_transaction_screen)
                   _buildSectionLabel('recurring_category_section'.tr(ref), colors, trailing: 'recurring_see_all'.tr(ref), onTrailingTap: _showCategorySheet),
                   const SizedBox(height: 10),
-
-                  // Type tabs
-                  _buildTypeTabs(colors),
-                  const SizedBox(height: 12),
 
                   // Parent categories horizontal scroll
                   SizedBox(
