@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/notification/data/models/notification_dto.dart';
 import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
 
-// Provider to store daily reminder time locally. Defaults to 20:00.
-final dailyReminderTimeProvider = StateProvider<TimeOfDay>((ref) {
-  return const TimeOfDay(hour: 20, minute: 0);
-});
+// Settings screen implementation
 
 class NotificationSettingsScreen extends ConsumerWidget {
   const NotificationSettingsScreen({super.key});
@@ -275,7 +271,7 @@ class _TimeTile extends ConsumerWidget {
           },
         );
         if (picked != null) {
-          ref.read(dailyReminderTimeProvider.notifier).state = picked;
+          ref.read(dailyReminderTimeProvider.notifier).setTime(picked);
         }
       },
       child: Padding(

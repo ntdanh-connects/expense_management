@@ -20,6 +20,7 @@ import 'package:path/path.dart' as p;
 import 'package:dio_cache_interceptor_file_store/dio_cache_interceptor_file_store.dart';
 import 'package:expense_management/core/network/dio_client.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
+import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:expense_management/features/security/presentation/widgets/app_lifecycle_manager.dart';
@@ -118,6 +119,9 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Kích hoạt quản lý nhắc nhở thông báo lặp và định kỳ
+    ref.watch(notificationReminderManagerProvider);
+
     final router = ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeProvider);
 

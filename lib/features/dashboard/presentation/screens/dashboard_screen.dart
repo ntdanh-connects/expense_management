@@ -81,6 +81,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndShowWalkthrough();
+    });
+
     final ref = this.ref;
     final colors = context.colors;
     final walletState = ref.watch(walletNotifierProvider);
