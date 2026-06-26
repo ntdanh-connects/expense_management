@@ -1,12 +1,14 @@
 import 'dart:async';
-import 'package:expense_management/core/network/dio_client.dart';
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:expense_management/features/notification/data/models/notification_dto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
+import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
 import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
-import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
-import 'package:expense_management/features/dashboard/presentation/providers/dashboard_provider.dart';
-import 'package:flutter/foundation.dart';
+import 'package:expense_management/features/dashboard/presentation/providers/recurring_provider.dart';
 import 'package:expense_management/features/notification/domain/di/domain_providers.dart';
 export 'package:expense_management/features/notification/domain/di/domain_providers.dart';
 import 'package:expense_management/core/error/error_handler_mixin.dart';
@@ -98,8 +100,27 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> with ErrorHa
     // Sort chronologically descending
     uniqueMerged.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
+    // Filter based on notification settings
+    final pref = ref.read(notificationPreferencesProvider).value;
+    final isPushEnabled = pref?.pushEnabled ?? true;
+    final isBudgetEnabled = pref?.emailEnabled ?? true;
+    final isDailyReminderEnabled = pref?.dailyReminderEnabled ?? true;
+
+    final filtered = uniqueMerged.where((n) {
+      if (n.type == 'recurring_created' || n.type == 'recurring') {
+        return isPushEnabled;
+      }
+      if (n.type == 'budget_warning') {
+        return isBudgetEnabled;
+      }
+      if (n.type == 'daily_reminder') {
+        return isDailyReminderEnabled;
+      }
+      return true;
+    }).toList();
+
     return NotificationState(
-      notifications: uniqueMerged,
+      notifications: filtered,
       isLoading: false,
       hasMore: remoteItems.length >= 15,
       currentPage: page,
@@ -109,6 +130,21 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> with ErrorHa
   void addLocalNotification(NotificationDto notif) {
     final current = state.value;
     if (current == null) return;
+
+    final pref = ref.read(notificationPreferencesProvider).value;
+    final isPushEnabled = pref?.pushEnabled ?? true;
+    final isBudgetEnabled = pref?.emailEnabled ?? true;
+    final isDailyReminderEnabled = pref?.dailyReminderEnabled ?? true;
+
+    if (notif.type == 'recurring_created' || notif.type == 'recurring') {
+      if (!isPushEnabled) return;
+    }
+    if (notif.type == 'budget_warning') {
+      if (!isBudgetEnabled) return;
+    }
+    if (notif.type == 'daily_reminder') {
+      if (!isDailyReminderEnabled) return;
+    }
     
     final merged = [notif, ...current.notifications];
     final seen = <String>{};
@@ -275,7 +311,16 @@ final unreadNotificationCountProvider = Provider<int>((ref) {
 
 class PreferencesNotifier
     extends AsyncNotifier<NotificationPreferenceDto?> {
-  NotificationPreferenceDto _fallbackPreferences() {
+  static const String _prefKey = 'local_notification_preferences';
+
+  Future<NotificationPreferenceDto> _loadLocalPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = prefs.getString(_prefKey);
+      if (jsonStr != null && jsonStr.isNotEmpty) {
+        return NotificationPreferenceDto.fromJson(jsonDecode(jsonStr));
+      }
+    } catch (_) {}
     return NotificationPreferenceDto(
       id: 'fallback_id',
       userId: 'fallback_user',
@@ -286,13 +331,26 @@ class PreferencesNotifier
     );
   }
 
+  Future<void> _saveLocalPreferences(NotificationPreferenceDto dto) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefKey, jsonEncode(dto.toJson()));
+    } catch (_) {}
+  }
+
   @override
   FutureOr<NotificationPreferenceDto?> build() async {
+    final local = await _loadLocalPreferences();
+    // Set local preferences as initial state immediately
+    state = AsyncValue.data(local);
+
     try {
       final repo = ref.read(notificationRepositoryProvider);
-      return await repo.getPreferences();
+      final remote = await repo.getPreferences();
+      await _saveLocalPreferences(remote);
+      return remote;
     } catch (_) {
-      return _fallbackPreferences();
+      return local;
     }
   }
 
@@ -302,29 +360,34 @@ class PreferencesNotifier
     bool? weeklySummaryEnabled,
     bool? dailyReminderEnabled,
   }) async {
-    final current = state.value;
-    if (current == null) return;
+    final current = state.value ?? await _loadLocalPreferences();
 
-    // Optimistic update
-    state = AsyncValue.data(current.copyWith(
+    final updated = current.copyWith(
       emailEnabled: emailEnabled,
       pushEnabled: pushEnabled,
       weeklySummaryEnabled: weeklySummaryEnabled,
       dailyReminderEnabled: dailyReminderEnabled,
-    ));
+    );
+
+    // Optimistic local update
+    state = AsyncValue.data(updated);
+    await _saveLocalPreferences(updated);
+
+    // Trigger list filtering reactively
+    ref.invalidate(notificationNotifierProvider);
 
     try {
       final repo = ref.read(notificationRepositoryProvider);
-      final updated = await repo.updatePreferences(
+      final remote = await repo.updatePreferences(
         emailEnabled: emailEnabled,
         pushEnabled: pushEnabled,
         weeklySummaryEnabled: weeklySummaryEnabled,
         dailyReminderEnabled: dailyReminderEnabled,
       );
-      state = AsyncValue.data(updated);
+      await _saveLocalPreferences(remote);
+      state = AsyncValue.data(remote);
     } catch (_) {
-      // Revert on failure
-      state = AsyncValue.data(current);
+      // Keep local update even if server fails
     }
   }
 }
@@ -333,3 +396,75 @@ final notificationPreferencesProvider =
     AsyncNotifierProvider<PreferencesNotifier, NotificationPreferenceDto?>(
   () => PreferencesNotifier(),
 );
+
+// Provider to store daily reminder time locally.
+class DailyReminderTimeNotifier extends StateNotifier<TimeOfDay> {
+  DailyReminderTimeNotifier() : super(const TimeOfDay(hour: 20, minute: 0)) {
+    _loadFromPrefs();
+  }
+
+  Future<void> _loadFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hour = prefs.getInt('daily_reminder_hour');
+      final minute = prefs.getInt('daily_reminder_minute');
+      if (hour != null && minute != null) {
+        state = TimeOfDay(hour: hour, minute: minute);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> setTime(TimeOfDay time) async {
+    state = time;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('daily_reminder_hour', time.hour);
+      await prefs.setInt('daily_reminder_minute', time.minute);
+    } catch (_) {}
+  }
+}
+
+final dailyReminderTimeProvider =
+    StateNotifierProvider<DailyReminderTimeNotifier, TimeOfDay>((ref) {
+  return DailyReminderTimeNotifier();
+});
+
+// Listener/Manager for scheduling/cancelling notifications reactively
+final notificationReminderManagerProvider = Provider<void>((ref) {
+  final prefAsync = ref.watch(notificationPreferencesProvider);
+  final time = ref.watch(dailyReminderTimeProvider);
+
+  prefAsync.whenData((pref) {
+    if (pref == null) return;
+
+    // 1. Nhắc nhở ghi chép chi tiêu hàng ngày
+    const dailyReminderId = 9999;
+    if (pref.dailyReminderEnabled) {
+      LocalNotificationService.scheduleDailyNotification(
+        id: dailyReminderId,
+        title: 'Nhắc nhở ghi chép chi tiêu',
+        body: 'Đã đến giờ ghi chép chi tiêu rồi! Hãy ghi lại các giao dịch hôm nay nhé.',
+        hour: time.hour,
+        minute: time.minute,
+      );
+    } else {
+      LocalNotificationService.cancelNotification(dailyReminderId);
+    }
+
+    // 2. Nhắc nhở giao dịch định kỳ
+    if (!pref.pushEnabled) {
+      final rulesAsync = ref.read(recurringNotifierProvider);
+      rulesAsync.whenData((rules) {
+        for (final rule in rules) {
+          LocalNotificationService.cancelNotification(rule.id.hashCode);
+        }
+      });
+    } else {
+      final rulesAsync = ref.read(recurringNotifierProvider);
+      rulesAsync.whenData((rules) {
+        ref.read(recurringNotifierProvider.notifier).refresh(silent: true);
+      });
+    }
+  });
+});
+

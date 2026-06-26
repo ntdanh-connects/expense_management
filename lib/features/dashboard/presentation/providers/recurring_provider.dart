@@ -4,6 +4,7 @@ import 'package:expense_management/features/dashboard/domain/di/domain_providers
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
 import 'package:expense_management/features/notification/data/models/notification_dto.dart';
+import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
 import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/error/error_handler_mixin.dart';
@@ -20,6 +21,8 @@ class RecurringNotifier extends AsyncNotifier<List<RecurringRuleEntity>> with Er
 
   Future<void> _updateNotifications(List<RecurringRuleEntity> rules) async {
     try {
+      final pref = ref.read(notificationPreferencesProvider).value;
+      final isPushEnabled = pref?.pushEnabled ?? true;
       final user = ref.read(currentUserProvider);
       final userId = user?.id ?? '';
       for (final rule in rules) {
@@ -28,7 +31,7 @@ class RecurringNotifier extends AsyncNotifier<List<RecurringRuleEntity>> with Er
         if (userId.isNotEmpty) {
           await LocalNotificationStorage.deleteNotification(userId, 'local_recurring_${rule.id}');
         }
-        if (rule.isActive && rule.nextRunAt != null) {
+        if (isPushEnabled && rule.isActive && rule.nextRunAt != null) {
           final targetDate = rule.nextRunAt!.subtract(const Duration(days: 1));
           if (targetDate.isAfter(DateTime.now())) {
             await LocalNotificationService.scheduleNotification(
