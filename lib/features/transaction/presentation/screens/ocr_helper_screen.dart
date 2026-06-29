@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:currency_text_input_formatter/currency_text_input_formatter.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/transaction/data/services/ocr_service.dart';
+import 'package:expense_management/features/transaction/presentation/widgets/ocr_helper/ocr_input_field.dart';
+import 'package:expense_management/features/transaction/presentation/widgets/ocr_helper/ocr_raw_line_item.dart';
 
 class OcrHelperScreen extends ConsumerStatefulWidget {
   final String imagePath;
@@ -305,32 +307,38 @@ class _OcrHelperScreenState extends ConsumerState<OcrHelperScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Column(
                             children: [
-                              _buildInputField(
+                              OcrInputField(
                                 label: 'Số tiền giao dịch',
                                 controller: _amountController,
                                 icon: Icons.attach_money_rounded,
                                 fieldKey: 'amount',
                                 keyboardType: TextInputType.number,
+                                isActive: _activeField == 'amount',
+                                onTap: () => setState(() => _activeField = 'amount'),
                               ),
                               const SizedBox(height: 8),
-                              _buildInputField(
+                              OcrInputField(
                                 label: 'Cửa hàng / Người nhận',
                                 controller: _payeeController,
                                 icon: Icons.storefront_rounded,
                                 fieldKey: 'payee',
                                 keyboardType: TextInputType.text,
+                                isActive: _activeField == 'payee',
+                                onTap: () => setState(() => _activeField = 'payee'),
                               ),
                               const SizedBox(height: 8),
                               Row(
                                 children: [
                                   Expanded(
                                     flex: 3,
-                                    child: _buildInputField(
+                                    child: OcrInputField(
                                       label: 'Nội dung chi tiêu',
                                       controller: _descController,
                                       icon: Icons.notes_rounded,
                                       fieldKey: 'desc',
                                       keyboardType: TextInputType.text,
+                                      isActive: _activeField == 'desc',
+                                      onTap: () => setState(() => _activeField = 'desc'),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -421,44 +429,9 @@ class _OcrHelperScreenState extends ConsumerState<OcrHelperScreen> {
                                     itemCount: _ocrResult!.rawLines.length,
                                     itemBuilder: (context, index) {
                                       final lineText = _ocrResult!.rawLines[index];
-                                      return Padding(
-                                        padding: const EdgeInsets.only(bottom: 6),
-                                        child: Material(
-                                          color: isDark ? Colors.grey[900] : Colors.grey[100],
-                                          borderRadius: BorderRadius.circular(8),
-                                          child: InkWell(
-                                            borderRadius: BorderRadius.circular(8),
-                                            onTap: () => _applyExtractedText(lineText),
-                                            child: Padding(
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                              child: Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.subdirectory_arrow_right_rounded,
-                                                    size: 14,
-                                                    color: color.primary.withOpacity(0.6),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(
-                                                    child: Text(
-                                                      lineText,
-                                                      style: TextStyle(
-                                                        color: color.textPrimary,
-                                                        fontSize: 13,
-                                                        fontWeight: FontWeight.w500,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  Icon(
-                                                    Icons.add_circle_outline_rounded,
-                                                    size: 16,
-                                                    color: color.primary,
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
+                                      return OcrRawLineItem(
+                                        lineText: lineText,
+                                        onTap: () => _applyExtractedText(lineText),
                                       );
                                     },
                                   ),
@@ -504,77 +477,6 @@ class _OcrHelperScreenState extends ConsumerState<OcrHelperScreen> {
                 ),
               ],
             ),
-    );
-  }
-
-  Widget _buildInputField({
-    required String label,
-    required TextEditingController controller,
-    required IconData icon,
-    required String fieldKey,
-    required TextInputType keyboardType,
-  }) {
-    final color = context.colors;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isActive = _activeField == fieldKey;
-
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _activeField = fieldKey;
-        });
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? color.primary.withOpacity(0.08) : (isDark ? Colors.grey[900] : Colors.grey[50]),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isActive ? color.primary : color.textSecondary.withOpacity(0.1),
-            width: isActive ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: isActive ? color.primary : color.textSecondary, size: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(color: color.textSecondary, fontSize: 10),
-                  ),
-                  const SizedBox(height: 2),
-                  TextField(
-                    controller: controller,
-                    keyboardType: keyboardType,
-                    style: TextStyle(
-                      color: color.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                      border: InputBorder.none,
-                      hintText: 'Chưa nhập',
-                      hintStyle: TextStyle(fontWeight: FontWeight.normal, fontSize: 13),
-                    ),
-                    onTap: () {
-                      setState(() {
-                        _activeField = fieldKey;
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

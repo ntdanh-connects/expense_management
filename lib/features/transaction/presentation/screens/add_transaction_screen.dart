@@ -26,7 +26,13 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:timezone/timezone.dart' as tz;
-import 'package:expense_management/features/transaction/presentation/widgets/add_transaction_shimmer.dart';
+import 'package:expense_management/features/transaction/presentation/widgets/add_transaction/add_transaction_shimmer.dart';
+import 'package:expense_management/features/transaction/presentation/widgets/add_transaction/transaction_amount_card.dart';
+import 'package:expense_management/features/transaction/presentation/widgets/add_transaction/transaction_recipient_card.dart';
+import 'package:expense_management/features/transaction/presentation/widgets/add_transaction/transaction_category_selector.dart';
+import 'package:expense_management/features/transaction/presentation/widgets/add_transaction/transaction_date_wallet_row.dart';
+import 'package:expense_management/features/transaction/presentation/widgets/add_transaction/transaction_attachment_section.dart';
+import 'package:expense_management/features/transaction/presentation/widgets/add_transaction/transaction_wallet_picker_sheet.dart';
 
 class AddTransactionScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic>? qrData;
@@ -392,138 +398,20 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   }
 
   void _showWalletSelector(BuildContext context, List<WalletEntity> wallets) {
-    final colors = context.colors;
-
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return Container(
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'select_transaction_wallet'.trRead(ref),
-                style: TextStyle(
-                  color: colors.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (wallets.isEmpty)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: Text(
-                      'manual_transaction_wallet_warning'.trRead(ref),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: colors.textSecondary),
-                    ),
-                  ),
-                )
-              else
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: wallets.length,
-                    itemBuilder: (context, idx) {
-                      final wallet = wallets[idx];
-                      final hexColor = wallet.color.replaceAll('#', '');
-                      Color itemColor;
-                      try {
-                        itemColor = hexColor.length == 6
-                            ? Color(int.parse('FF$hexColor', radix: 16))
-                            : colors.primary;
-                      } catch (_) {
-                        itemColor = colors.primary;
-                      }
-
-                      final isSelected = _selectedWallet?.id == wallet.id;
-
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: itemColor.withOpacity(0.12),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            wallet.type.toLowerCase() == 'cash'
-                                ? Icons.payments_rounded
-                                : wallet.type.toLowerCase() == 'bank'
-                                ? Icons.account_balance_rounded
-                                : Icons.credit_card_rounded,
-                            color: itemColor,
-                            size: 20,
-                          ),
-                        ),
-                        title: Text(
-                          wallet.name,
-                          style: TextStyle(
-                            color: colors.textPrimary,
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
-                        ),
-                        subtitle: Text(
-                          '${'balance_prefix'.trRead(ref)}${NumberFormat(wallet.currencyCode == 'VND' ? '#,###' : '#,##0.00').format(wallet.balance)} ${_getCurrencySymbol(wallet.currencyCode)}',
-                          style: TextStyle(
-                            color: colors.textSecondary,
-                            fontSize: 13,
-                          ),
-                        ),
-                        trailing: isSelected
-                            ? Icon(
-                                Icons.check_circle_rounded,
-                                color: colors.primary,
-                              )
-                            : null,
-                        onTap: () {
-                          setState(() {
-                            _selectedWallet = wallet;
-                            _updateFormatter(wallet.currencyCode);
-                          });
-                          Navigator.pop(context);
-                        },
-                      );
-                    },
-                  ),
-                ),
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    context.push(RoutePaths.addWallet);
-                  },
-                  icon: const Icon(Icons.add_card_rounded, color: Colors.white),
-                  label: Text(
-                    'create_new_wallet'.trRead(ref),
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: colors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+        return TransactionWalletPickerSheet(
+          wallets: wallets,
+          selectedWallet: _selectedWallet,
+          onSelected: (wallet) {
+            setState(() {
+              _selectedWallet = wallet;
+              _updateFormatter(wallet.currencyCode);
+            });
+            Navigator.pop(context);
+          },
         );
       },
     );
@@ -794,175 +682,6 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   }
 
 
-  Widget _buildQrRecipientCard(AppColorsExtension colors) {
-    if (widget.qrData == null || widget.qrData!['is_qr'] != true) return const SizedBox.shrink();
-    
-    final qr = widget.qrData!;
-    final isInternal = qr['type'] == 'internal' || qr['payee_type'] == 'internal';
-    final recipientWalletName = _recipientWalletName ?? qr['recipient_wallet_name'] ?? qr['wallet_name'] ?? qr['recipient_wallet'];
-    final rawPayeeName = qr['payee_name']?.toString().trim() ?? '';
-    final payeeName = (rawPayeeName.isEmpty || rawPayeeName.toUpperCase() == 'UNKNOWN RECIPIENT')
-        ? 'Không xác định'
-        : rawPayeeName;
-    final identifier = qr['identifier'] ?? qr['account_number'] ?? '';
-    final bankName = qr['bank_name'] ?? '';
-    final bankLogo = qr['bank_logo'];
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.authCardBg,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colors.textSecondary.withOpacity(0.1)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))
-        ],
-      ),
-      child: Row(
-        children: [
-          if (isInternal)
-            CircleAvatar(
-              radius: 24,
-              backgroundImage: qr['avatar_url'] != null ? NetworkImage(qr['avatar_url']) : null,
-              child: qr['avatar_url'] == null ? const Icon(Icons.person) : null,
-            )
-          else
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: bankLogo != null
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(24),
-                      child: CachedNetworkImage(
-                        imageUrl: bankLogo,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => const Center(
-                          child: SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        ),
-                        errorWidget: (context, url, error) => const Icon(
-                          Icons.account_balance_rounded,
-                          color: Colors.blue,
-                        ),
-                      ),
-                    )
-                  : const Icon(Icons.account_balance_rounded, color: Colors.blue),
-            ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  payeeName,
-                  style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  isInternal ? "ID: $identifier" : "$bankName - $identifier",
-                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
-                ),
-                if (isInternal) ...[
-                  const SizedBox(height: 6),
-                  if (_isLoadingRecipientWallet)
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.account_balance_wallet_rounded,
-                          size: 14,
-                          color: colors.primary,
-                        ),
-                        const SizedBox(width: 6),
-                        Shimmer.fromColors(
-                          baseColor: colors.textSecondary.withOpacity(0.1),
-                          highlightColor: colors.textSecondary.withOpacity(0.05),
-                          child: Container(
-                            width: 120,
-                            height: 14,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  else if (recipientWalletName != null)
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.account_balance_wallet_rounded,
-                          size: 14,
-                          color: colors.primary,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          "Ví nhận: $recipientWalletName",
-                          style: TextStyle(
-                            color: colors.primary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Helper method to resolve dynamic parent icons & colors
-  Map<String, dynamic> _getParentStyle(
-    String parentName,
-    AppColorsExtension colors,
-  ) {
-    switch (parentName) {
-      case 'Chi tiêu - sinh hoạt':
-      case 'Living Expenses':
-        return {
-          'icon': Icons.restaurant_rounded,
-          'color': const Color(0xFFF97316), // Orange
-        };
-      case 'Chi phí phát sinh':
-      case 'Occasional Expenses':
-        return {
-          'icon': Icons.shopping_bag_rounded,
-          'color': const Color(0xFFEAB308), // Yellow
-        };
-      case 'Chi phí cố định':
-      case 'Fixed Expenses':
-        return {
-          'icon': Icons.receipt_long_rounded,
-          'color': const Color(0xFF3B82F6), // Blue
-        };
-      case 'Đầu tư - tiết kiệm':
-      case 'Investment & Savings':
-        return {
-          'icon': Icons.savings_rounded,
-          'color': const Color(0xFF10B981), // Green
-        };
-      case 'Thu nhập':
-      case 'Income':
-        return {
-          'icon': Icons.account_balance_rounded,
-          'color': const Color(0xFF8B5CF6), // Purple
-        };
-      default:
-        return {'icon': Icons.category_rounded, 'color': colors.primary};
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -1086,99 +805,12 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // 💳 1. Amount Display Card
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 24,
-                    horizontal: 16,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colors.authCardBg,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: colors.textSecondary.withOpacity(0.06),
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        'transaction_amount'.tr(ref),
-                        style: TextStyle(
-                          color: colors.textSecondary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _amountController,
-                        keyboardType: TextInputType.number,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 38,
-                          fontWeight: FontWeight.bold,
-                          color: _isIncome
-                              ? colors.incomeGreen
-                              : colors.expenseRed,
-                        ),
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          hintText: _selectedWallet != null
-                              ? '0 ${_getCurrencySymbol(_selectedWallet!.currencyCode)}'
-                              : '0 đ',
-                          hintStyle: TextStyle(
-                            fontSize: 38,
-                            fontWeight: FontWeight.bold,
-                            color:
-                                (_isIncome
-                                        ? colors.incomeGreen
-                                        : colors.expenseRed)
-                                    .withOpacity(0.4),
-                          ),
-                        ),
-                        inputFormatters: [_formatter],
-                        onChanged: (val) {
-                          final cleanString = val.replaceAll(RegExp(r'[^0-9]'), '');
-                          final double? amt = double.tryParse(cleanString);
-                          if (amt != null && amt > 500000000) {
-                            final formatted = _formatter.formatDouble(500000000);
-                            _amountController.value = TextEditingValue(
-                              text: formatted,
-                              selection: TextSelection.fromPosition(TextPosition(offset: formatted.length)),
-                            );
-                          }
-                        },
-                      ),
-                      ValueListenableBuilder<TextEditingValue>(
-                        valueListenable: _amountController,
-                        builder: (context, value, child) {
-                          final currency = _selectedWallet?.currencyCode ?? 'VND';
-                          if (currency != 'VND') {
-                            return const SizedBox.shrink();
-                          }
-                          final cleanString = value.text.replaceAll(RegExp(r'[^0-9]'), '');
-                          final double? amt = double.tryParse(cleanString);
-                          if (amt == null || amt == 0) {
-                            return const SizedBox.shrink();
-                          }
-                          final wordRepresentation = formatNumberToWords(amt, localeCode);
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: Text(
-                              '($wordRepresentation)',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: colors.textSecondary,
-                                fontSize: 13,
-                                fontStyle: FontStyle.italic,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
+                TransactionAmountCard(
+                  amountController: _amountController,
+                  formatter: _formatter,
+                  currencyCode: _selectedWallet?.currencyCode,
+                  isIncome: _isIncome,
+                  localeCode: localeCode,
                 ),
                 const SizedBox(height: 24),
 
@@ -1192,388 +824,65 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _buildQrRecipientCard(colors),
+                  TransactionRecipientCard(
+                    qrData: widget.qrData,
+                    recipientWalletName: _recipientWalletName,
+                    isLoadingRecipientWallet: _isLoadingRecipientWallet,
+                  ),
                   const SizedBox(height: 24),
                 ],
 
-                // 📁 2. Parent Category Section
-                Text(
-                  'parent_category'.tr(ref),
-                  style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Horizontal scrolling parents list
-                SizedBox(
-                  height: 90,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: parentCategories.length,
-                    itemBuilder: (context, index) {
-                      final parent = parentCategories[index];
-                      final style = _getParentStyle(parent.name, colors);
-                      final IconData parentIcon = style['icon'];
-                      final Color parentColor = style['color'];
-                      final isSelected =
-                          _selectedParentCategory?.id == parent.id;
-
-                      // Display translations / clean parent name
-                      String displayName = parent.name.tr(ref);
-
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedParentCategory = parent;
-                            _selectedCategory =
-                                null; // Reset subcategory when parent changes
-                          });
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          width: 90,
-                          margin: const EdgeInsets.only(right: 10),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? parentColor.withOpacity(0.12)
-                                : colors.authCardBg,
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                              color: isSelected
-                                  ? parentColor
-                                  : colors.textSecondary.withOpacity(0.06),
-                              width: isSelected ? 2 : 1,
-                            ),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                parentIcon,
-                                color: isSelected
-                                    ? parentColor
-                                    : colors.textSecondary,
-                                size: 22,
-                              ),
-                              const SizedBox(height: 6),
-                              FittedBox(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4.0,
-                                  ),
-                                  child: Text(
-                                    displayName,
-                                    style: TextStyle(
-                                      color: isSelected
-                                          ? parentColor
-                                          : colors.textPrimary,
-                                      fontWeight: isSelected
-                                          ? FontWeight.bold
-                                          : FontWeight.w500,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // 📂 3. Subcategory Section
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          'subcategory'.tr(ref),
-                          style: TextStyle(
-                            color: colors.textPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        if (_isClassifying) ...[
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 1.5,
-                              valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    if (_selectedParentCategory != null)
-                      TextButton(
-                        onPressed: () async {
-                          final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => SubCategorySelectionScreen(
-                                parentCategory: _selectedParentCategory!,
-                                selectedSubCategory: _selectedCategory,
-                              ),
-                            ),
-                          );
-                          if (result != null && result is CategoryDto) {
-                            setState(() {
-                              _selectedCategory = result;
-                            });
-                          }
-                        },
-                        child: Text(
-                          'see_all'.tr(ref),
-                          style: TextStyle(
-                            color: colors.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
+                // 📁 2 & 3. Category Sections
+                TransactionCategorySelector(
+                  parentCategories: parentCategories,
+                  selectedParentCategory: _selectedParentCategory,
+                  selectedCategory: _selectedCategory,
+                  quickSubcategories: quickSubcategories,
+                  isClassifying: _isClassifying,
+                  onParentSelected: (parent) {
+                    setState(() {
+                      _selectedParentCategory = parent;
+                      _selectedCategory = null;
+                    });
+                  },
+                  onCategorySelected: (cat) {
+                    setState(() {
+                      _selectedCategory = cat;
+                    });
+                  },
+                  onSeeAllPressed: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SubCategorySelectionScreen(
+                          parentCategory: _selectedParentCategory!,
+                          selectedSubCategory: _selectedCategory,
                         ),
                       ),
-                  ],
+                    );
+                    if (result != null && result is CategoryDto) {
+                      setState(() {
+                        _selectedCategory = result;
+                      });
+                    }
+                  },
                 ),
-                const SizedBox(height: 8),
-
-                if (quickSubcategories.isEmpty)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    alignment: Alignment.center,
-                    child: Text(
-                      'select_parent_category_hint'.tr(ref),
-                      style: TextStyle(
-                        color: colors.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  )
-                else
-                  SizedBox(
-                    height: 100,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: quickSubcategories.length,
-                      itemBuilder: (context, index) {
-                        final category = quickSubcategories[index];
-                        final iconData = CategoryUIConstants.getIconData(
-                          category.icon,
-                        );
-                        final catColor = CategoryUIConstants.getColorFromHex(
-                          category.color,
-                        );
-                        final isSelected = _selectedCategory?.id == category.id;
-
-                        return GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _selectedCategory = category;
-                            });
-                          },
-                          child: Container(
-                            width: 80,
-                            margin: const EdgeInsets.only(right: 12),
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            decoration: BoxDecoration(
-                              color: colors.authCardBg,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: isSelected
-                                    ? catColor
-                                    : colors.textSecondary.withOpacity(0.04),
-                                width: isSelected ? 2 : 1,
-                              ),
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: catColor.withOpacity(
-                                      isSelected ? 0.25 : 0.12,
-                                    ),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    iconData,
-                                    color: catColor,
-                                    size: 20,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 4.0,
-                                    ),
-                                    child: Text(
-                                      category.name.tr(ref),
-                                      style: TextStyle(
-                                        color: isSelected
-                                            ? catColor
-                                            : colors.textPrimary,
-                                        fontSize: 11,
-                                        fontWeight: isSelected
-                                            ? FontWeight.bold
-                                            : FontWeight.w500,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
                 const SizedBox(height: 24),
 
                 // 📅 4. Date & Wallet Row
-                Row(
-                  children: [
-                    // Date picker card
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => _selectDate(context),
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: colors.authCardBg,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: colors.textSecondary.withOpacity(0.06),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: colors.primary.withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Icon(
-                                  Icons.calendar_month_rounded,
-                                  color: colors.primary,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'date_label'.tr(ref),
-                                      style: TextStyle(
-                                        color: colors.textSecondary,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _formatDate(_selectedDate),
-                                      style: TextStyle(
-                                        color: colors.textPrimary,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-
-                    // Wallet selector card
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          if (walletList.isEmpty) {
-                            context.push(RoutePaths.addWallet);
-                          } else {
-                            _showWalletSelector(context, walletList);
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: colors.authCardBg,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: colors.textSecondary.withOpacity(0.06),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: colors.primary.withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Icon(
-                                  Icons.account_balance_wallet_rounded,
-                                  color: colors.primary,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'wallet_label'.tr(ref),
-                                      style: TextStyle(
-                                        color: colors.textSecondary,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _selectedWallet?.name ??
-                                          'select_wallet'.tr(ref),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: colors.textPrimary,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                TransactionDateWalletRow(
+                  selectedDate: _selectedDate,
+                  selectedWallet: _selectedWallet,
+                  walletList: walletList,
+                  onDateTap: () => _selectDate(context),
+                  onWalletTap: () {
+                    if (walletList.isEmpty) {
+                      context.push(RoutePaths.addWallet);
+                    } else {
+                      _showWalletSelector(context, walletList);
+                    }
+                  },
+                  formatDate: _formatDate,
                 ),
 
 
@@ -1694,198 +1003,40 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                 const SizedBox(height: 24),
 
                 // 📷 7. Attachments
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'attach_receipt'.tr(ref),
-                      style: TextStyle(
-                        color: colors.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colors.textSecondary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'optional'.tr(ref),
-                        style: TextStyle(
-                          color: colors.textSecondary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    // Dash Upload Card
-                    GestureDetector(
-                      onTap: () => _pickImage(context),
-                      child: Container(
-                        width: 100,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          color: colors.authCardBg,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: colors.primary.withOpacity(0.3),
-                            style: BorderStyle.solid,
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.add_a_photo_outlined,
-                              color: colors.primary,
-                              size: 24,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'capture_upload'.tr(ref),
-                              style: TextStyle(
-                                color: colors.primary,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    if (_imageFile != null) ...[
-                      const SizedBox(width: 16),
-                      // Preview Card with OCR Helper Button
-                      Column(
-                        children: [
-                          Stack(
-                            children: [
-                              Container(
-                                width: 100,
-                                height: 120,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(20),
-                                  image: DecorationImage(
-                                    image: FileImage(_imageFile!),
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                              ),
-                              if (_isLoading)
-                                Positioned.fill(
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.4),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: const Center(
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2.5,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              Positioned(
-                                right: 4,
-                                top: 4,
-                                child: GestureDetector(
-                                  onTap: _isLoading
-                                      ? null
-                                      : () {
-                                          setState(() {
-                                            _imageFile = null;
-                                          });
-                                        },
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: const BoxDecoration(
-                                      color: Colors.black54,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.close,
-                                      color: Colors.white,
-                                      size: 14,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          TextButton.icon(
-                            onPressed: _isLoading
-                                ? null
-                                : () async {
-                                    final result = await context.push(
-                                      RoutePaths.ocrHelper,
-                                      extra: _imageFile!.path,
-                                    );
-                                    if (result != null &&
-                                        result is Map<String, dynamic> &&
-                                        mounted) {
-                                      setState(() {
-                                        if (result['amount'] != null) {
-                                          _amountController.text =
-                                              _formatter.formatDouble(
-                                                  result['amount'] as double);
-                                        }
-                                        if (result['payee_name'] != null &&
-                                            result['payee_name']
-                                                .toString()
-                                                .isNotEmpty) {
-                                          final payeeStr =
-                                              result['payee_name'].toString();
-                                          _payeeController.text = payeeStr;
-                                          _titleController.text = payeeStr;
-                                        }
-                                        if (result['description'] != null &&
-                                            result['description']
-                                                .toString()
-                                                .isNotEmpty) {
-                                          final descStr =
-                                              result['description'].toString();
-                                          _notesController.text = descStr;
-                                          if (_titleController.text.isEmpty) {
-                                            _titleController.text = descStr;
-                                          }
-                                        }
-                                        if (result['date'] != null &&
-                                            result['date'] is DateTime) {
-                                          _selectedDate =
-                                              result['date'] as DateTime;
-                                        }
-                                      });
-                                    }
-                                  },
-                            icon: const Icon(Icons.auto_awesome_rounded, size: 14),
-                            label: const Text(
-                              'Đọc hóa đơn',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                            ),
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
+                TransactionAttachmentSection(
+                  imageFile: _imageFile,
+                  isLoading: _isLoading,
+                  onPickImage: () => _pickImage(context),
+                  onRemoveImage: () {
+                    setState(() {
+                      _imageFile = null;
+                    });
+                  },
+                  onOcrResult: (result) {
+                    setState(() {
+                      if (result['amount'] != null) {
+                        _amountController.text =
+                            _formatter.formatDouble(result['amount'] as double);
+                      }
+                      if (result['payee_name'] != null &&
+                          result['payee_name'].toString().isNotEmpty) {
+                        final payeeStr = result['payee_name'].toString();
+                        _payeeController.text = payeeStr;
+                        _titleController.text = payeeStr;
+                      }
+                      if (result['description'] != null &&
+                          result['description'].toString().isNotEmpty) {
+                        final descStr = result['description'].toString();
+                        _notesController.text = descStr;
+                        if (_titleController.text.isEmpty) {
+                          _titleController.text = descStr;
+                        }
+                      }
+                      if (result['date'] != null && result['date'] is DateTime) {
+                        _selectedDate = result['date'] as DateTime;
+                      }
+                    });
+                  },
                 ),
                 const SizedBox(height: 36),
 

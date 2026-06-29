@@ -18,6 +18,7 @@ class TransactionParams {
   final String? payeeAccountNumber;
   final String? payeeBankName;
   final String? sourceType;
+  final String? sourceId;
 
   TransactionParams({
     required this.walletId,
@@ -38,5 +39,6 @@ class TransactionParams {
     this.payeeAccountNumber,
     this.payeeBankName,
     this.sourceType,
+    this.sourceId,
   });
 }

@@ -1,22 +1,24 @@
-import 'package:expense_management/core/router/app_route.dart';
-import 'package:expense_management/features/dashboard/presentation/screens/recurring_edit_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/features/dashboard/domain/entities/recurring_rule_entity.dart';
 import 'package:expense_management/features/dashboard/presentation/providers/recurring_provider.dart';
-import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
-import 'package:go_router/go_router.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_params.dart';
 import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
-import 'package:timezone/timezone.dart' as tz;
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
 import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
+import 'package:expense_management/features/dashboard/presentation/screens/recurring_edit_screen.dart';
+import 'package:expense_management/features/dashboard/presentation/widgets/recurring_list/recurring_shimmer.dart';
+import 'package:expense_management/features/dashboard/presentation/widgets/recurring_list/recurring_list_summary_card.dart';
+import 'package:expense_management/features/dashboard/presentation/widgets/recurring_list/recurring_rule_card.dart';
+import 'package:expense_management/features/dashboard/presentation/widgets/recurring_list/recurring_list_helper.dart';
 
 class RecurringListScreen extends ConsumerStatefulWidget {
   const RecurringListScreen({super.key});
@@ -77,7 +79,7 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
       ),
       body: recurringAsync.when(
         data: (rules) => _buildBody(context, ref, rules, colors),
-        loading: () => const _RecurringShimmer(),
+        loading: () => const RecurringShimmer(),
         error: (e, _) => Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -117,7 +119,7 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
           0,
           (sum, r) =>
               sum +
-              (r.amount * _getOccurrencesInPeriod(r, now, _selectedPeriod)),
+              (r.amount * getOccurrencesInPeriod(r, now, _selectedPeriod)),
         );
 
     final activeCount = rules.where((r) => r.isActive).length;
@@ -169,135 +171,14 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
             ),
             const SizedBox(height: 20),
 
-            // ── Summary Card (xanh lá đậm)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1B6B45),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _getPeriodTotalTitleKey(
-                            _selectedPeriod,
-                          ).tr(ref).toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildPeriodTab('day', 'recurring_day'.tr(ref)),
-                            _buildPeriodTab('week', 'recurring_week'.tr(ref)),
-                            _buildPeriodTab('month', 'recurring_month'.tr(ref)),
-                            _buildPeriodTab('year', 'recurring_year'.tr(ref)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${AppConstant.formatMoney(totalThisPeriod, 'VND')} đ',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'recurring_executed'.tr(ref),
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 11,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '$executedCount',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'recurring_upcoming'.tr(ref),
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 11,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '$upcomingCount',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+            // ── Summary Card
+            RecurringListSummaryCard(
+              totalThisPeriod: totalThisPeriod,
+              executedCount: executedCount,
+              upcomingCount: upcomingCount,
+              selectedPeriod: _selectedPeriod,
+              onPeriodChanged: (period) =>
+                  setState(() => _selectedPeriod = period),
             ),
             const SizedBox(height: 20),
 
@@ -336,7 +217,25 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
 
               // ── Danh sách rules
               ...rules.map(
-                (rule) => _buildRuleCard(context, ref, rule, colors),
+                (rule) => RecurringRuleCard(
+                  rule: rule,
+                  isRecorded: _isRuleRecordedToday(rule),
+                  isExecuting: _executingRuleIds.contains(rule.id),
+                  onToggle: () => ref
+                      .read(recurringNotifierProvider.notifier)
+                      .toggleRule(rule.id),
+                  onRecord: () => _executeRuleImmediately(context, ref, rule),
+                  onEdit: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => RecurringEditScreen(rule: rule),
+                    ),
+                  ).then(
+                    (_) => ref
+                        .read(recurringNotifierProvider.notifier)
+                        .refresh(silent: true),
+                  ),
+                ),
               ),
             ] else ...[
               // Empty state
@@ -432,488 +331,6 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
     );
   }
 
-  Widget _buildRuleCard(
-    BuildContext context,
-    WidgetRef ref,
-    RecurringRuleEntity rule,
-    AppColorsExtension colors,
-  ) {
-    final isExpense = rule.type == 'expense';
-    final amountColor = isExpense ? colors.expenseRed : colors.incomeGreen;
-    final sign = isExpense ? '-' : '+';
-    final currencyCode = rule.walletCurrencyCode ?? 'VND';
-    final currencySymbol = AppConstant.getCurrencySymbol(currencyCode);
-
-    // Lấy icon & màu danh mục
-    final catIcon = CategoryUIConstants.getIconData(
-      rule.categoryIcon,
-      categoryName: rule.categoryName,
-    );
-    final catColor = CategoryUIConstants.getColorFromHex(
-      rule.categoryColor,
-      categoryName: rule.categoryName,
-    );
-
-    // Tính ngày kỳ tới
-    String nextRunStr = '';
-    if (rule.nextRunAt != null) {
-      final d = rule.nextRunAt!;
-      nextRunStr =
-          '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: rule.isActive
-              ? colors.textSecondary.withOpacity(0.06)
-              : colors.textSecondary.withOpacity(0.12),
-        ),
-      ),
-      child: Column(
-        children: [
-          // Main row
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-            child: Row(
-              children: [
-                // Icon danh mục
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: catColor.withOpacity(0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(catIcon, color: catColor, size: 22),
-                ),
-                const SizedBox(width: 12),
-
-                // Title + frequency
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        rule.title,
-                        style: TextStyle(
-                          color: colors.textPrimary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'recurring_label_${rule.frequency}'.tr(ref),
-                        style: TextStyle(
-                          color: colors.textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                      if (rule.payeeName != null &&
-                          rule.payeeName!.isNotEmpty) ...[
-                        const SizedBox(height: 3),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.person_outline_rounded,
-                              color: colors.textSecondary,
-                              size: 13,
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                rule.payeeName!,
-                                style: TextStyle(
-                                  color: colors.textSecondary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-
-                // Amount + next run
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '$sign${AppConstant.formatMoney(rule.amount, currencyCode)} $currencySymbol',
-                      style: TextStyle(
-                        color: amountColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
-                    if (nextRunStr.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        '${'recurring_next_run'.tr(ref)}: $nextRunStr',
-                        style: TextStyle(
-                          color: colors.textSecondary,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          // Bottom row: toggle + edit
-          Container(
-            decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(color: colors.textSecondary.withOpacity(0.06)),
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Toggle
-                Row(
-                  children: [
-                    Switch.adaptive(
-                      value: rule.isActive,
-                      activeColor: colors.primary,
-                      activeTrackColor: colors.primary.withOpacity(0.3),
-                      onChanged: (_) => ref
-                          .read(recurringNotifierProvider.notifier)
-                          .toggleRule(rule.id),
-                    ),
-                    const SizedBox(width: 4),
-                    GestureDetector(
-                      onTap: () => ref
-                          .read(recurringNotifierProvider.notifier)
-                          .toggleRule(rule.id),
-                      behavior: HitTestBehavior.opaque,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 8.0,
-                          horizontal: 4.0,
-                        ),
-                        child: Text(
-                          rule.isActive
-                              ? 'recurring_active'.tr(ref)
-                              : 'recurring_inactive'.tr(ref),
-                          style: TextStyle(
-                            color: rule.isActive
-                                ? colors.primary
-                                : colors.textSecondary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                // Actions: Ghi nhận ngay + Edit
-                Row(
-                  children: [
-                    if (rule.isActive) ...[
-                      (() {
-                        final isRecorded = _isRuleRecordedToday(rule);
-                        final isExecuting = _executingRuleIds.contains(rule.id);
-                        return GestureDetector(
-                          onTap: (isRecorded || isExecuting)
-                              ? null
-                              : () =>
-                                    _executeRuleImmediately(context, ref, rule),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: (isRecorded || isExecuting)
-                                  ? colors.textSecondary.withOpacity(0.06)
-                                  : colors.primary.withOpacity(0.08),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: (isRecorded || isExecuting)
-                                    ? Colors.transparent
-                                    : colors.primary.withOpacity(0.2),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                if (isExecuting) ...[
-                                  SizedBox(
-                                    width: 12,
-                                    height: 12,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
-                                    ),
-                                  ),
-                                ] else ...[
-                                  Icon(
-                                    isRecorded
-                                        ? Icons.check_circle_rounded
-                                        : Icons.add_task_rounded,
-                                    color: isRecorded
-                                        ? colors.textSecondary
-                                        : colors.primary,
-                                    size: 14,
-                                  ),
-                                ],
-                                const SizedBox(width: 4),
-                                Text(
-                                  isExecuting
-                                      ? 'recurring_recording'.tr(ref)
-                                      : isRecorded
-                                          ? 'recurring_recorded'.tr(ref)
-                                          : 'recurring_record'.tr(ref),
-                                  style: TextStyle(
-                                    color: (isRecorded || isExecuting)
-                                        ? colors.textSecondary
-                                        : colors.primary,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      })(),
-                      const SizedBox(width: 8),
-                    ],
-                    GestureDetector(
-                      onTap: () =>
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => RecurringEditScreen(rule: rule),
-                            ),
-                          ).then(
-                            (_) => ref
-                                .read(recurringNotifierProvider.notifier)
-                                .refresh(silent: true),
-                          ),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: colors.textSecondary.withOpacity(0.06),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          Icons.edit_outlined,
-                          color: colors.textSecondary,
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  int _getOccurrencesInPeriod(
-    RecurringRuleEntity rule,
-    DateTime now,
-    String period,
-  ) {
-    if (!rule.isActive) return 0;
-
-    DateTime start;
-    DateTime end;
-
-    switch (period) {
-      case 'day':
-        start = DateTime(now.year, now.month, now.day);
-        end = DateTime(now.year, now.month, now.day, 23, 59, 59);
-        break;
-      case 'week':
-        final daysToSubtract = now.weekday - 1;
-        start = DateTime(now.year, now.month, now.day - daysToSubtract);
-        end = DateTime(start.year, start.month, start.day + 6, 23, 59, 59);
-        break;
-      case 'month':
-        start = DateTime(now.year, now.month, 1);
-        end = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
-        break;
-      case 'year':
-        start = DateTime(now.year, 1, 1);
-        end = DateTime(now.year, 12, 31, 23, 59, 59);
-        break;
-      default:
-        start = DateTime(now.year, now.month, 1);
-        end = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
-    }
-
-    final ruleStart = rule.startDate ?? start;
-
-    if (ruleStart.isAfter(end)) return 0;
-    if (rule.endAt != null && rule.endAt!.isBefore(start)) return 0;
-
-    int count = 0;
-    DateTime current = ruleStart;
-    final interval = rule.intervalValue > 0 ? rule.intervalValue : 1;
-
-    switch (rule.frequency) {
-      case 'daily':
-        if (current.isBefore(start)) {
-          final differenceInDays = start.difference(current).inDays;
-          final skipIntervals = differenceInDays ~/ interval;
-          current = current.add(Duration(days: skipIntervals * interval));
-          while (current.isBefore(start)) {
-            current = current.add(Duration(days: interval));
-          }
-        }
-        break;
-      case 'weekly':
-        if (current.isBefore(start)) {
-          final differenceInDays = start.difference(current).inDays;
-          final skipIntervals = differenceInDays ~/ (7 * interval);
-          current = current.add(Duration(days: skipIntervals * 7 * interval));
-          while (current.isBefore(start)) {
-            current = current.add(Duration(days: 7 * interval));
-          }
-        }
-        break;
-      case 'monthly':
-        if (current.isBefore(start)) {
-          int monthsDiff =
-              (start.year - current.year) * 12 + (start.month - current.month);
-          int skipIntervals = monthsDiff ~/ interval;
-          current = DateTime(
-            current.year + (current.month + skipIntervals * interval - 1) ~/ 12,
-            (current.month + skipIntervals * interval - 1) % 12 + 1,
-            current.day,
-          );
-          while (current.isBefore(start)) {
-            current = DateTime(
-              current.year,
-              current.month + interval,
-              current.day,
-            );
-          }
-        }
-        break;
-      case 'yearly':
-        if (current.isBefore(start)) {
-          int yearsDiff = start.year - current.year;
-          int skipIntervals = yearsDiff ~/ interval;
-          current = DateTime(
-            current.year + skipIntervals * interval,
-            current.month,
-            current.day,
-          );
-          while (current.isBefore(start)) {
-            current = DateTime(
-              current.year + interval,
-              current.month,
-              current.day,
-            );
-          }
-        }
-        break;
-    }
-
-    int maxLoopCount = 366;
-    if (period == 'day') maxLoopCount = 2;
-    if (period == 'week') maxLoopCount = 8;
-    if (period == 'month') maxLoopCount = 32;
-
-    while (current.isBefore(end) || current.isAtSameMomentAs(end)) {
-      if (rule.endAt != null && current.isAfter(rule.endAt!)) {
-        break;
-      }
-      if (current.isAfter(start) || current.isAtSameMomentAs(start)) {
-        count++;
-      }
-
-      switch (rule.frequency) {
-        case 'daily':
-          current = current.add(Duration(days: interval));
-          break;
-        case 'weekly':
-          current = current.add(Duration(days: 7 * interval));
-          break;
-        case 'monthly':
-          current = DateTime(
-            current.year,
-            current.month + interval,
-            current.day,
-          );
-          break;
-        case 'yearly':
-          current = DateTime(
-            current.year + interval,
-            current.month,
-            current.day,
-          );
-          break;
-        default:
-          return count;
-      }
-
-      if (count > maxLoopCount) break;
-    }
-
-    return count;
-  }
-
-  String _getPeriodTotalTitleKey(String period) {
-    switch (period) {
-      case 'day':
-        return 'recurring_total_day';
-      case 'week':
-        return 'recurring_total_week';
-      case 'month':
-        return 'recurring_total_month';
-      case 'year':
-        return 'recurring_total_year';
-      default:
-        return 'recurring_total_month';
-    }
-  }
-
-  Widget _buildPeriodTab(String period, String label) {
-    final isSelected = _selectedPeriod == period;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedPeriod = period),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? const Color(0xFF1B6B45) : Colors.white70,
-            fontSize: 11,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-          ),
-        ),
-      ),
-    );
-  }
-
   Future<void> _executeRuleImmediately(
     BuildContext context,
     WidgetRef ref,
@@ -934,7 +351,7 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
     final params = TransactionParams(
       walletId: rule.walletId,
       walletName: walletName,
-      categoryId: categoryId,
+      categoryId: rule.categoryId,
       categoryName: categoryName,
       type: rule.type,
       amount: rule.amount,
@@ -948,7 +365,10 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
       payeeName: rule.payeeName,
       payeeAccountNumber: rule.payeeAccountNumber,
       payeeBankName: rule.payeeBankName,
-      sourceType: (rule.payeeId != null && rule.payeeId!.isNotEmpty) ? 'transfer' : 'recurring',
+      sourceType: (rule.payeeId != null && rule.payeeId!.isNotEmpty)
+          ? 'transfer'
+          : 'recurring',
+      sourceId: rule.id,
     );
 
     try {
@@ -961,18 +381,20 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
       final showPush = pref?.pushEnabled ?? true;
 
       if (showPush) {
-        final currentUserName = ref.read(currentUserProvider)?.fullName ?? 'Người dùng';
+        final currentUserName =
+            ref.read(currentUserProvider)?.fullName ?? 'Người dùng';
         final currencySymbol = AppConstant.getCurrencySymbol(currencyCode);
-        final formattedAmount = AppConstant.formatMoney(rule.amount, currencyCode);
+        final formattedAmount =
+            AppConstant.formatMoney(rule.amount, currencyCode);
         final walletPart = walletName.isNotEmpty ? ' ví "$walletName"' : '';
-        final categoryPart = categoryName.isNotEmpty ? ' danh mục "$categoryName"' : '';
 
-        // 1. Creator Notification (Minus/Deduction or Plus/Receipt)
+        // Creator Notification
         final isExpense = rule.type == 'expense';
         final creatorPrefix = isExpense ? '-' : '+';
         final creatorAction = isExpense ? 'từ' : 'vào';
         final creatorTitle = 'Giao dịch định kỳ';
-        final creatorBody = '$creatorPrefix$formattedAmount $currencySymbol $creatorAction$walletPart. Nội dung: ${rule.title}';
+        final creatorBody =
+            '$creatorPrefix$formattedAmount $currencySymbol $creatorAction$walletPart. Nội dung: ${rule.title}';
 
         // Local Push Notification
         await LocalNotificationService.showNotification(
@@ -998,14 +420,17 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
             },
           );
           if (localNotif != null) {
-            ref.read(notificationNotifierProvider.notifier).addLocalNotification(localNotif);
+            ref
+                .read(notificationNotifierProvider.notifier)
+                .addLocalNotification(localNotif);
           }
         }
 
-        // 2. Payee Notification (Plus/Receipt) - if payee exists
+        // Payee Notification - if payee exists
         if (rule.payeeId != null && rule.payeeId!.isNotEmpty) {
           final payeeTitle = 'Nhận tiền định kỳ';
-          final payeeBody = '+$formattedAmount $currencySymbol vào ví của bạn từ $currentUserName cho danh mục "$categoryName". Nội dung: ${rule.title}';
+          final payeeBody =
+              '+$formattedAmount $currencySymbol vào ví của bạn từ $currentUserName cho danh mục "$categoryName". Nội dung: ${rule.title}';
 
           // Local Push Notification for Payee (only show if current user is the payee)
           if (userId == rule.payeeId) {
@@ -1088,85 +513,36 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
         final user = ref.read(currentUserProvider);
         final tzName = user?.timezone ?? 'Asia/Ho_Chi_Minh';
         final location = tz.getLocation(tzName);
-        
+
         final nowUser = tz.TZDateTime.now(location);
-        final startOfToday = tz.TZDateTime(location, nowUser.year, nowUser.month, nowUser.day);
-        final endOfToday = tz.TZDateTime(location, nowUser.year, nowUser.month, nowUser.day, 23, 59, 59);
+        final startOfToday =
+            tz.TZDateTime(location, nowUser.year, nowUser.month, nowUser.day);
+        final endOfToday = tz.TZDateTime(
+            location, nowUser.year, nowUser.month, nowUser.day, 23, 59, 59);
 
         return transactions.any((tx) {
-          final txDate = tz.TZDateTime.from(tx.transactionDate.toUtc(), location);
+          final txDate =
+              tz.TZDateTime.from(tx.transactionDate.toUtc(), location);
           final isSameDay =
               (txDate.isAfter(startOfToday) && txDate.isBefore(endOfToday)) ||
-              txDate.isAtSameMomentAs(startOfToday) ||
-              txDate.isAtSameMomentAs(endOfToday);
+                  txDate.isAtSameMomentAs(startOfToday) ||
+                  txDate.isAtSameMomentAs(endOfToday);
 
-          return isSameDay &&
-              tx.title == rule.title &&
-              tx.amount == rule.amount &&
-              tx.walletId == rule.walletId &&
-              tx.categoryId == rule.categoryId;
+          if (!isSameDay) return false;
+
+          // 1. Khớp theo sourceId (liên kết trực tiếp chính xác nhất)
+          if (tx.sourceId == rule.id) return true;
+
+          // 2. Khớp dự phòng theo tiêu đề, số tiền và ví (dành cho giao dịch offline/chờ đồng bộ)
+          final isTitleMatch = tx.title == rule.title ||
+              tx.title == 'Ghi nhận từ giao dịch định kỳ: ${rule.title}';
+          final isAmountMatch = (tx.amount - rule.amount).abs() < 0.01;
+          final isWalletMatch = tx.walletId == rule.walletId;
+
+          return isTitleMatch && isAmountMatch && isWalletMatch;
         });
       },
       orElse: () => false,
-    );
-  }
-}
-
-class _RecurringShimmer extends StatelessWidget {
-  const _RecurringShimmer();
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Shimmer.fromColors(
-      baseColor: isDark ? Colors.grey[900]! : Colors.grey[300]!,
-      highlightColor: isDark ? Colors.grey[800]! : Colors.grey[100]!,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 200,
-              height: 28,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              width: 160,
-              height: 16,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              width: double.infinity,
-              height: 140,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-            const SizedBox(height: 20),
-            for (int i = 0; i < 4; i++) ...[
-              Container(
-                width: double.infinity,
-                height: 100,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
     );
   }
 }
