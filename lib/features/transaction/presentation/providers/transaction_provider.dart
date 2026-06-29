@@ -605,6 +605,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> wit
       notes: params.notes,
       transactionDate: DateTime.parse(params.transactionDate),
       sourceType: activeSourceType,
+      sourceId: params.sourceId,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
       isSynced: false,
