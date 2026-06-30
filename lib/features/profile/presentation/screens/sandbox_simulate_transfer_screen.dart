@@ -2,7 +2,7 @@ import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/domain/di/domain_providers.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
-import 'package:expense_management/features/wallet/presentation/widget/swipe_to_confirm_button.dart';
+import 'package:expense_management/features/wallet/presentation/widget/qr_transfer/swipe_to_confirm_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'wallet_constants.dart';
+import '../shared/wallet_constants.dart';
 
 class WalletPreviewCard extends StatelessWidget {
   final String walletName;
