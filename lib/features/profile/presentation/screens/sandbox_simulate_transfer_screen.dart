@@ -1,4 +1,3 @@
-import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/domain/di/domain_providers.dart';
@@ -11,11 +10,14 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
 import 'package:expense_management/core/language/app_provider.dart';
-import 'package:expense_management/core/utils/currency_utils.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
 import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
 import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
+
+import '../widgets/sandbox_simulate_transfer/sandbox_banner.dart';
+import '../widgets/sandbox_simulate_transfer/sandbox_wallet_selector.dart';
+import '../widgets/sandbox_simulate_transfer/sandbox_amount_input.dart';
 
 class SandboxSimulateTransferScreen extends ConsumerStatefulWidget {
   const SandboxSimulateTransferScreen({super.key});
@@ -80,7 +82,6 @@ class _SandboxSimulateTransferScreenState
             notes: notes.isNotEmpty ? notes : null,
           );
 
-      // Check notification preference
       final pref = ref.read(notificationPreferencesProvider).value;
       final showPush = pref?.pushEnabled ?? true;
 
@@ -124,9 +125,7 @@ class _SandboxSimulateTransferScreenState
         }
       }
 
-      // Làm mới danh sách giao dịch
       ref.invalidate(transactionListProvider);
-      // Làm mới ví để cập nhật số dư
       ref.invalidate(walletNotifierProvider);
 
       setState(() {
@@ -135,10 +134,7 @@ class _SandboxSimulateTransferScreenState
 
       if (!mounted) return;
 
-      // Thành công thì thông báo
       _showSnackBar('Giả lập nạp tiền Sandbox thành công!', isError: false);
-
-      // Quay lại màn hình cũ
       context.pop();
     } catch (e) {
       setState(() {
@@ -168,7 +164,6 @@ class _SandboxSimulateTransferScreenState
   Widget build(BuildContext context) {
     final colors = context.colors;
     final localeCode = ref.watch(localeProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final walletsAsync = ref.watch(walletNotifierProvider);
 
     return Scaffold(
@@ -192,7 +187,6 @@ class _SandboxSimulateTransferScreenState
       ),
       body: walletsAsync.when(
         data: (wallets) {
-          // Lọc bỏ ví tiền mặt và ví ngoại tệ (chỉ giữ lại ví khác cash và dùng VND)
           final filteredWallets = wallets
               .where((w) => w.type != 'cash' && w.currencyCode == 'VND')
               .toList();
@@ -243,7 +237,6 @@ class _SandboxSimulateTransferScreenState
             );
           }
 
-          // Khởi tạo ví đầu tiên nếu chưa chọn hoặc ví cũ không còn nằm trong danh sách lọc
           if (_selectedWallet == null ||
               !filteredWallets.any((w) => w.id == _selectedWallet!.id)) {
             _selectedWallet = filteredWallets.first;
@@ -260,195 +253,28 @@ class _SandboxSimulateTransferScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Banner thông tin giả lập
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: colors.primary.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: colors.primary.withOpacity(0.2),
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline_rounded,
-                            color: colors.primary,
-                            size: 24,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Tính năng này dùng để giả lập việc nhận tiền từ tài khoản VietinBank Sandbox của hệ thống.',
-                              style: TextStyle(
-                                color: colors.textPrimary,
-                                fontSize: 13,
-                                height: 1.4,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    // Banner
+                    const SandboxBanner(),
                     const SizedBox(height: 24),
 
                     // 💳 CHỌN VÍ NHẬN TIỀN
-                    Text(
-                      'Ví thụ hưởng'.toUpperCase(),
-                      style: TextStyle(
-                        color: colors.textSecondary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withOpacity(0.04)
-                            : const Color(0xFFF3F4F6),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: colors.textSecondary.withOpacity(0.15),
-                        ),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<WalletEntity>(
-                          value: _selectedWallet,
-                          isExpanded: true,
-                          dropdownColor: colors.surface,
-                          style: TextStyle(
-                            color: colors.textPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          items: filteredWallets.map((wallet) {
-                            return DropdownMenuItem<WalletEntity>(
-                              value: wallet,
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 12,
-                                    height: 12,
-                                    decoration: BoxDecoration(
-                                      color: Color(
-                                        int.parse(
-                                          wallet.color.replaceAll('#', 'FF'),
-                                          radix: 16,
-                                        ),
-                                      ),
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    '${wallet.name} (${AppConstant.formatMoney(wallet.balance, wallet.currencyCode)} đ)',
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (val) {
-                            if (val != null) {
-                              setState(() {
-                                _selectedWallet = val;
-                              });
-                            }
-                          },
-                        ),
-                      ),
+                    SandboxWalletSelector(
+                      selectedWallet: _selectedWallet,
+                      wallets: filteredWallets,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            _selectedWallet = val;
+                          });
+                        }
+                      },
                     ),
                     const SizedBox(height: 20),
 
                     // 💵 NHẬP SỐ TIỀN
-                    Text(
-                      'Số tiền nhận (VND)'.toUpperCase(),
-                      style: TextStyle(
-                        color: colors.textSecondary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withOpacity(0.04)
-                            : const Color(0xFFF3F4F6),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: TextField(
-                        controller: _amountController,
-                        keyboardType: TextInputType.number,
-                        style: TextStyle(
-                          color: colors.textPrimary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        decoration: const InputDecoration(
-                          hintText: 'Nhập số tiền nạp...',
-                          border: InputBorder.none,
-                        ),
-                        onChanged: (val) {
-                          if (val.isEmpty) return;
-                          final cleanString = val.replaceAll(
-                            RegExp(r'[^0-9]'),
-                            '',
-                          );
-                          double? amt = double.tryParse(cleanString);
-                          if (amt != null) {
-                            if (amt > 500000000) {
-                              amt = 500000000;
-                            }
-                            final formatted = NumberFormat(
-                              '#,###',
-                              'vi_VN',
-                            ).format(amt);
-                            _amountController.value = TextEditingValue(
-                              text: formatted,
-                              selection: TextSelection.fromPosition(
-                                TextPosition(offset: formatted.length),
-                              ),
-                            );
-                          }
-                        },
-                      ),
-                    ),
-                    ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: _amountController,
-                      builder: (context, value, child) {
-                        final cleanString = value.text.replaceAll(
-                          RegExp(r'[^0-9]'),
-                          '',
-                        );
-                        final double? amt = double.tryParse(cleanString);
-                        if (amt == null || amt == 0) {
-                          return const SizedBox.shrink();
-                        }
-                        final wordRepresentation = formatNumberToWords(
-                          amt,
-                          localeCode,
-                        );
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8.0, left: 4.0),
-                          child: Text(
-                            '($wordRepresentation)',
-                            style: TextStyle(
-                              color: colors.textSecondary,
-                              fontSize: 13,
-                              fontStyle: FontStyle.italic,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        );
-                      },
+                    SandboxAmountInput(
+                      amountController: _amountController,
+                      localeCode: localeCode,
                     ),
                     const SizedBox(height: 20),
 
@@ -465,7 +291,7 @@ class _SandboxSimulateTransferScreenState
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       decoration: BoxDecoration(
-                        color: isDark
+                        color: Theme.of(context).brightness == Brightness.dark
                             ? Colors.white.withOpacity(0.04)
                             : const Color(0xFFF3F4F6),
                         borderRadius: BorderRadius.circular(16),
@@ -498,7 +324,7 @@ class _SandboxSimulateTransferScreenState
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       decoration: BoxDecoration(
-                        color: isDark
+                        color: Theme.of(context).brightness == Brightness.dark
                             ? Colors.white.withOpacity(0.04)
                             : const Color(0xFFF3F4F6),
                         borderRadius: BorderRadius.circular(16),
@@ -517,7 +343,6 @@ class _SandboxSimulateTransferScreenState
                     ),
                     const SizedBox(height: 36),
 
-                    // Swipe hoặc Button xác nhận giả lập
                     SwipeToConfirmButton(
                       text: 'Vuốt để giả lập nhận tiền',
                       activeColor: colors.primary,

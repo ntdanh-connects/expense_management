@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:expense_management/features/profile/presentation/widgets/category_management_shimmer.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/features/profile/data/models/category_dto.dart';
 import 'package:expense_management/features/profile/presentation/providers/category_provider.dart';
-import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
-import 'package:expense_management/features/profile/presentation/widgets/add_edit_category_sheet.dart';
-import 'package:expense_management/features/profile/presentation/widgets/merge_category_sheet.dart';
-import 'package:expense_management/features/profile/presentation/screens/category_edit_screen.dart';
+
+import '../widgets/category_management/category_management_shimmer.dart';
+import '../widgets/category_management/category_management_tab_switcher.dart';
+import '../widgets/category_management/category_management_new_category_card.dart';
+import '../widgets/category_management/category_management_grid.dart';
 
 class CategoryManagementScreen extends ConsumerStatefulWidget {
   const CategoryManagementScreen({super.key});
@@ -34,7 +34,6 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        // Invalidate để buộc fetch lại từ server khi vào màn hình
         ref.invalidate(categoriesNotifierProvider);
       }
     });
@@ -46,235 +45,9 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
     super.dispose();
   }
 
-  void _showAddCategorySheet(BuildContext context, String type, List<CategoryDto> parentCategories) {
-    // Count custom categories of this type
-    final allParents = ref.read(categoriesNotifierProvider).value ?? [];
-    int customCount = 0;
-    for (final parent in allParents) {
-      if (parent.type == type && parent.children != null) {
-        customCount += parent.children!.where((c) => !c.isDefault).length;
-      }
-    }
-
-    if (customCount >= 20) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('max_category_limit_reached'.trRead(ref)),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => AddEditCategorySheet(
-        categoryType: type,
-        parentCategories: parentCategories,
-      ),
-    );
-  }
-
-  void _showCategoryOptions(BuildContext context, CategoryDto category, List<CategoryDto> allCategories) {
-    final colors = context.colors;
-    final iconData = CategoryUIConstants.getIconData(category.icon);
-    final themeColor = CategoryUIConstants.getColorFromHex(category.color);
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        return Container(
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: themeColor.withOpacity(0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(iconData, color: themeColor, size: 24),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          category.name.tr(ref),
-                          style: TextStyle(
-                            color: colors.textPrimary,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          category.isDefault
-                              ? 'Danh mục mặc định hệ thống'
-                              : 'Danh mục tùy chỉnh cá nhân',
-                          style: TextStyle(
-                            color: colors.textSecondary,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              if (category.isDefault) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colors.background,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline_rounded, color: colors.textSecondary, size: 20),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'cannot_delete_default_category'.tr(ref),
-                          style: TextStyle(color: colors.textSecondary, fontSize: 13),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ] else ...[
-                ListTile(
-                  leading: Icon(Icons.edit_outlined, color: colors.textPrimary),
-                  title: Text('Chỉnh sửa danh mục', style: TextStyle(color: colors.textPrimary)),
-                  onTap: () {
-                    // Đóng bottom sheet rồi dùng context của màn hình chính để push route mới
-                    Navigator.pop(sheetContext);
-                    if (mounted) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => CategoryEditScreen(
-                            category: category,
-                            parentCategories: allCategories.where((c) => c.type == category.type).toList(),
-                          ),
-                        ),
-                      ).then((_) {
-                        // Refresh lại danh sách khi quay về từ màn hình chỉnh sửa
-                        if (mounted) {
-                          ref.read(categoriesNotifierProvider.notifier).refreshCategories(silent: true);
-                        }
-                      });
-                    }
-                  },
-                ),
-                Divider(color: colors.textSecondary.withOpacity(0.1)),
-                ListTile(
-                  leading: Icon(Icons.merge_type_rounded, color: colors.textPrimary),
-                  title: Text('Gộp danh mục', style: TextStyle(color: colors.textPrimary)),
-                  onTap: () {
-                    showModalBottomSheet(
-                      context: sheetContext,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (context) => MergeCategorySheet(
-                        fromCategory: category,
-                        allCategories: allCategories,
-                      ),
-                    );
-                  },
-                ),
-                Divider(color: colors.textSecondary.withOpacity(0.1)),
-                ListTile(
-                  leading: Icon(Icons.delete_outline_rounded, color: colors.expenseRed),
-                  title: Text('Xóa danh mục', style: TextStyle(color: colors.expenseRed)),
-                  onTap: () {
-                    // Đóng bottom sheet rồi dùng context của màn hình chính để show dialog
-                    Navigator.pop(sheetContext);
-                    if (mounted) {
-                      _confirmDelete(context, category);
-                    }
-                  },
-                ),
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _confirmDelete(BuildContext context, CategoryDto category) {
-    final colors = context.colors;
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: colors.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(
-            'delete_category_confirm'.trRead(ref),
-            style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold),
-          ),
-          content: Text(
-            'Hành động này sẽ xóa vĩnh viễn danh mục "${category.name.tr(ref)}".',
-            style: TextStyle(color: colors.textSecondary),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text('cancel'.trRead(ref), style: TextStyle(color: colors.textSecondary)),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(dialogContext);
-                try {
-                  await ref.read(categoriesNotifierProvider.notifier).deleteCategory(category.id);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('delete_category_success'.trRead(ref)),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(e.toString().replaceFirst('Exception: ', '')),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: colors.expenseRed),
-              child: Text('delete'.trRead(ref), style: const TextStyle(color: Colors.white)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    // Dùng ref.watch trực tiếp để đảm bảo rebuild khi provider thay đổi
     final categoriesAsync = ref.watch(categoriesNotifierProvider);
 
     return Scaffold(
@@ -303,32 +76,15 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
       ),
       body: Column(
         children: [
-          // Custom Tab bar switcher
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: colors.textSecondary.withOpacity(0.1), width: 1.5),
-              ),
-            ),
-            child: Row(
-              children: [
-                _buildTabItem(
-                  index: 0,
-                  label: 'expense_label'.tr(ref),
-                  icon: Icons.trending_down_rounded,
-                  activeColor: colors.profileInfo,
-                ),
-                _buildTabItem(
-                  index: 1,
-                  label: 'income_label'.tr(ref),
-                  icon: Icons.trending_up_rounded,
-                  activeColor: colors.incomeGreen,
-                ),
-              ],
-            ),
+          CategoryManagementTabSwitcher(
+            activeTabIndex: _activeTabIndex,
+            tabController: _tabController,
+            onTabChanged: (index) {
+              setState(() {
+                _activeTabIndex = index;
+              });
+            },
           ),
-
           Expanded(
             child: _buildBody(colors, categoriesAsync),
           ),
@@ -338,13 +94,11 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
   }
 
   Widget _buildBody(AppColorsExtension colors, AsyncValue<List<CategoryDto>> categoriesAsync) {
-    // Ưu tiên: nếu đã có data (kể cả đang load lại) → hiện danh sách luôn
     final allCategories = categoriesAsync.value;
     if (allCategories != null) {
       return _buildCategoryList(colors, allCategories);
     }
 
-    // Chưa có data và có lỗi → show error
     if (categoriesAsync.hasError) {
       return Center(
         child: Column(
@@ -366,7 +120,6 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
       );
     }
 
-    // Chưa có data, đang loading lần đầu → show shimmer
     return const CategoryManagementShimmer();
   }
 
@@ -388,7 +141,11 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
         children: [
-          _buildNewCategoryRow(type, parents, customCount),
+          CategoryManagementNewCategoryCard(
+            type: type,
+            parentCategories: parents,
+            customCount: customCount,
+          ),
           const SizedBox(height: 16),
           if (type == 'income')
             _buildIncomeView(parents, allCategories)
@@ -399,141 +156,10 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
     );
   }
 
-  Widget _buildTabItem({
-    required int index,
-    required String label,
-    required IconData icon,
-    required Color activeColor,
-  }) {
-    final colors = context.colors;
-    final isActive = _activeTabIndex == index;
-
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _activeTabIndex = index;
-            _tabController.animateTo(index);
-          });
-        },
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    icon,
-                    color: isActive ? activeColor : colors.textSecondary.withOpacity(0.7),
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: isActive ? activeColor : colors.textSecondary.withOpacity(0.7),
-                      fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Container(
-                height: 3,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: isActive ? activeColor : Colors.transparent,
-                  borderRadius: BorderRadius.circular(1.5),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNewCategoryRow(String type, List<CategoryDto> parentCategories, int customCount) {
-    final colors = context.colors;
-    final isIncome = type == 'income';
-    final activeThemeColor = isIncome ? colors.incomeGreen : colors.profileInfo;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.authCardBg,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _showAddCategorySheet(context, type, parentCategories),
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: activeThemeColor.withOpacity(0.3),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Icon(
-                    Icons.add,
-                    color: activeThemeColor,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'custom_category_count'.tr(ref).replaceFirst('{count}', '$customCount'),
-                        style: TextStyle(
-                          color: colors.textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'create_custom_category_desc'.tr(ref),
-                        style: TextStyle(
-                          color: colors.textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  color: colors.textSecondary.withOpacity(0.5),
-                  size: 16,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildIncomeView(List<CategoryDto> parents, List<CategoryDto> allCategories) {
     final colors = context.colors;
     if (parents.isEmpty) return const SizedBox();
 
-    // In Momo design, Income typically lists all children directly
     final incomeParent = parents.first;
     final children = incomeParent.children ?? [];
 
@@ -555,7 +181,10 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
         borderRadius: BorderRadius.circular(16),
       ),
       padding: const EdgeInsets.all(16),
-      child: _buildCategoryGrid(children, allCategories),
+      child: CategoryManagementGrid(
+        children: children,
+        allCategories: allCategories,
+      ),
     );
   }
 
@@ -574,19 +203,18 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
       );
     }
 
-    // Sort parents by sortOrder
-    parents.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final sortedParents = List<CategoryDto>.from(parents)
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: parents.length,
+      itemCount: sortedParents.length,
       separatorBuilder: (_, __) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
-        final parent = parents[index];
+        final parent = sortedParents[index];
         final children = parent.children ?? [];
 
-        // Assign colors/icons for parents dynamically
         Color headerColor;
         IconData headerIcon;
         switch (parent.name) {
@@ -623,7 +251,6 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header of group
               Container(
                 decoration: BoxDecoration(
                   color: headerColor.withOpacity(0.08),
@@ -654,8 +281,6 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
                   ],
                 ),
               ),
-
-              // Children Grid
               if (children.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 24),
@@ -669,89 +294,11 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
               else
                 Padding(
                   padding: const EdgeInsets.all(16),
-                  child: _buildCategoryGrid(children, allCategories),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildCategoryGrid(List<CategoryDto> children, List<CategoryDto> allCategories) {
-    // Sort children by sortOrder
-    children.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 8,
-        childAspectRatio: 0.85,
-      ),
-      itemCount: children.length,
-      itemBuilder: (context, index) {
-        final category = children[index];
-        final iconData = CategoryUIConstants.getIconData(category.icon);
-        final color = CategoryUIConstants.getColorFromHex(category.color);
-        final colors = context.colors;
-
-        return GestureDetector(
-          onTap: () => _showCategoryOptions(context, category, allCategories),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Stack(
-                children: [
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      iconData,
-                      color: color,
-                      size: 24,
-                    ),
+                  child: CategoryManagementGrid(
+                    children: children,
+                    allCategories: allCategories,
                   ),
-                  if (!category.isDefault)
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          color: colors.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: colors.surface, width: 1.5),
-                        ),
-                        child: const Icon(
-                          Icons.edit,
-                          color: Colors.white,
-                          size: 10,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: Text(
-                  category.name.tr(ref),
-                  style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
             ],
           ),
         );
@@ -759,5 +306,3 @@ class _CategoryManagementScreenState extends ConsumerState<CategoryManagementScr
     );
   }
 }
-
-

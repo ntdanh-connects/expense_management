@@ -11,6 +11,9 @@ import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:intl/intl.dart';
 import 'package:currency_text_input_formatter/currency_text_input_formatter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:expense_management/features/budget/presentation/widgets/budget_edit/budget_edit_progress_card.dart';
+import 'package:expense_management/features/budget/presentation/widgets/budget_edit/budget_edit_limit_setting_card.dart';
+import 'package:expense_management/features/budget/presentation/widgets/budget_edit/budget_edit_history_card.dart';
 
 // Currency conversion helper
 double _convertBudgetAmount(
@@ -108,10 +111,10 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
     setState(() => _isLoadingHistory = true);
     try {
       final repository = ref.read(budgetRepositoryProvider);
-      final List<Map<String, dynamic>> result = [];
+      final locale = ref.read(localeProvider);
       
-      for (int i = 1; i <= 3; i++) {
-        int targetMonth = widget.budget.month - i;
+      final futures = List.generate(3, (index) async {
+        int targetMonth = widget.budget.month - (index + 1);
         int targetYear = widget.budget.year;
         if (targetMonth <= 0) {
           targetMonth += 12;
@@ -121,7 +124,6 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
         final budgets = await repository.getBudgets(targetMonth, targetYear);
         final matching = budgets.where((b) => b.categoryId == widget.budget.categoryId).firstOrNull;
         
-        final locale = ref.read(localeProvider);
         String monthLabel = DateFormat.MMMM(locale).format(DateTime(targetYear, targetMonth));
         if (monthLabel.isNotEmpty) {
           monthLabel = monthLabel[0].toUpperCase() + monthLabel.substring(1);
@@ -129,15 +131,18 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
         double limit = matching?.limitAmount ?? 0.0;
         double used = matching?.usedAmount ?? 0.0;
         
-        result.add({
+        return {
           'monthLabel': monthLabel,
           'limit': limit,
           'used': used,
-        });
-      }
+        };
+      });
+      
+      final results = await Future.wait(futures);
+      
       if (mounted) {
         setState(() {
-          _historyData = result;
+          _historyData = results;
         });
       }
     } catch (e) {
@@ -376,103 +381,15 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Card 1: Hộp tiến độ sử dụng hiện tại
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: colors.surface,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: colors.textSecondary.withOpacity(0.06)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.01),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          )
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: categoryColor.withOpacity(0.12),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(categoryIcon, color: categoryColor, size: 24),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'current_spending'.tr(ref),
-                                      style: TextStyle(
-                                        color: colors.textSecondary,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${AppConstant.formatMoney(usedAmount, userCurrency)} $currencySymbol',
-                                      style: TextStyle(
-                                        color: colors.textPrimary,
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    remainingAmount >= 0 ? 'remaining'.tr(ref) : 'over_limit'.tr(ref),
-                                    style: TextStyle(
-                                      color: colors.textSecondary,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${AppConstant.formatMoney(remainingAmount.abs(), userCurrency)} $currencySymbol',
-                                    style: TextStyle(
-                                      color: remainingAmount >= 0 ? colors.incomeGreen : colors.expenseRed,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 18),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: LinearProgressIndicator(
-                              value: progressRatio.clamp(0.0, 1.0),
-                              minHeight: 8,
-                              backgroundColor: colors.textSecondary.withOpacity(0.06),
-                              valueColor: AlwaysStoppedAnimation<Color>(progressColor),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'budget_usage_percent'.tr(ref).replaceAll('{percent}', '${(progressRatio * 100).toInt()}'),
-                            style: TextStyle(
-                              color: colors.textSecondary,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
+                    BudgetEditProgressCard(
+                      usedAmount: usedAmount,
+                      remainingAmount: remainingAmount,
+                      progressRatio: progressRatio,
+                      progressColor: progressColor,
+                      categoryIcon: categoryIcon,
+                      categoryColor: categoryColor,
+                      userCurrency: userCurrency,
+                      currencySymbol: currencySymbol,
                     ),
                     const SizedBox(height: 20),
 
@@ -486,148 +403,24 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: colors.surface,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: colors.textSecondary.withOpacity(0.06)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'monthly_limit'.tr(ref),
-                            style: TextStyle(
-                              color: colors.textSecondary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          // Hộp nhập hạn mức
-                          TextFormField(
-                            controller: _amountController,
-                            keyboardType: TextInputType.number,
-                            enabled: !isReadOnly,
-                            style: TextStyle(
-                              color: colors.textPrimary,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: '0',
-                              hintStyle: TextStyle(color: colors.textSecondary.withOpacity(0.3)),
-                              suffixText: currencySymbol,
-                              suffixStyle: TextStyle(
-                                color: colors.textSecondary,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide(color: colors.textSecondary.withOpacity(0.12)),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide(color: colors.textSecondary.withOpacity(0.12)),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide(color: colors.primary, width: 1.2),
-                              ),
-                            ),
-                            inputFormatters: [_formatter],
-                            onChanged: (val) {
-                              setState(() {});
-                            },
-                            validator: (val) {
-                              if (val == null || val.trim().isEmpty) {
-                                return 'please_enter_limit'.tr(ref);
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 20),
-                          Divider(color: colors.textSecondary.withOpacity(0.08)),
-                          const SizedBox(height: 12),
-
-                          // Switch Cảnh báo 80%
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'alert_80_title'.tr(ref),
-                                      style: TextStyle(
-                                        color: colors.textPrimary,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'alert_80_desc_format'.tr(ref).replaceAll('{amount}', '${AppConstant.formatMoney(threshold80Amount, userCurrency)} $currencySymbol'),
-                                      style: TextStyle(
-                                        color: colors.textSecondary,
-                                        fontSize: 11.5,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Switch(
-                                value: _alert80,
-                                activeThumbColor: colors.primary,
-                                onChanged: isReadOnly ? null : (val) {
-                                  setState(() => _alert80 = val);
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 18),
-
-                          // Switch Cảnh báo 100%
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'alert_100_title'.tr(ref),
-                                      style: TextStyle(
-                                        color: colors.textPrimary,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'alert_100_desc'.tr(ref),
-                                      style: TextStyle(
-                                        color: colors.textSecondary,
-                                        fontSize: 11.5,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Switch(
-                                value: _alert100,
-                                activeThumbColor: colors.primary,
-                                onChanged: isReadOnly ? null : (val) {
-                                  setState(() => _alert100 = val);
-                                },
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                    BudgetEditLimitSettingCard(
+                      amountController: _amountController,
+                      isReadOnly: isReadOnly,
+                      formatter: _formatter,
+                      currencySymbol: currencySymbol,
+                      userCurrency: userCurrency,
+                      threshold80Amount: threshold80Amount,
+                      alert80: _alert80,
+                      alert100: _alert100,
+                      onAlert80Changed: isReadOnly ? null : (val) {
+                        setState(() => _alert80 = val);
+                      },
+                      onAlert100Changed: isReadOnly ? null : (val) {
+                        setState(() => _alert100 = val);
+                      },
+                      onAmountChanged: (val) {
+                        setState(() {});
+                      },
                     ),
                     const SizedBox(height: 24),
 
@@ -641,76 +434,13 @@ class _BudgetEditScreenState extends ConsumerState<BudgetEditScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: colors.surface,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: colors.textSecondary.withOpacity(0.06)),
-                      ),
-                      child: _isLoadingHistory
-                          ? Center(child: CircularProgressIndicator(color: colors.primary))
-                          : _historyData.isEmpty
-                              ? Center(child: Text('no_budget_history'.tr(ref)))
-                              : Column(
-                                  children: _historyData.map((hist) {
-                                    final histLimit = hist['limit'] as double;
-                                    final histUsed = hist['used'] as double;
-                                    final histMonthLabel = hist['monthLabel'] as String;
-                                    
-                                    double histPct = 0.0;
-                                    if (histLimit > 0) {
-                                      histPct = histUsed / histLimit;
-                                    }
-                                    
-                                    Color histBarColor = colors.incomeGreen;
-                                    if (histPct >= 1.0) {
-                                      histBarColor = colors.expenseRed;
-                                    } else if (histPct >= 0.8) {
-                                      histBarColor = Colors.orange;
-                                    }
-
-                                    return Padding(
-                                      padding: const EdgeInsets.only(bottom: 16.0),
-                                      child: Column(
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(
-                                                histMonthLabel,
-                                                style: TextStyle(
-                                                  color: colors.textPrimary,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 14,
-                                                ),
-                                              ),
-                                              Text(
-                                                '${AppConstant.formatMoney(_convertBudgetAmount(histUsed, 'VND', userCurrency, ratesData), userCurrency)} $currencySymbol / ${AppConstant.formatMoney(_convertBudgetAmount(histLimit, 'VND', userCurrency, ratesData), userCurrency)} $currencySymbol',
-                                                style: TextStyle(
-                                                  color: colors.textSecondary,
-                                                  fontSize: 12.5,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 8),
-                                          ClipRRect(
-                                            borderRadius: BorderRadius.circular(4),
-                                            child: LinearProgressIndicator(
-                                              value: histPct.clamp(0.0, 1.0),
-                                              minHeight: 6,
-                                              backgroundColor: colors.textSecondary.withOpacity(0.06),
-                                              valueColor: AlwaysStoppedAnimation<Color>(histBarColor),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
+                    BudgetEditHistoryCard(
+                      isLoadingHistory: _isLoadingHistory,
+                      historyData: _historyData,
+                      userCurrency: userCurrency,
+                      currencySymbol: currencySymbol,
+                      ratesData: ratesData,
+                      convertAmount: _convertBudgetAmount,
                     ),
                     const SizedBox(height: 32),
 
