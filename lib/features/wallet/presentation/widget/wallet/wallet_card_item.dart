@@ -1,5 +1,5 @@
+import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:flutter/material.dart';
-import '../../domain/entities/wallet_entity.dart';
 
 class WalletCardItem extends StatelessWidget {
   final WalletEntity wallet;

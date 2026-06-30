@@ -2,23 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/core/language/app_provider.dart';
-import 'package:expense_management/core/network/dio_client.dart';
-import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
-import 'package:expense_management/features/profile/presentation/providers/category_provider.dart';
 import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
+import 'package:expense_management/features/profile/presentation/providers/category_provider.dart';
 import 'package:expense_management/features/reporting_export/presentation/providers/reporting_export_providers.dart';
 import 'package:elegant_notification/elegant_notification.dart';
 import 'package:expense_management/core/utils/app_logger.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_service.dart';
 import 'package:expense_management/features/notification/data/datasource/local/local_notification_storage.dart';
 import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
+
+import '../widgets/export/export_type_selector.dart';
+import '../widgets/export/export_filter_section.dart';
+import '../widgets/export/export_recent_history_section.dart';
 
 class ExportScreen extends ConsumerStatefulWidget {
   const ExportScreen({super.key});
@@ -40,35 +40,6 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
   String? _selectedTransactionType; // null = "Tất cả", 'income', 'expense'
 
   bool _isExporting = false;
-
-  void _selectDateRange() async {
-    final colors = context.colors;
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(DateTime.now().year - 5),
-      lastDate: DateTime(DateTime.now().year + 2),
-      initialDateRange: _selectedDateRange,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-                  primary: colors.primary,
-                  onPrimary: Colors.white,
-                  surface: colors.surface,
-                  onSurface: colors.textPrimary,
-                ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
-      setState(() {
-        _selectedDateRange = picked;
-      });
-    }
-  }
 
   Future<void> _handleExport() async {
     if (_isExporting) return;
@@ -267,12 +238,6 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final walletsAsync = ref.watch(walletNotifierProvider);
-    final categoriesAsync = ref.watch(categoriesNotifierProvider);
-    final historyAsync = ref.watch(exportHistoryListProvider);
-
-    final dateFormat = DateFormat('dd/MM/yyyy');
-    final rangeText = '${dateFormat.format(_selectedDateRange.start)} - ${dateFormat.format(_selectedDateRange.end)}';
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -302,292 +267,28 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 📑 1. REPORT TYPE CARD SELECTORS
-            Text(
-              'report_type'.tr(ref),
-              style: TextStyle(color: colors.textSecondary, fontSize: 13, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildTypeCard(
-                        id: 'pdf',
-                        icon: Icons.picture_as_pdf_outlined,
-                        title: 'pdf_report'.tr(ref),
-                        subtitle: 'pdf_report_desc'.tr(ref),
-                        color: colors.incomeGreen,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildTypeCard(
-                        id: 'csv',
-                        icon: Icons.table_chart_outlined,
-                        title: 'csv_excel'.tr(ref),
-                        subtitle: 'csv_excel_desc'.tr(ref),
-                        color: colors.profileInfo,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildTypeCard(
-                        id: 'raw_csv',
-                        icon: Icons.file_present_outlined,
-                        title: 'raw_csv_report'.tr(ref),
-                        subtitle: 'raw_csv_report_desc'.tr(ref),
-                        color: colors.profileNotification,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+            ExportTypeSelector(
+              selectedType: _selectedReportType,
+              onTypeChanged: (type) => setState(() => _selectedReportType = type),
             ),
             const SizedBox(height: 24),
 
             // ⚙️ 2. FILTER BOX
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: colors.surface,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: colors.textSecondary.withOpacity(0.03),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  )
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.filter_list_rounded, color: colors.primary, size: 22),
-                      const SizedBox(width: 8),
-                      Text(
-                        'data_filter'.tr(ref),
-                        style: TextStyle(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Divider(color: colors.textSecondary.withOpacity(0.08), height: 1),
-                  const SizedBox(height: 16),
-
-                  // Calendar Date Range Picker
-                  Text(
-                    'time_range'.tr(ref),
-                    style: TextStyle(color: colors.textSecondary, fontSize: 10.5, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: _selectDateRange,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: colors.background,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.calendar_today_outlined, color: colors.textSecondary, size: 18),
-                              const SizedBox(width: 12),
-                              Text(
-                                rangeText,
-                                style: TextStyle(color: colors.textPrimary, fontSize: 14, fontWeight: FontWeight.w500),
-                              ),
-                            ],
-                          ),
-                          Icon(Icons.keyboard_arrow_down, color: colors.textSecondary),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Categories Filter Chips
-                  Text(
-                    'category_label'.tr(ref),
-                    style: TextStyle(color: colors.textSecondary, fontSize: 10.5, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  categoriesAsync.when(
-                    data: (categories) {
-                      final parents = categories.where((c) => c.parentId == null).toList();
-                      return SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        child: Row(
-                          children: [
-                            _buildChoiceChip(
-                              isSelected: _selectedCategoryId == null,
-                              label: 'all_categories'.tr(ref),
-                              onSelected: (_) => setState(() => _selectedCategoryId = null),
-                            ),
-                            ...parents.map((c) {
-                              return Padding(
-                                padding: const EdgeInsets.only(left: 6.0),
-                                child: _buildChoiceChip(
-                                  isSelected: _selectedCategoryId == c.id,
-                                  label: c.name,
-                                  onSelected: (_) => setState(() => _selectedCategoryId = c.id),
-                                ),
-                              );
-                            }),
-                          ],
-                        ),
-                      );
-                    },
-                    loading: () => const SizedBox(height: 40, child: Center(child: CircularProgressIndicator())),
-                    error: (_, __) => const SizedBox(),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Wallets Filter Chips
-                  Text(
-                    'wallet_label'.tr(ref),
-                    style: TextStyle(color: colors.textSecondary, fontSize: 10.5, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  walletsAsync.when(
-                    data: (wallets) {
-                      return SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        child: Row(
-                          children: [
-                            _buildChoiceChip(
-                              isSelected: _selectedWalletId == null,
-                              label: 'all_wallets'.tr(ref),
-                              onSelected: (_) => setState(() => _selectedWalletId = null),
-                            ),
-                            ...wallets.map((w) {
-                              return Padding(
-                                padding: const EdgeInsets.only(left: 6.0),
-                                child: _buildChoiceChip(
-                                  isSelected: _selectedWalletId == w.id,
-                                  label: w.name,
-                                  onSelected: (_) => setState(() => _selectedWalletId = w.id),
-                                ),
-                              );
-                            }),
-                          ],
-                        ),
-                      );
-                    },
-                    loading: () => const SizedBox(height: 40, child: Center(child: CircularProgressIndicator())),
-                    error: (_, __) => const SizedBox(),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Transaction Types Filter Chips
-                  Text(
-                    'transaction_type_label'.tr(ref),
-                    style: TextStyle(color: colors.textSecondary, fontSize: 10.5, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildChoiceChip(
-                          isSelected: _selectedTransactionType == null,
-                          label: 'all_types'.tr(ref),
-                          onSelected: (_) => setState(() => _selectedTransactionType = null),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _buildChoiceChip(
-                          isSelected: _selectedTransactionType == 'income',
-                          label: 'income_type'.tr(ref),
-                          onSelected: (_) => setState(() => _selectedTransactionType = 'income'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _buildChoiceChip(
-                          isSelected: _selectedTransactionType == 'expense',
-                          label: 'expense_type'.tr(ref),
-                          onSelected: (_) => setState(() => _selectedTransactionType = 'expense'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+            ExportFilterSection(
+              selectedDateRange: _selectedDateRange,
+              selectedCategoryId: _selectedCategoryId,
+              selectedWalletId: _selectedWalletId,
+              selectedTransactionType: _selectedTransactionType,
+              onDateRangeChanged: (range) => setState(() => _selectedDateRange = range),
+              onCategoryChanged: (catId) => setState(() => _selectedCategoryId = catId),
+              onWalletChanged: (walletId) => setState(() => _selectedWalletId = walletId),
+              onTransactionTypeChanged: (type) => setState(() => _selectedTransactionType = type),
             ),
             const SizedBox(height: 24),
 
             // 📜 3. RECENT FILE LOGS
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'export_history_title'.tr(ref),
-                  style: TextStyle(color: colors.textPrimary, fontSize: 15, fontWeight: FontWeight.bold),
-                ),
-                TextButton(
-                  onPressed: () {
-                    ref.read(exportHistoryListProvider.notifier).clearAllLocalHistory();
-                  },
-                  child: Text(
-                    'clear_all'.tr(ref),
-                    style: TextStyle(color: colors.expenseRed, fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-            historyAsync.when(
-              data: (list) {
-                if (list.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24.0),
-                    child: Center(
-                      child: Text('no_recent_exports'.tr(ref), style: TextStyle(color: colors.textSecondary, fontSize: 13)),
-                    ),
-                  );
-                }
-
-                // Show top 2 items
-                final recent = list.take(2).toList();
-                return Column(
-                  children: [
-                    ...recent.map((item) => _buildHistoryItem(item)),
-                    const SizedBox(height: 8),
-                    Center(
-                      child: TextButton(
-                        onPressed: () {
-                          context.push(RoutePaths.exportHistory);
-                        },
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'view_all_history'.tr(ref),
-                              style: TextStyle(color: colors.primary, fontSize: 13, fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(Icons.arrow_forward_ios_rounded, color: colors.primary, size: 12),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
-              loading: () => const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator())),
-              error: (_, __) => const SizedBox(),
+            ExportRecentHistorySection(
+              onOpenOrDownloadItem: _openOrDownloadItem,
             ),
             const SizedBox(height: 100),
           ],
@@ -623,164 +324,6 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
               'export_save_desc'.tr(ref),
               style: TextStyle(color: colors.textSecondary, fontSize: 11.5, fontWeight: FontWeight.w500),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTypeCard({
-    required String id,
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-  }) {
-    final isSelected = _selectedReportType == id;
-    final colors = context.colors;
-
-    return GestureDetector(
-      onTap: () => setState(() => _selectedReportType = id),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? colors.incomeGreen : colors.textSecondary.withOpacity(0.08),
-            width: isSelected ? 2.0 : 1.0,
-          ),
-          boxShadow: [
-            if (isSelected)
-              BoxShadow(
-                color: colors.incomeGreen.withOpacity(0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              )
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.08),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              title,
-              style: TextStyle(color: colors.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: TextStyle(color: colors.textSecondary, fontSize: 11),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildChoiceChip({
-    required bool isSelected,
-    required String label,
-    required void Function(bool) onSelected,
-  }) {
-    final colors = context.colors;
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: onSelected,
-      selectedColor: colors.incomeGreen.withOpacity(0.08),
-      backgroundColor: colors.background,
-      labelStyle: TextStyle(
-        color: isSelected ? colors.incomeGreen : colors.textSecondary,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-        fontSize: 12.5,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: isSelected ? colors.incomeGreen : colors.textSecondary.withOpacity(0.1),
-          width: isSelected ? 1.5 : 1.0,
-        ),
-      ),
-      showCheckmark: false,
-    );
-  }
-
-  Widget _buildHistoryItem(ExportHistoryItem item) {
-    final colors = context.colors;
-    final isCsv = item.name.endsWith('.csv') || item.pathOrUrl.endsWith('.csv');
-    final fileIcon = isCsv 
-        ? Icons.table_chart_outlined 
-        : (item.isLocal ? Icons.picture_as_pdf : Icons.analytics_outlined);
-    final iconColor = isCsv 
-        ? colors.profileInfo 
-        : (item.isLocal ? colors.expenseRed : colors.profileInfo);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10.0),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: colors.textSecondary.withOpacity(0.05)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(fileIcon, color: iconColor, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.name,
-                    style: TextStyle(color: colors.textPrimary, fontSize: 13.5, fontWeight: FontWeight.bold),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.status == 'pending'
-                        ? 'processing'.tr(ref)
-                        : '${DateFormat('dd/MM/yyyy, HH:mm').format(item.date)} • ${item.sizeInMb.toStringAsFixed(1)} MB',
-                    style: TextStyle(color: colors.textSecondary, fontSize: 11),
-                  ),
-                ],
-              ),
-            ),
-            Row(
-              children: [
-                IconButton(
-                  icon: Icon(Icons.download_rounded, color: colors.textSecondary, size: 20),
-                  onPressed: () => _openOrDownloadItem(item),
-                ),
-                IconButton(
-                  icon: Icon(Icons.share_outlined, color: colors.textSecondary, size: 18),
-                  onPressed: () async {
-                    if (item.isLocal && item.pathOrUrl.isNotEmpty) {
-                      await Share.shareXFiles([XFile(item.pathOrUrl)]);
-                    }
-                  },
-                ),
-              ],
-            )
           ],
         ),
       ),

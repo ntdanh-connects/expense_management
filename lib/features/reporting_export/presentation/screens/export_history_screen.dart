@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
-import 'package:expense_management/core/network/dio_client.dart';
 import 'package:elegant_notification/elegant_notification.dart';
 import 'package:expense_management/features/reporting_export/presentation/providers/reporting_export_providers.dart';
+
+import '../widgets/export_history/export_history_card.dart';
+import '../widgets/export_history/export_history_tab_bar.dart';
+import '../widgets/shared/export_shimmer.dart';
 
 class ExportHistoryScreen extends ConsumerStatefulWidget {
   const ExportHistoryScreen({super.key});
@@ -147,17 +148,12 @@ class _ExportHistoryScreenState extends ConsumerState<ExportHistoryScreen> {
           return Column(
             children: [
               // 📊 TAB CONTROLS (Tất cả, PDF, Excel)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 16.0),
-                child: Row(
-                  children: [
-                    _buildTabChip(0, '${'all'.tr(ref)} ($totalCount)'),
-                    const SizedBox(width: 8),
-                    _buildTabChip(1, 'PDF ($pdfCount)'),
-                    const SizedBox(width: 8),
-                    _buildTabChip(2, 'Excel ($csvCount)'),
-                  ],
-                ),
+              ExportHistoryTabBar(
+                activeIndex: _activeTabIndex,
+                onTabChanged: (idx) => setState(() => _activeTabIndex = idx),
+                totalCount: totalCount,
+                pdfCount: pdfCount,
+                csvCount: csvCount,
               ),
 
               // 📋 LIST OF LOG CARDS
@@ -175,14 +171,30 @@ class _ExportHistoryScreenState extends ConsumerState<ExportHistoryScreen> {
                         itemCount: filteredList.length,
                         itemBuilder: (context, index) {
                           final item = filteredList[index];
-                          return _buildHistoryCard(item);
+                          return ExportHistoryCard(
+                            item: item,
+                            onOpenOrDownloadItem: _openOrDownloadItem,
+                          );
                         },
                       ),
               ),
             ],
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Column(
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 16.0),
+              child: SizedBox(height: 38), // placeholder spacing for tabbar while loading
+            ),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.0),
+                child: ExportHistoryShimmer(itemCount: 4, isCompact: false),
+              ),
+            ),
+          ],
+        ),
         error: (err, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
@@ -193,223 +205,6 @@ class _ExportHistoryScreenState extends ConsumerState<ExportHistoryScreen> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildTabChip(int index, String label) {
-    final colors = context.colors;
-    final isActive = _activeTabIndex == index;
-
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _activeTabIndex = index;
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? colors.incomeGreen : colors.textSecondary.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isActive ? Colors.white : colors.textSecondary,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
-            fontSize: 12.5,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHistoryCard(ExportHistoryItem item) {
-    final colors = context.colors;
-    final isCsv = item.name.endsWith('.csv') || item.pathOrUrl.endsWith('.csv');
-    final fileIcon = isCsv 
-        ? Icons.table_chart_outlined 
-        : (item.isLocal ? Icons.picture_as_pdf : Icons.analytics_outlined);
-    final iconColor = isCsv 
-        ? colors.profileInfo 
-        : (item.isLocal ? colors.expenseRed : colors.profileInfo);
-
-    final dateFormat = DateFormat('dd/MM/yyyy');
-    final timeFormat = DateFormat('HH:mm');
-
-    return Card(
-      color: colors.surface,
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 12.0),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: colors.textSecondary.withOpacity(0.05)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Icon wrapper
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: iconColor.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(fileIcon, color: iconColor, size: 24),
-                ),
-                const SizedBox(width: 16),
-
-                // Name and details
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.name,
-                        style: TextStyle(color: colors.textPrimary, fontSize: 14.5, fontWeight: FontWeight.bold),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 8),
-                      // Meta stats row (Calendar, Clock, size)
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            Icon(Icons.calendar_today_outlined, size: 12, color: colors.textSecondary),
-                            const SizedBox(width: 4),
-                            Text(
-                              dateFormat.format(item.date),
-                              style: TextStyle(color: colors.textSecondary, fontSize: 11),
-                            ),
-                            const SizedBox(width: 12),
-                            Icon(Icons.access_time, size: 12, color: colors.textSecondary),
-                            const SizedBox(width: 4),
-                            Text(
-                              timeFormat.format(item.date),
-                              style: TextStyle(color: colors.textSecondary, fontSize: 11),
-                            ),
-                            const SizedBox(width: 12),
-                            Icon(Icons.sd_storage_outlined, size: 12, color: colors.textSecondary),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${item.sizeInMb.toStringAsFixed(1)} MB',
-                              style: TextStyle(color: colors.textSecondary, fontSize: 11),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              ],
-            ),
-            const SizedBox(height: 14),
-
-            // Action buttons row
-            Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 40,
-                    child: ElevatedButton.icon(
-                      onPressed: item.status == 'pending'
-                          ? null
-                          : () => _openOrDownloadItem(item),
-                      icon: Icon(
-                        item.isLocal ? Icons.open_in_new_rounded : Icons.download_rounded,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                      label: Text(
-                        item.isLocal ? 'open_file'.tr(ref) : 're_download'.tr(ref),
-                        style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: colors.incomeGreen,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 0,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                if (item.isLocal && item.pathOrUrl.isNotEmpty) ...[
-                  SizedBox(
-                    height: 40,
-                    width: 48,
-                    child: OutlinedButton(
-                      onPressed: () async {
-                        await Share.shareXFiles([XFile(item.pathOrUrl)]);
-                      },
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: colors.textSecondary.withOpacity(0.1)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        padding: EdgeInsets.zero,
-                      ),
-                      child: Icon(Icons.share_outlined, color: colors.textSecondary, size: 18),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                ],
-                // Delete button
-                SizedBox(
-                  height: 40,
-                  width: 48,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      _showDeleteConfirmDialog(item);
-                    },
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: colors.expenseRed.withOpacity(0.1)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      backgroundColor: colors.expenseRed.withOpacity(0.03),
-                      padding: EdgeInsets.zero,
-                    ),
-                    child: Icon(Icons.delete_outline_rounded, color: colors.expenseRed, size: 18),
-                  ),
-                ),
-              ],
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showDeleteConfirmDialog(ExportHistoryItem item) {
-    final colors = context.colors;
-    final isCsv = item.name.endsWith('.csv') || item.pathOrUrl.endsWith('.csv');
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: colors.surface,
-        title: Text('delete_history_title'.tr(ref), style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold)),
-        content: Text(
-          isCsv
-              ? 'delete_csv_confirm'.tr(ref)
-              : (item.isLocal ? 'delete_pdf_confirm'.tr(ref) : 'delete_csv_confirm'.tr(ref)),
-          style: TextStyle(color: colors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('cancel'.tr(ref), style: TextStyle(color: colors.textSecondary, fontWeight: FontWeight.bold)),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await ref.read(exportHistoryListProvider.notifier).deleteItem(item);
-            },
-            child: Text('delete'.tr(ref), style: TextStyle(color: colors.expenseRed, fontWeight: FontWeight.bold)),
-          ),
-        ],
       ),
     );
   }

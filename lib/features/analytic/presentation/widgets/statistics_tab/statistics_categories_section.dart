@@ -1,0 +1,1341 @@
+import 'dart:math';
+import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:intl/intl.dart' hide TextDirection;
+import 'package:expense_management/core/router/app_route.dart';
+import 'package:expense_management/core/theme/app_colors.dart';
+import 'package:expense_management/core/language/app_language.dart';
+import 'package:expense_management/core/language/app_provider.dart';
+import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
+import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
+import 'package:expense_management/features/analytic/data/models/report_category_dto.dart';
+import 'package:expense_management/features/analytic/presentation/widgets/donut_chart_painter.dart';
+import 'package:expense_management/features/transaction/presentation/providers/transaction_provider.dart';
+
+class StatisticsCategoriesSection extends ConsumerStatefulWidget {
+  const StatisticsCategoriesSection({super.key});
+
+  @override
+  ConsumerState<StatisticsCategoriesSection> createState() =>
+      _StatisticsCategoriesSectionState();
+}
+
+class _StatisticsCategoriesSectionState
+    extends ConsumerState<StatisticsCategoriesSection> {
+  int? _selectedDonutIndex;
+  String _categoryViewMode = 'parent'; // 'parent' or 'child'
+  bool _lastSelectedFromList = false;
+
+  bool _isCategoriesExpanded = true;
+  String _distributionMode = 'category'; // 'category' or 'wallet'
+  String _categoryType = 'expense'; // 'expense' or 'income'
+
+  String _formatCurrency(double amount) {
+    final format = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ', decimalDigits: 0);
+    return format.format(amount);
+  }
+
+  Widget _buildShimmerCard(double height) {
+    final colors = context.colors;
+    return Shimmer.fromColors(
+      baseColor: colors.textSecondary.withValues(alpha: 0.08),
+      highlightColor: colors.textSecondary.withValues(alpha: 0.03),
+      child: Container(
+        height: height,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+        ),
+      ),
+    );
+  }
+
+  String _formatCompactCurrency(double val) {
+    if (val >= 1000000000) {
+      return '${(val / 1000000000).toStringAsFixed(1)}B đ';
+    } else if (val >= 1000000) {
+      return '${(val / 1000000).toStringAsFixed(1)}M đ';
+    } else if (val >= 1000) {
+      return '${(val / 1000).toStringAsFixed(0)}K đ';
+    }
+    return '${val.toStringAsFixed(0)}đ';
+  }
+
+  List<GroupedCategory> _groupCategories(List<ReportCategoryEntryDto> entries, double totalAmount) {
+    final Map<String, List<ReportCategoryEntryDto>> groups = {};
+    
+    for (final entry in entries) {
+      final key = entry.parentId ?? entry.categoryId;
+      groups.putIfAbsent(key, () => []).add(entry);
+    }
+
+    final List<GroupedCategory> groupedList = [];
+
+    groups.forEach((parentId, childEntries) {
+      ReportCategoryEntryDto? parentEntry;
+      try {
+        parentEntry = childEntries.firstWhere((e) => e.categoryId == parentId);
+      } catch (_) {
+        try {
+          parentEntry = entries.firstWhere((e) => e.categoryId == parentId);
+        } catch (_) {
+          parentEntry = childEntries.first;
+        }
+      }
+
+      final parentName = parentEntry.parentName ?? parentEntry.categoryName;
+      final color = parentEntry.categoryColor ?? 'F57C00';
+      final icon = parentEntry.categoryIcon;
+
+      double totalGroupAmount = 0.0;
+      for (final e in childEntries) {
+        totalGroupAmount += e.amount;
+      }
+
+      childEntries.sort((a, b) => b.amount.compareTo(a.amount));
+
+      groupedList.add(GroupedCategory(
+        id: parentId,
+        name: parentName,
+        color: color,
+        icon: icon,
+        amount: totalGroupAmount,
+        percentage: totalAmount > 0 ? (totalGroupAmount / totalAmount) * 100 : 0.0,
+        subCategories: childEntries,
+      ));
+    });
+
+    groupedList.sort((a, b) => b.amount.compareTo(a.amount));
+    return groupedList;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final isEnglish = ref.watch(localeProvider) == 'en';
+
+    // Reset selected segment when date range changes
+    ref.listen(selectedDateRangeProvider, (previous, next) {
+      if (previous != next) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _selectedDonutIndex = null;
+              _categoryViewMode = 'parent';
+              _categoryType = 'expense';
+              _lastSelectedFromList = false;
+            });
+          }
+        });
+      }
+    });
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: colors.textSecondary.withValues(alpha: 0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isCategoriesExpanded = !_isCategoriesExpanded;
+              });
+            },
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.category_rounded,
+                      color: colors.primary,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _categoryType == 'income'
+                          ? (isEnglish ? 'Income Categories' : 'Danh mục thu nhập')
+                          : 'spending_categories'.tr(ref),
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                Icon(
+                  _isCategoriesExpanded
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  color: colors.textSecondary,
+                  size: 24,
+                ),
+              ],
+            ),
+          ),
+          if (_isCategoriesExpanded) ...[
+            const SizedBox(height: 16),
+            _buildDistributionToggle(),
+            const SizedBox(height: 20),
+            _buildCategoryTypeToggle(),
+            const SizedBox(height: 20),
+            if (_distributionMode == 'category') ...[
+              _buildDonutChartContent(),
+              const SizedBox(height: 20),
+              const Divider(height: 1, thickness: 0.5),
+              const SizedBox(height: 20),
+              _buildTopExpensesContent(),
+            ] else ...[
+              _buildDonutChartContentForWallet(),
+              const SizedBox(height: 20),
+              const Divider(height: 1, thickness: 0.5),
+              const SizedBox(height: 20),
+              _buildTopExpensesContentForWallet(),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryTypeToggle() {
+    final colors = context.colors;
+    final isEnglish = ref.watch(localeProvider) == 'en';
+
+    return Center(
+      child: CupertinoSlidingSegmentedControl<String>(
+        groupValue: _categoryType,
+        backgroundColor: colors.textSecondary.withValues(alpha: 0.05),
+        thumbColor: colors.surface,
+        children: {
+          'expense': Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.trending_down_rounded,
+                  size: 14,
+                  color: _categoryType == 'expense' ? colors.expenseRed : colors.textSecondary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  isEnglish ? 'Expense' : 'Chi tiêu',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: _categoryType == 'expense' ? colors.expenseRed : colors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          'income': Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.trending_up_rounded,
+                  size: 14,
+                  color: _categoryType == 'income' ? colors.incomeGreen : colors.textSecondary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  isEnglish ? 'Income' : 'Thu nhập',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: _categoryType == 'income' ? colors.incomeGreen : colors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        },
+        onValueChanged: (value) {
+          if (value != null) {
+            setState(() {
+              _categoryType = value;
+              _selectedDonutIndex = null;
+              _lastSelectedFromList = false;
+            });
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildDistributionToggle() {
+    final colors = context.colors;
+    final isEnglish = ref.watch(localeProvider) == 'en';
+
+    final byCategoryLabel = isEnglish ? 'By Category' : 'Theo danh mục';
+    final byWalletLabel = isEnglish ? 'By Wallet' : 'Theo ví / tài khoản';
+
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: colors.textSecondary.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildToggleButton(
+              isSelected: _distributionMode == 'category',
+              label: byCategoryLabel,
+              icon: Icons.folder_copy_rounded,
+              onTap: () {
+                setState(() {
+                  _distributionMode = 'category';
+                  _selectedDonutIndex = null;
+                  _lastSelectedFromList = false;
+                });
+              },
+              colors: colors,
+            ),
+            const SizedBox(width: 4),
+            _buildToggleButton(
+              isSelected: _distributionMode == 'wallet',
+              label: byWalletLabel,
+              icon: Icons.account_balance_wallet_rounded,
+              onTap: () {
+                setState(() {
+                  _distributionMode = 'wallet';
+                  _selectedDonutIndex = null;
+                  _lastSelectedFromList = false;
+                });
+              },
+              colors: colors,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToggleButton({
+    required bool isSelected,
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+    required AppColorsExtension colors,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: isSelected
+              ? LinearGradient(
+                  colors: [colors.primary, colors.primary.withValues(alpha: 0.85)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: isSelected ? null : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: colors.primary.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: isSelected ? Colors.white : colors.textSecondary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : colors.textSecondary,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                fontSize: 12.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDonutChartContentForWallet() {
+    final walletsAsync = ref.watch(reportWalletsProvider(_categoryType));
+    final colors = context.colors;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'wallet_distribution'.tr(ref) == 'wallet_distribution' ? 'Phân bổ theo ví' : 'wallet_distribution'.tr(ref),
+          style: TextStyle(
+            color: colors.textPrimary,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        () {
+          final reportData = walletsAsync.value;
+          if (reportData == null) {
+            if (walletsAsync.isLoading) {
+              return _buildShimmerCard(160);
+            }
+            return SizedBox(
+              height: 160,
+              child: Center(
+                child: Text(
+                  walletsAsync.error != null
+                      ? 'error_with_details'.tr(ref).replaceAll('{error}', walletsAsync.error.toString())
+                      : 'no_data'.tr(ref),
+                  style: TextStyle(color: colors.expenseRed),
+                ),
+              ),
+            );
+          }
+
+          final entries = reportData.wallets;
+          if (entries.isEmpty) {
+            return SizedBox(
+              height: 160,
+              child: Center(
+                child: Text('no_spending_this_period'.tr(ref)),
+              ),
+            );
+          }
+
+          final selectedIndex = (_selectedDonutIndex != null &&
+                  _selectedDonutIndex! < entries.length)
+              ? _selectedDonutIndex
+              : null;
+
+          final walletEntry = selectedIndex != null ? entries[selectedIndex] : null;
+
+          final List<ChartSegment> segments;
+          const double minVisualPercentage = 0.02;
+
+          final rawPercentages = entries.map((e) => reportData.totalAmount > 0 ? (e.amount / reportData.totalAmount) : 0.0).toList();
+          double totalAdjusted = 0.0;
+          final adjusted = <double>[];
+          for (final p in rawPercentages) {
+            final adj = p > 0 ? (p < minVisualPercentage ? minVisualPercentage : p) : 0.0;
+            adjusted.add(adj);
+            totalAdjusted += adj;
+          }
+          segments = List.generate(entries.length, (i) {
+            final e = entries[i];
+            final walletColor = CategoryUIConstants.getColorFromHex(e.walletColor);
+            final normPercentage = totalAdjusted > 0 ? (adjusted[i] / totalAdjusted) : 0.0;
+            return ChartSegment(
+              color: walletColor,
+              percentage: normPercentage,
+            );
+          });
+
+          return Center(
+            child: SizedBox(
+              width: 160,
+              height: 160,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapUp: (details) {
+                  final x = details.localPosition.dx;
+                  final y = details.localPosition.dy;
+                  
+                  const centerX = 80.0;
+                  const centerY = 80.0;
+                  
+                  final dx = x - centerX;
+                  final dy = y - centerY;
+                  final distance = sqrt(dx * dx + dy * dy);
+                  
+                  if (distance < 40) {
+                    setState(() {
+                      _selectedDonutIndex = null;
+                      _lastSelectedFromList = false;
+                    });
+                  } else if (distance >= 40 && distance <= 85) {
+                    double angle = atan2(dy, dx);
+                    double normalizedAngle = angle + pi / 2;
+                    if (normalizedAngle < 0) {
+                      normalizedAngle += 2 * pi;
+                    }
+                    
+                    double currentAngle = 0.0;
+                    for (int i = 0; i < segments.length; i++) {
+                      final sweepAngle = segments[i].percentage * 2 * pi;
+                      if (normalizedAngle >= currentAngle && normalizedAngle <= currentAngle + sweepAngle) {
+                        setState(() {
+                          _selectedDonutIndex = (_selectedDonutIndex == i) ? null : i;
+                          _lastSelectedFromList = false;
+                        });
+                        break;
+                      }
+                      currentAngle += sweepAngle;
+                    }
+                  }
+                },
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    IgnorePointer(
+                      child: CustomPaint(
+                        size: const Size(150, 150),
+                        painter: DonutChartPainter(
+                          segments: segments,
+                          strokeWidth: 20,
+                          selectedIndex: _selectedDonutIndex,
+                        ),
+                      ),
+                    ),
+                    IgnorePointer(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (selectedIndex == null) ...[
+                              Text(
+                                _categoryType == 'income' ? 'Tổng thu' : 'Tổng chi',
+                                style: TextStyle(color: colors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _formatCompactCurrency(reportData.totalAmount),
+                                style: TextStyle(
+                                  color: colors.textPrimary,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ] else ...[
+                              Text(
+                                walletEntry!.walletName,
+                                style: TextStyle(
+                                  color: CategoryUIConstants.getColorFromHex(walletEntry.walletColor),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 1),
+                              Text(
+                                _formatCompactCurrency(walletEntry.amount),
+                                style: TextStyle(
+                                  color: colors.textPrimary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              Text(
+                                '${walletEntry.percentage.toStringAsFixed(1)}%',
+                                style: TextStyle(
+                                  color: colors.textSecondary,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }(),
+        const SizedBox(height: 16),
+        Center(
+          child: Text(
+            'click_to_view'.tr(ref),
+            style: TextStyle(color: colors.textSecondary, fontSize: 11.5),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTopExpensesContentForWallet() {
+    final walletsAsync = ref.watch(reportWalletsProvider(_categoryType));
+    final colors = context.colors;
+
+    return () {
+      final reportData = walletsAsync.value;
+      if (reportData == null) {
+        if (walletsAsync.isLoading) {
+          return _buildShimmerCard(200);
+        }
+        return Center(
+          child: Text(
+            walletsAsync.error != null
+                ? 'error_with_details'.tr(ref).replaceAll('{error}', walletsAsync.error.toString())
+                : 'no_data'.tr(ref),
+            style: TextStyle(color: colors.expenseRed, fontSize: 13),
+          ),
+        );
+      }
+
+      final entries = reportData.wallets;
+      if (entries.isEmpty) {
+        return Center(
+          child: Text(
+            'no_spending_data'.tr(ref),
+            style: TextStyle(color: colors.textSecondary, fontSize: 13),
+          ),
+        );
+      }
+
+      final selectedIndex = (_selectedDonutIndex != null && _selectedDonutIndex! < entries.length)
+          ? _selectedDonutIndex
+          : null;
+
+      return Column(
+        children: List.generate(entries.length, (index) {
+          final e = entries[index];
+          final progressColor = CategoryUIConstants.getColorFromHex(e.walletColor);
+          final isSelected = selectedIndex == index;
+
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              if (isSelected) {
+                if (_lastSelectedFromList) {
+                  final range = ref.read(selectedDateRangeProvider);
+                  ref.read(transactionFilterProvider.notifier).state = TransactionFilter(
+                    walletId: e.walletId,
+                    startDate: range.start.toUtc().toIso8601String(),
+                    endDate: range.end.toUtc().toIso8601String(),
+                    type: _categoryType,
+                  );
+                  context.go(RoutePaths.history);
+                } else {
+                  setState(() {
+                    _lastSelectedFromList = true;
+                  });
+                }
+              } else {
+                setState(() {
+                  _selectedDonutIndex = index;
+                  _lastSelectedFromList = true;
+                });
+              }
+            },
+            child: _buildWalletExpenseRow(
+              e.walletName,
+              _formatCurrency(e.amount),
+              reportData.totalAmount > 0 ? (e.amount / reportData.totalAmount) : 0.0,
+              progressColor,
+              e.walletIcon,
+              colors,
+              isSelected: isSelected,
+            ),
+          );
+        }),
+      );
+    }();
+  }
+
+  Widget _buildWalletExpenseRow(
+    String title,
+    String amount,
+    double pct,
+    Color progressColor,
+    String walletIconKey,
+    AppColorsExtension colors, {
+    bool isSelected = false,
+  }) {
+    IconData iconData;
+    final iconKey = walletIconKey.toLowerCase();
+    if (iconKey.contains('cash') || iconKey.contains('payment')) {
+      iconData = Icons.payments_rounded;
+    } else if (iconKey.contains('bank') || iconKey.contains('balance')) {
+      iconData = Icons.account_balance_rounded;
+    } else {
+      iconData = Icons.credit_card_rounded;
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.only(bottom: 12.0),
+      padding: const EdgeInsets.all(12.0),
+      decoration: BoxDecoration(
+        color: isSelected ? progressColor.withValues(alpha: 0.08) : colors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isSelected ? progressColor.withValues(alpha: 0.3) : colors.textSecondary.withValues(alpha: 0.05),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: progressColor.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  iconData,
+                  color: progressColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                        fontSize: 14.5,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Chiếm ${(pct * 100).toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        color: colors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                amount,
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: isSelected ? progressColor : colors.textSecondary.withValues(alpha: 0.3),
+                size: 18,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: pct,
+              minHeight: 4,
+              backgroundColor: colors.textSecondary.withValues(alpha: 0.06),
+              valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDonutChartContent() {
+    final categoriesAsync = ref.watch(
+      _categoryType == 'income' ? reportIncomeCategoriesProvider : reportCategoriesProvider,
+    );
+    final colors = context.colors;
+    final isEnglish = ref.watch(localeProvider) == 'en';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              _categoryType == 'income'
+                  ? (isEnglish ? 'Income Distribution' : 'Phân bổ thu nhập')
+                  : 'category_distribution'.tr(ref),
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            CupertinoSlidingSegmentedControl<String>(
+              groupValue: _categoryViewMode,
+              backgroundColor: colors.textSecondary.withValues(alpha: 0.05),
+              thumbColor: colors.surface,
+              children: {
+                'parent': Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  child: Text(
+                    isEnglish ? 'Parent' : 'Cha',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: _categoryViewMode == 'parent' ? colors.primary : colors.textSecondary,
+                    ),
+                  ),
+                ),
+                'child': Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  child: Text(
+                    isEnglish ? 'Child' : 'Con',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: _categoryViewMode == 'child' ? colors.primary : colors.textSecondary,
+                    ),
+                  ),
+                ),
+              },
+              onValueChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _categoryViewMode = value;
+                    _selectedDonutIndex = null;
+                    _lastSelectedFromList = false;
+                  });
+                }
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        () {
+          final reportData = categoriesAsync.value;
+          if (reportData == null) {
+            if (categoriesAsync.isLoading) {
+              return _buildShimmerCard(160);
+            }
+            return SizedBox(
+              height: 160,
+              child: Center(
+                child: Text(
+                  categoriesAsync.error != null
+                      ? 'error_with_details'.tr(ref).replaceAll('{error}', categoriesAsync.error.toString())
+                      : 'no_data'.tr(ref),
+                  style: TextStyle(color: colors.expenseRed),
+                ),
+              ),
+            );
+          }
+
+          final entries = reportData.categories;
+          if (entries.isEmpty) {
+            return SizedBox(
+              height: 160,
+              child: Center(
+                child: Text(
+                  _categoryType == 'income'
+                      ? (isEnglish ? 'No income in this period' : 'Chưa có thu nhập trong kỳ này')
+                      : 'no_spending_this_period'.tr(ref),
+                ),
+              ),
+            );
+          }
+
+          final groupedList = _groupCategories(entries, reportData.totalAmount);
+          final childList = List<ReportCategoryEntryDto>.from(entries)..sort((a, b) => b.amount.compareTo(a.amount));
+          final isChildMode = _categoryViewMode == 'child';
+
+          final selectedIndex = (_selectedDonutIndex != null &&
+                  _selectedDonutIndex! < (isChildMode ? childList.length : groupedList.length))
+              ? _selectedDonutIndex
+              : null;
+
+          final group = (!isChildMode && selectedIndex != null) ? groupedList[selectedIndex] : null;
+          final childEntry = (isChildMode && selectedIndex != null) ? childList[selectedIndex] : null;
+
+          final List<ChartSegment> segments;
+          const double minVisualPercentage = 0.02;
+
+          if (isChildMode) {
+            final rawPercentages = childList.map((e) => reportData.totalAmount > 0 ? (e.amount / reportData.totalAmount) : 0.0).toList();
+            double totalAdjusted = 0.0;
+            final adjusted = <double>[];
+            for (final p in rawPercentages) {
+              final adj = p > 0 ? (p < minVisualPercentage ? minVisualPercentage : p) : 0.0;
+              adjusted.add(adj);
+              totalAdjusted += adj;
+            }
+            segments = List.generate(childList.length, (i) {
+              final e = childList[i];
+              final categoryColor = CategoryUIConstants.getColorFromHex(e.categoryColor);
+              final normPercentage = totalAdjusted > 0 ? (adjusted[i] / totalAdjusted) : 0.0;
+              return ChartSegment(
+                color: categoryColor,
+                percentage: normPercentage,
+              );
+            });
+          } else {
+            final rawPercentages = groupedList.map((g) => g.percentage / 100.0).toList();
+            double totalAdjusted = 0.0;
+            final adjusted = <double>[];
+            for (final p in rawPercentages) {
+              final adj = p > 0 ? (p < minVisualPercentage ? minVisualPercentage : p) : 0.0;
+              adjusted.add(adj);
+              totalAdjusted += adj;
+            }
+            segments = List.generate(groupedList.length, (i) {
+              final g = groupedList[i];
+              final categoryColor = CategoryUIConstants.getColorFromHex(g.color);
+              final normPercentage = totalAdjusted > 0 ? (adjusted[i] / totalAdjusted) : 0.0;
+              return ChartSegment(
+                color: categoryColor,
+                percentage: normPercentage,
+              );
+            });
+          }
+
+          return Center(
+            child: SizedBox(
+              width: 160,
+              height: 160,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapUp: (details) {
+                  final x = details.localPosition.dx;
+                  final y = details.localPosition.dy;
+                  
+                  const centerX = 80.0;
+                  const centerY = 80.0;
+                  
+                  final dx = x - centerX;
+                  final dy = y - centerY;
+                  final distance = sqrt(dx * dx + dy * dy);
+                  
+                  if (distance < 40) {
+                    setState(() {
+                      _selectedDonutIndex = null;
+                      _lastSelectedFromList = false;
+                    });
+                  } else if (distance >= 40 && distance <= 85) {
+                    double angle = atan2(dy, dx);
+                    double normalizedAngle = angle + pi / 2;
+                    if (normalizedAngle < 0) {
+                      normalizedAngle += 2 * pi;
+                    }
+                    
+                    double currentAngle = 0.0;
+                    for (int i = 0; i < segments.length; i++) {
+                      final sweepAngle = segments[i].percentage * 2 * pi;
+                      if (normalizedAngle >= currentAngle && normalizedAngle <= currentAngle + sweepAngle) {
+                        setState(() {
+                          _selectedDonutIndex = (_selectedDonutIndex == i) ? null : i;
+                          _lastSelectedFromList = false;
+                        });
+                        break;
+                      }
+                      currentAngle += sweepAngle;
+                    }
+                  }
+                },
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    IgnorePointer(
+                      child: CustomPaint(
+                        size: const Size(150, 150),
+                        painter: DonutChartPainter(
+                          segments: segments,
+                          strokeWidth: 20,
+                          selectedIndex: _selectedDonutIndex,
+                        ),
+                      ),
+                    ),
+                    IgnorePointer(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (selectedIndex == null) ...[
+                              Text(
+                                _categoryType == 'income' ? 'total_income'.tr(ref) : 'total_expense'.tr(ref),
+                                style: TextStyle(color: colors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _formatCompactCurrency(reportData.totalAmount),
+                                style: TextStyle(
+                                  color: colors.textPrimary,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ] else ...[
+                              if (!isChildMode) ...[
+                                Text(
+                                  group!.name.tr(ref),
+                                  style: TextStyle(
+                                    color: CategoryUIConstants.getColorFromHex(group.color),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 1),
+                                Text(
+                                  _formatCompactCurrency(group.amount),
+                                  style: TextStyle(
+                                    color: colors.textPrimary,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                Text(
+                                  '${group.percentage.toStringAsFixed(1)}%',
+                                  style: TextStyle(
+                                    color: colors.textSecondary,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ] else ...[
+                                Text(
+                                  childEntry!.categoryName.tr(ref),
+                                  style: TextStyle(
+                                    color: CategoryUIConstants.getColorFromHex(childEntry.categoryColor),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 1),
+                                Text(
+                                  _formatCompactCurrency(childEntry.amount),
+                                  style: TextStyle(
+                                    color: colors.textPrimary,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                Text(
+                                  '${(reportData.totalAmount > 0 ? (childEntry.amount / reportData.totalAmount) * 100 : 0.0).toStringAsFixed(1)}%',
+                                  style: TextStyle(
+                                    color: colors.textSecondary,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }(),
+        const SizedBox(height: 16),
+        Center(
+          child: Text(
+            'click_to_view'.tr(ref),
+            style: TextStyle(color: colors.textSecondary, fontSize: 11.5),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTopExpensesContent() {
+    final categoriesAsync = ref.watch(
+      _categoryType == 'income' ? reportIncomeCategoriesProvider : reportCategoriesProvider,
+    );
+    final colors = context.colors;
+    final isEnglish = ref.watch(localeProvider) == 'en';
+
+    return () {
+      final reportData = categoriesAsync.value;
+      if (reportData == null) {
+        if (categoriesAsync.isLoading) {
+          return _buildShimmerCard(200);
+        }
+        return Center(
+          child: Text(
+            categoriesAsync.error != null
+                ? 'error_with_details'.tr(ref).replaceAll('{error}', categoriesAsync.error.toString())
+                : 'no_data'.tr(ref),
+            style: TextStyle(color: colors.expenseRed, fontSize: 13),
+          ),
+        );
+      }
+
+      final entries = reportData.categories;
+      if (entries.isEmpty) {
+        return Center(
+          child: Text(
+            _categoryType == 'income'
+                ? (isEnglish ? 'No income data' : 'Chưa có dữ liệu thu nhập')
+                : 'no_spending_data'.tr(ref),
+            style: TextStyle(color: colors.textSecondary, fontSize: 13),
+          ),
+        );
+      }
+
+      final isChildMode = _categoryViewMode == 'child';
+
+      if (isChildMode) {
+        final childList = List<ReportCategoryEntryDto>.from(entries)..sort((a, b) => b.amount.compareTo(a.amount));
+        final selectedIndex = (_selectedDonutIndex != null && _selectedDonutIndex! < childList.length)
+            ? _selectedDonutIndex
+            : null;
+
+        return Column(
+          children: List.generate(childList.length, (index) {
+            final e = childList[index];
+            final progressColor = CategoryUIConstants.getColorFromHex(e.categoryColor);
+            final isSelected = selectedIndex == index;
+
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                if (isSelected) {
+                  if (_lastSelectedFromList) {
+                    final range = ref.read(selectedDateRangeProvider);
+                    final timeFilter = ref.read(selectedTimeFilterProvider);
+                    String timeMode = 'month';
+                    if (timeFilter == TimeFilter.thisWeek) timeMode = 'week';
+                    if (timeFilter == TimeFilter.thisYear) timeMode = 'year';
+
+                    context.push(RoutePaths.categoryDetail, extra: {
+                      'categoryId': e.categoryId,
+                      'categoryName': e.categoryName,
+                      'categoryColor': e.categoryColor,
+                      'categoryIcon': e.categoryIcon,
+                      'type': _categoryType,
+                      'startDate': range.start,
+                      'endDate': range.end,
+                      'timeMode': timeMode,
+                    });
+                  } else {
+                    setState(() {
+                      _lastSelectedFromList = true;
+                    });
+                  }
+                } else {
+                  setState(() {
+                    _selectedDonutIndex = index;
+                    _lastSelectedFromList = true;
+                  });
+                }
+              },
+              child: _buildTopExpenseRow(
+                e.categoryName.tr(ref),
+                _formatCurrency(e.amount),
+                reportData.totalAmount > 0 ? (e.amount / reportData.totalAmount) : 0.0,
+                progressColor,
+                colors,
+                isSelected: isSelected,
+              ),
+            );
+          }),
+        );
+      } else {
+        final groupedList = _groupCategories(entries, reportData.totalAmount);
+        final selectedIndex = (_selectedDonutIndex != null && _selectedDonutIndex! < groupedList.length)
+            ? _selectedDonutIndex
+            : null;
+
+        return Column(
+          children: List.generate(groupedList.length, (index) {
+            final g = groupedList[index];
+            final progressColor = CategoryUIConstants.getColorFromHex(g.color);
+            final isSelected = selectedIndex == index;
+
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                if (isSelected) {
+                  if (_lastSelectedFromList) {
+                    final range = ref.read(selectedDateRangeProvider);
+                    final timeFilter = ref.read(selectedTimeFilterProvider);
+                    String timeMode = 'month';
+                    if (timeFilter == TimeFilter.thisWeek) timeMode = 'week';
+                    if (timeFilter == TimeFilter.thisYear) timeMode = 'year';
+
+                    context.push(RoutePaths.categoryDetail, extra: {
+                      'categoryId': g.id,
+                      'categoryName': g.name,
+                      'categoryColor': g.color,
+                      'categoryIcon': g.icon,
+                      'type': _categoryType,
+                      'startDate': range.start,
+                      'endDate': range.end,
+                      'timeMode': timeMode,
+                    });
+                  } else {
+                    setState(() {
+                      _lastSelectedFromList = true;
+                    });
+                  }
+                } else {
+                  setState(() {
+                    _selectedDonutIndex = index;
+                    _lastSelectedFromList = true;
+                  });
+                }
+              },
+              child: _buildTopExpenseRow(
+                g.name.tr(ref),
+                _formatCurrency(g.amount),
+                g.percentage / 100.0,
+                progressColor,
+                colors,
+                isSelected: isSelected,
+              ),
+            );
+          }),
+        );
+      }
+    }();
+  }
+
+  Widget _buildTopExpenseRow(
+    String title,
+    String amount,
+    double pct,
+    Color progressColor,
+    AppColorsExtension colors, {
+    bool isSelected = false,
+  }) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.only(bottom: 10.0),
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+      decoration: BoxDecoration(
+        color: isSelected ? progressColor.withValues(alpha: 0.08) : Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isSelected ? progressColor.withValues(alpha: 0.3) : Colors.transparent,
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      amount,
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: pct,
+                    minHeight: 5,
+                    backgroundColor: isSelected
+                        ? progressColor.withValues(alpha: 0.2)
+                        : colors.textSecondary.withValues(alpha: 0.08),
+                    valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(
+            Icons.chevron_right_rounded,
+            color: isSelected ? progressColor : colors.textSecondary.withValues(alpha: 0.4),
+            size: 20,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class GroupedCategory {
+  final String id;
+  final String name;
+  final String color;
+  final String? icon;
+  final double amount;
+  final double percentage;
+  final List<ReportCategoryEntryDto> subCategories;
+
+  GroupedCategory({
+    required this.id,
+    required this.name,
+    required this.color,
+    this.icon,
+    required this.amount,
+    required this.percentage,
+    required this.subCategories,
+  });
+}

@@ -5,7 +5,7 @@ import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
-import 'package:expense_management/features/wallet/presentation/widget/vnd_to_foreign_converter_bottom_sheet.dart';
+import 'package:expense_management/features/wallet/presentation/widget/shared/vnd_to_foreign_converter_bottom_sheet.dart';
 
 class DashboardQuickActions extends ConsumerWidget {
   const DashboardQuickActions({super.key});

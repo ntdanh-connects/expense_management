@@ -6,6 +6,7 @@ import 'package:expense_management/features/wallet/data/models/create_wallet_req
 import 'package:expense_management/core/storage/storage_provider.dart';
 import 'package:expense_management/core/database/app_database.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 class WalletNotifier extends StreamNotifier<List<WalletEntity>> {
   bool _isCreatingDefaultWallet = false;
@@ -79,3 +80,5 @@ class WalletNotifier extends StreamNotifier<List<WalletEntity>> {
 final walletNotifierProvider = StreamNotifierProvider<WalletNotifier, List<WalletEntity>>(() {
   return WalletNotifier();
 });
+
+final showHiddenWalletsProvider = StateProvider<bool>((ref) => false);

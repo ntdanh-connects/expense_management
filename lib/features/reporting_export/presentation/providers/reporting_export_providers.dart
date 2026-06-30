@@ -41,6 +41,13 @@ class ExportHistoryItem {
 // 4. Combined export history notifier (Server CSV + Local PDF)
 class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> with ErrorHandlerMixin {
   Timer? _pollingTimer;
+  static DateTime? _lastFetchTime;
+  static List<ExportHistoryItem>? _cachedItems;
+
+  static void resetCache() {
+    _lastFetchTime = null;
+    _cachedItems = null;
+  }
 
   @override
   Future<List<ExportHistoryItem>> build() async {
@@ -49,6 +56,20 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> with 
     ref.onDispose(() {
       _pollingTimer?.cancel();
     });
+
+    final now = DateTime.now();
+    if (_cachedItems != null && _lastFetchTime != null && now.difference(_lastFetchTime!) < const Duration(seconds: 15)) {
+      AppLogger.info('Sử dụng dữ liệu cache của lịch sử xuất file (Rate limit)', tag: 'Export');
+      final hasPending = _cachedItems!.any((item) => item.status == 'pending' || item.status == 'processing');
+      if (hasPending) {
+        _pollingTimer?.cancel();
+        _pollingTimer = Timer(const Duration(seconds: 10), () {
+          resetCache();
+          ref.invalidateSelf();
+        });
+      }
+      return _cachedItems!;
+    }
 
     final repo = ref.watch(reportingExportRepositoryProvider);
 
@@ -144,6 +165,8 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> with 
 
     // Sort by date descending
     items.sort((a, b) => b.date.compareTo(a.date));
+    _lastFetchTime = DateTime.now();
+    _cachedItems = items;
     return items;
   }
 
@@ -183,6 +206,7 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> with 
         }
       }
     }
+    resetCache();
     ref.invalidateSelf();
   }
 
@@ -239,6 +263,7 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> with 
       await prefs.setStringList(prefsKey, deletedRemoteIds);
     } catch (_) {}
 
+    resetCache();
     ref.invalidateSelf();
   }
 
@@ -353,6 +378,6 @@ class ExportHistoryNotifier extends AsyncNotifier<List<ExportHistoryItem>> with 
 }
 
 final exportHistoryListProvider =
-    AsyncNotifierProvider<ExportHistoryNotifier, List<ExportHistoryItem>>(() {
+    AsyncNotifierProvider.autoDispose<ExportHistoryNotifier, List<ExportHistoryItem>>(() {
   return ExportHistoryNotifier();
 });
