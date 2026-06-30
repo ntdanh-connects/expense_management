@@ -8,7 +8,7 @@ import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/features/profile/presentation/providers/category_provider.dart';
 import 'package:expense_management/features/profile/data/models/category_dto.dart';
 import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
-import 'package:expense_management/features/profile/presentation/widgets/add_edit_category_sheet.dart';
+import 'package:expense_management/features/profile/presentation/widgets/category_management/add_edit_category_sheet.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
 import 'package:expense_management/features/dashboard/presentation/providers/recurring_provider.dart';

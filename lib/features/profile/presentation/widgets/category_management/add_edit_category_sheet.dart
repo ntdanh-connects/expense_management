@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/features/profile/data/models/category_dto.dart';
-import 'category_ui_constants.dart';
+import '../category_ui_constants.dart';
 
 class AddEditCategorySheet extends ConsumerStatefulWidget {
   final CategoryDto? categoryToEdit;
