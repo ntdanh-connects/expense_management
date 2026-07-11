@@ -1,10 +1,8 @@
-import 'dart:ui';
 import 'package:elegant_notification/elegant_notification.dart';
 import 'package:elegant_notification/resources/arrays.dart';
 import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/auth/presentation/providers/auth_provider.dart';
-import 'package:expense_management/features/auth/domain/auth_state.dart';
 import 'package:expense_management/features/auth/presentation/widgets/auth_header_action.dart';
 import 'package:expense_management/shared/widgets/custom_text_field.dart';
 import 'package:expense_management/shared/widgets/github_logo.dart';
@@ -19,6 +17,8 @@ import 'package:flutter/foundation.dart';
 import 'package:expense_management/features/auth/data/service/social_auth_service.dart';
 import 'package:expense_management/features/auth/presentation/widgets/safe_account_linking_bottom_sheet.dart';
 import 'package:expense_management/features/auth/presentation/widgets/dev_bypass_dialog.dart';
+import 'package:expense_management/features/auth/presentation/widgets/session_expired_dialog.dart';
+import 'package:expense_management/features/auth/presentation/widgets/google_logo.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -55,120 +55,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _isSessionExpiredDialogShowing = true;
 
     final targetContext = rootNavigatorKey.currentContext ?? context;
-    final colors = targetContext.colors;
-    showDialog(
-      context: targetContext,
-      barrierDismissible: false, // Bắt buộc bấm nút mới đóng
-      builder: (BuildContext dialogContext) {
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-          child: Dialog(
-            backgroundColor: Colors.transparent,
-            insetPadding: const EdgeInsets.symmetric(horizontal: 28),
-            child: Stack(
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: colors.authCardBg,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: colors.textSecondary.withOpacity(0.1),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 15,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Icon cool ngầu cảnh báo phiên đăng nhập
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          color: colors.primary.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.key_off_rounded,
-                          color: colors.primary,
-                          size: 32,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      
-                      // Tiêu đề
-                      Text(
-                        'session_expired_title'.tr(ref),
-                        style: TextStyle(
-                          color: colors.textPrimary,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 12),
-                      
-                      // Mô tả chi tiết
-                      Text(
-                        'session_expired_description'.tr(ref),
-                        style: TextStyle(
-                          color: colors.textSecondary,
-                          fontSize: 14,
-                          height: 1.4,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 24),
-                      
-                      // Nút Đóng
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48,
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: colors.primary,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            elevation: 0,
-                          ),
-                          child: Text(
-                            'close'.tr(ref),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: colors.textSecondary,
-                    ),
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    ).then((_) {
+    SessionExpiredDialog.show(targetContext).then((_) {
       if (mounted) {
         _isSessionExpiredDialogShowing = false;
       }
@@ -614,66 +501,4 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ),
     );
   }
-}
-
-class GoogleLogo extends StatelessWidget {
-  final double size;
-  const GoogleLogo({super.key, this.size = 24});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: CustomPaint(
-        painter: _GoogleLogoPainter(),
-      ),
-    );
-  }
-}
-
-class _GoogleLogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Paint paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = size.width * 0.24
-      ..strokeCap = StrokeCap.butt;
-
-    final double radius = size.width / 2;
-    final Rect rect = Rect.fromCircle(center: Offset(radius, radius), radius: radius - paint.strokeWidth / 2);
-
-    // 1. Red Segment (Top)
-    paint.color = const Color(0xFFEA4335);
-    canvas.drawArc(rect, -2.4, 1.2, false, paint);
-
-    // 2. Yellow Segment (Left)
-    paint.color = const Color(0xFFFBBC05);
-    canvas.drawArc(rect, -3.6, 1.2, false, paint);
-
-    // 3. Green Segment (Bottom)
-    paint.color = const Color(0xFF34A853);
-    canvas.drawArc(rect, 0.8, 1.4, false, paint);
-
-    // 4. Blue Segment & Horizontal Bar
-    paint.color = const Color(0xFF4285F4);
-    canvas.drawArc(rect, -1.2, 2.0, false, paint);
-
-    // Draw the horizontal bar
-    final Paint barPaint = Paint()
-      ..color = const Color(0xFF4285F4)
-      ..style = PaintingStyle.fill;
-    
-    final double barHeight = size.height * 0.24;
-    final Rect barRect = Rect.fromLTWH(
-      size.width * 0.5,
-      size.height * 0.38,
-      size.width * 0.44,
-      barHeight,
-    );
-    canvas.drawRect(barRect, barPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

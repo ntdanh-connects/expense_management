@@ -2,17 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:elegant_notification/elegant_notification.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
-import 'package:expense_management/core/language/app_provider.dart';
 import 'package:expense_management/features/profile/presentation/providers/category_provider.dart';
 import 'package:expense_management/features/profile/data/models/category_dto.dart';
-import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/presentation/provider/wallet_notifier.dart';
-import 'package:elegant_notification/elegant_notification.dart';
 import 'package:expense_management/core/utils/currency_utils.dart';
+import 'package:expense_management/features/wallet/presentation/widget/qr_transfer/qr_transfer_sender_card.dart';
+import 'package:expense_management/features/wallet/presentation/widget/qr_transfer/qr_transfer_recipient_card.dart';
+import 'package:expense_management/features/wallet/presentation/widget/qr_transfer/qr_transfer_category_picker_sheet.dart';
+import 'package:expense_management/core/language/app_provider.dart';
+import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
 
 class QrTransferConfirmScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> payeeData;
@@ -168,7 +170,6 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
   }
 
   void _showCategoryPicker(BuildContext context, List<CategoryDto> parents) {
-    final color = context.colors;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -179,121 +180,15 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
           minChildSize: 0.5,
           maxChildSize: 0.95,
           builder: (context, scrollController) {
-            return Container(
-              decoration: BoxDecoration(
-                color: color.background,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: Column(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: color.textSecondary.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Chọn danh mục chi tiêu',
-                    style: TextStyle(
-                      color: color.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: ListView.builder(
-                      controller: scrollController,
-                      itemCount: parents.length,
-                      itemBuilder: (context, idx) {
-                        final parent = parents[idx];
-                        final subCats = parent.children ?? [];
-                        if (subCats.isEmpty) return const SizedBox.shrink();
-
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Text(
-                                parent.name.tr(ref),
-                                style: TextStyle(
-                                  color: color.textSecondary,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  letterSpacing: 1.0,
-                                ),
-                              ),
-                            ),
-                            GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 4,
-                                mainAxisSpacing: 12,
-                                crossAxisSpacing: 8,
-                                childAspectRatio: 0.85,
-                              ),
-                              itemCount: subCats.length,
-                              itemBuilder: (context, sIdx) {
-                                final subCat = subCats[sIdx];
-                                final iconData = CategoryUIConstants.getIconData(subCat.icon);
-                                final catColor = CategoryUIConstants.getColorFromHex(subCat.color);
-                                final isSelected = _selectedCategory?.id == subCat.id;
-
-                                return InkWell(
-                                  onTap: () {
-                                    setState(() {
-                                      _selectedCategory = subCat;
-                                    });
-                                    Navigator.pop(context);
-                                  },
-                                  borderRadius: BorderRadius.circular(16),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Container(
-                                        width: 48,
-                                        height: 48,
-                                        decoration: BoxDecoration(
-                                          color: catColor.withOpacity(isSelected ? 0.3 : 0.12),
-                                          shape: BoxShape.circle,
-                                          border: isSelected
-                                              ? Border.all(color: catColor, width: 2)
-                                              : null,
-                                        ),
-                                        child: Icon(iconData, color: catColor, size: 22),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        subCat.name.tr(ref),
-                                        style: TextStyle(
-                                          color: isSelected ? catColor : color.textPrimary,
-                                          fontSize: 11,
-                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            const Divider(),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
+            return QrTransferCategoryPickerSheet(
+              parentCategories: parents,
+              selectedCategory: _selectedCategory,
+              onCategorySelected: (cat) {
+                setState(() {
+                  _selectedCategory = cat;
+                });
+              },
+              scrollController: scrollController,
             );
           },
         );
@@ -341,349 +236,217 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // 1. SENDER CARD
-                Text(
-                  'sender_info'.tr(ref),
-                  style: TextStyle(color: color.textSecondary, fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: color.surface,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: color.textSecondary.withOpacity(0.1)),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (filteredWallets.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: Text(
-                            isInternal
-                                ? 'qr_transfer_internal_no_wallet_warning'.tr(ref)
-                                : 'qr_transfer_external_no_wallet_warning'.tr(ref),
-                            style: const TextStyle(color: Colors.redAccent, fontSize: 13),
-                          ),
-                        )
-                      else
-                        DropdownButtonHideUnderline(
-                          child: DropdownButton<WalletEntity>(
-                            value: filteredWallets.contains(_selectedWallet) ? _selectedWallet : filteredWallets.first,
-                            dropdownColor: color.surface,
-                            items: filteredWallets.map((w) {
-                              return DropdownMenuItem<WalletEntity>(
-                                value: w,
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      w.type == 'bank' ? Icons.account_balance_rounded : Icons.account_balance_wallet_rounded,
-                                      color: color.primary,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      "${w.name} (${w.currencyCode})",
-                                      style: TextStyle(color: color.textPrimary, fontWeight: FontWeight.bold),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                            onChanged: (val) {
-                              setState(() {
-                                _selectedWallet = val;
-                              });
-                            },
-                          ),
-                        ),
-                      if (_selectedWallet != null) ...[
-                        const Divider(height: 20),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'available_balance'.tr(ref),
-                              style: TextStyle(color: color.textSecondary, fontSize: 13),
-                            ),
-                            Text(
-                              "${NumberFormat('#,###', 'vi_VN').format(_selectedWallet!.balance)}đ",
-                              style: TextStyle(color: color.incomeGreen, fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
-                          ],
-                        ),
-                      ]
-                    ],
-                  ),
-                ),
-                
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Center(
-                    child: CircleAvatar(
-                      backgroundColor: Colors.teal,
-                      radius: 20,
-                      child: Icon(Icons.arrow_downward_rounded, color: Colors.white),
-                    ),
-                  ),
-                ),
-
-                // 2. RECIPIENT CARD
-                Text(
-                  'recipient_info'.tr(ref),
-                  style: TextStyle(color: color.textSecondary, fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: color.surface,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: color.textSecondary.withOpacity(0.1)),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      if (isInternal)
-                        CircleAvatar(
-                          radius: 24,
-                          backgroundImage: widget.payeeData['avatar_url'] != null ? NetworkImage(widget.payeeData['avatar_url']) : null,
-                          child: widget.payeeData['avatar_url'] == null ? const Icon(Icons.person) : null,
-                        )
-                      else
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: bankLogo != null
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(24),
-                                  child: CachedNetworkImage(
-                                    imageUrl: bankLogo,
-                                    fit: BoxFit.cover,
-                                    placeholder: (context, url) => const Center(
-                                      child: SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(strokeWidth: 2),
-                                      ),
-                                    ),
-                                    errorWidget: (context, url, error) => const Icon(
-                                      Icons.account_balance_rounded,
-                                      color: Colors.blue,
-                                    ),
-                                  ),
-                                )
-                              : const Icon(Icons.account_balance_rounded, color: Colors.blue),
-                        ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              payeeName,
-                              style: TextStyle(color: color.textPrimary, fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              isInternal ? "ID: $identifier" : "$bankName - $identifier",
-                              style: TextStyle(color: color.textSecondary, fontSize: 13),
-                            ),
-                            if (isInternal && widget.payeeData['recipient_wallet_name'] != null) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                "Ví nhận: ${widget.payeeData['recipient_wallet_name']}",
-                                style: TextStyle(
-                                  color: color.primary,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // 3. INPUT AMOUNT
-                Text(
-                  'amount'.tr(ref),
-                  style: TextStyle(color: color.textSecondary, fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _amountController,
-                  keyboardType: TextInputType.number,
-                  style: TextStyle(color: color.textPrimary, fontSize: 24, fontWeight: FontWeight.bold),
-                  decoration: InputDecoration(
-                    hintText: '0',
-                    suffixText: 'đ',
-                    suffixStyle: TextStyle(color: color.textPrimary, fontSize: 20, fontWeight: FontWeight.bold),
-                    filled: true,
-                    fillColor: color.surface,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-                  ),
-                  onChanged: (val) {
-                    if (val.isEmpty) return;
-                    final cleanString = val.replaceAll(RegExp(r'[^0-9]'), '');
-                    double? amt = double.tryParse(cleanString);
-                    if (amt != null) {
-                      if (amt > 500000000) {
-                        amt = 500000000;
-                      }
-                      final formatted = NumberFormat('#,###', 'vi_VN').format(amt);
-                      _amountController.value = TextEditingValue(
-                        text: formatted,
-                        selection: TextSelection.fromPosition(TextPosition(offset: formatted.length)),
-                      );
-                    }
-                  },
-                ),
-                ValueListenableBuilder<TextEditingValue>(
-                  valueListenable: _amountController,
-                  builder: (context, value, child) {
-                    final cleanString = value.text.replaceAll(RegExp(r'[^0-9]'), '');
-                    final double? amt = double.tryParse(cleanString);
-                    if (amt == null || amt == 0) {
-                      return const SizedBox.shrink();
-                    }
-                    final wordRepresentation = formatNumberToWords(amt, localeCode);
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 8.0, left: 4.0),
-                      child: Text(
-                        '($wordRepresentation)',
-                        style: TextStyle(
-                          color: color.textSecondary,
-                          fontSize: 13,
-                          fontStyle: FontStyle.italic,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                 // 4. DESCRIPTION
-                Text(
-                  'notes'.tr(ref),
-                  style: TextStyle(color: color.textSecondary, fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _descController,
-                  maxLines: 2,
-                  style: TextStyle(color: color.textPrimary),
-                  decoration: InputDecoration(
-                    hintText: 'Nhập lời nhắn chuyển tiền...',
-                    filled: true,
-                    fillColor: color.surface,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // 4.5. CATEGORY SELECTOR
-                Text(
-                  'category'.tr(ref),
-                  style: TextStyle(color: color.textSecondary, fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                InkWell(
-                  onTap: () => _showCategoryPicker(context, parentCategories),
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: color.surface,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: _selectedCategory != null 
-                            ? CategoryUIConstants.getColorFromHex(_selectedCategory!.color).withOpacity(0.4)
-                            : Colors.transparent
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: _selectedCategory != null
-                                ? CategoryUIConstants.getColorFromHex(_selectedCategory!.color).withOpacity(0.12)
-                                : color.primary.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            _selectedCategory != null
-                                ? CategoryUIConstants.getIconData(_selectedCategory!.icon)
-                                : Icons.category_rounded,
-                            color: _selectedCategory != null
-                                ? CategoryUIConstants.getColorFromHex(_selectedCategory!.color)
-                                : color.primary,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Text(
-                            _selectedCategory != null
-                                ? _selectedCategory!.name.tr(ref)
-                                : 'Chọn danh mục chi tiêu...',
-                            style: TextStyle(
-                              color: _selectedCategory != null ? color.textPrimary : color.textSecondary.withOpacity(0.8),
-                              fontWeight: _selectedCategory != null ? FontWeight.bold : FontWeight.normal,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ),
-                        Icon(Icons.arrow_forward_ios_rounded, color: color.textSecondary.withOpacity(0.4), size: 14),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                // 5. CONFIRM BUTTON
-                SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: ElevatedButton(
-                    onPressed: _executeTransfer,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: color.primary,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: Text(
-                      'confirm_transfer'.tr(ref),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 1. SENDER CARD
+            Text(
+              'sender_info'.tr(ref),
+              style: TextStyle(color: color.textSecondary, fontWeight: FontWeight.bold, fontSize: 13),
             ),
-          ),
+            const SizedBox(height: 8),
+            QrTransferSenderCard(
+              filteredWallets: filteredWallets,
+              selectedWallet: _selectedWallet,
+              onWalletChanged: (val) {
+                setState(() {
+                  _selectedWallet = val;
+                });
+              },
+              isInternal: isInternal,
+            ),
+            
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Center(
+                child: CircleAvatar(
+                  backgroundColor: Colors.teal,
+                  radius: 20,
+                  child: Icon(Icons.arrow_downward_rounded, color: Colors.white),
+                ),
+              ),
+            ),
+
+            // 2. RECIPIENT CARD
+            Text(
+              'recipient_info'.tr(ref),
+              style: TextStyle(color: color.textSecondary, fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            QrTransferRecipientCard(
+              isInternal: isInternal,
+              payeeData: widget.payeeData,
+              payeeName: payeeName,
+              identifier: identifier,
+              bankName: bankName,
+              bankLogo: bankLogo,
+            ),
+            const SizedBox(height: 24),
+
+            // 3. INPUT AMOUNT
+            Text(
+              'amount'.tr(ref),
+              style: TextStyle(color: color.textSecondary, fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _amountController,
+              keyboardType: TextInputType.number,
+              style: TextStyle(color: color.textPrimary, fontSize: 24, fontWeight: FontWeight.bold),
+              decoration: InputDecoration(
+                hintText: '0',
+                suffixText: 'đ',
+                suffixStyle: TextStyle(color: color.textPrimary, fontSize: 20, fontWeight: FontWeight.bold),
+                filled: true,
+                fillColor: color.surface,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+              ),
+              onChanged: (val) {
+                if (val.isEmpty) return;
+                final cleanString = val.replaceAll(RegExp(r'[^0-9]'), '');
+                double? amt = double.tryParse(cleanString);
+                if (amt != null) {
+                  if (amt > 500000000) {
+                    amt = 500000000;
+                  }
+                  final formatted = NumberFormat('#,###', 'vi_VN').format(amt);
+                  _amountController.value = TextEditingValue(
+                    text: formatted,
+                    selection: TextSelection.fromPosition(TextPosition(offset: formatted.length)),
+                  );
+                }
+              },
+            ),
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _amountController,
+              builder: (context, value, child) {
+                final cleanString = value.text.replaceAll(RegExp(r'[^0-9]'), '');
+                final double? amt = double.tryParse(cleanString);
+                if (amt == null || amt == 0) {
+                  return const SizedBox.shrink();
+                }
+                final wordRepresentation = formatNumberToWords(amt, localeCode);
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8.0, left: 4.0),
+                  child: Text(
+                    '($wordRepresentation)',
+                    style: TextStyle(
+                      color: color.textSecondary,
+                      fontSize: 13,
+                      fontStyle: FontStyle.italic,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // 4. DESCRIPTION
+            Text(
+              'notes'.tr(ref),
+              style: TextStyle(color: color.textSecondary, fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _descController,
+              maxLines: 2,
+              style: TextStyle(color: color.textPrimary),
+              decoration: InputDecoration(
+                hintText: 'Nhập lời nhắn chuyển tiền...',
+                filled: true,
+                fillColor: color.surface,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 4.5. CATEGORY SELECTOR
+            Text(
+              'category'.tr(ref),
+              style: TextStyle(color: color.textSecondary, fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: () => _showCategoryPicker(context, parentCategories),
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: color.surface,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: _selectedCategory != null 
+                        ? CategoryUIConstants.getColorFromHex(_selectedCategory!.color).withOpacity(0.4)
+                        : Colors.transparent
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: _selectedCategory != null
+                            ? CategoryUIConstants.getColorFromHex(_selectedCategory!.color).withOpacity(0.12)
+                            : color.primary.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _selectedCategory != null
+                            ? CategoryUIConstants.getIconData(_selectedCategory!.icon)
+                            : Icons.category_rounded,
+                        color: _selectedCategory != null
+                            ? CategoryUIConstants.getColorFromHex(_selectedCategory!.color)
+                            : color.primary,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        _selectedCategory != null
+                            ? _selectedCategory!.name.tr(ref)
+                            : 'Chọn danh mục chi tiêu...',
+                        style: TextStyle(
+                          color: _selectedCategory != null ? color.textPrimary : color.textSecondary.withOpacity(0.8),
+                          fontWeight: _selectedCategory != null ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios_rounded, color: color.textSecondary.withOpacity(0.4), size: 14),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // 5. CONFIRM BUTTON
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton(
+                onPressed: _executeTransfer,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: color.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Text(
+                  'confirm_transfer'.tr(ref),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
