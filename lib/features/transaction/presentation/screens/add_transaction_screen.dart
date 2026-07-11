@@ -585,8 +585,14 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       }
     }
 
-    // Nếu là giao dịch chuyển khoản từ QR Code
-    if (widget.qrData != null && widget.qrData!['is_qr'] == true) {
+    final bool isTransfer = widget.qrData != null &&
+        (widget.qrData!['type'] == 'internal' ||
+         widget.qrData!['type'] == 'external' ||
+         widget.qrData!['payee_type'] == 'internal' ||
+         widget.qrData!['payee_type'] == 'external');
+
+    // Nếu là giao dịch chuyển khoản
+    if (isTransfer) {
       if (amount > _selectedWallet!.balance) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -692,10 +698,11 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
     // Extract parent categories dynamically
     final allCats = categoriesAsync.value ?? [];
-    final bool isQr = widget.qrData != null && widget.qrData!['is_qr'] == true;
+    final bool isTransfer = widget.qrData != null &&  (widget.qrData!['type'] == 'internal' || widget.qrData!['type'] == 'external' ||widget.qrData!['payee_type'] == 'internal' ||
+     widget.qrData!['payee_type'] == 'external');
     final parentCategories = allCats.where((c) {
       if (c.parentId != null) return false;
-      if (isQr && c.type == 'income') return false; // Loại bỏ Thu nhập khi quét QR
+      if (isTransfer && c.type == 'income') return false; // Loại bỏ Thu nhập khi quét QR
       return true;
     }).toList();
     parentCategories.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
@@ -719,7 +726,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     final rawWalletList = walletsAsync.value ?? [];
     final List<WalletEntity> walletList;
     
-    if (isQr) {
+    if (isTransfer) {
       final isInternal = widget.qrData!['type'] == 'internal';
       walletList = rawWalletList.where((w) {
         if (w.type.toLowerCase() == 'cash') return false;
@@ -736,7 +743,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     if (_selectedWallet == null && walletList.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         setState(() {
-          if (isQr) {
+          if (isTransfer) {
             final prefilledWalletId = widget.qrData!['from_wallet_id'];
             WalletEntity? prefilledWallet;
             if (prefilledWalletId != null) {
@@ -814,7 +821,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                if (widget.qrData != null && widget.qrData!['is_qr'] == true) ...[
+                if (isTransfer) ...[
                   Text(
                     'recipient_info'.tr(ref),
                     style: TextStyle(

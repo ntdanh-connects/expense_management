@@ -19,7 +19,13 @@ class TransactionRecipientCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    if (qrData == null || qrData!['is_qr'] != true) {
+    final isTransfer = qrData != null &&
+        (qrData!['type'] == 'internal' ||
+         qrData!['type'] == 'external' ||
+         qrData!['payee_type'] == 'internal' ||
+         qrData!['payee_type'] == 'external');
+
+    if (!isTransfer) {
       return const SizedBox.shrink();
     }
 
