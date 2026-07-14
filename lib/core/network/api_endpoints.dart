@@ -1,5 +1,6 @@
 class ApiEndpoints {
   static const String dashboardSummary = 'api/dashboard/summary';
+  static const String aiDigest = 'api/ai-digest';
   static const String login = 'api/login';
   static const String refreshToken = 'api/refresh-token';
   static const String register = 'api/register';

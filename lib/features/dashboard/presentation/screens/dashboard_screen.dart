@@ -1,3 +1,4 @@
+import 'package:expense_management/features/dashboard/presentation/widgets/dashboard/dashboard_ai_digest_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -108,6 +109,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             children: [
               // 💳 1. TỔNG SỐ DƯ CARD
               const DashboardBalanceCard(),
+              const SizedBox(height: 24,),
+              const DashboardAiDigestCard(),
               const SizedBox(height: 24),
 
               // 💼 2. VÍ CỦA BẠN ROW

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:expense_management/core/network/api_endpoints.dart';
 import 'package:expense_management/core/network/base_response_dto.dart';
+import 'package:expense_management/features/dashboard/data/models/ai_digest_dto.dart';
 import 'package:expense_management/features/dashboard/data/models/dashboard_summary_dto.dart';
 import 'package:retrofit/retrofit.dart';
 
@@ -12,4 +13,7 @@ abstract class DashboardApiService {
 
   @GET(ApiEndpoints.dashboardSummary)
   Future<BaseResponseDto<DashboardSummaryDto>> getDashboardSummary();
+
+  @POST(ApiEndpoints.aiDigest)
+  Future<BaseResponseDto<AiDigestDto>> getAiDigest();
 }

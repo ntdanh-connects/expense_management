@@ -753,5 +753,6 @@
   "walkthrough_budget_desc": "Set up overall or category budgets to keep spending under control, and receive smart alerts when reaching 80% or 100% limits.",
   "walkthrough_next": "Next",
   "walkthrough_skip": "Skip",
-  "walkthrough_finish": "Get Started"
+  "walkthrough_finish": "Get Started",
+  "ai_digest": "Today's AI insights"
 }

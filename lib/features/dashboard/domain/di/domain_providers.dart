@@ -1,4 +1,6 @@
 import 'package:expense_management/core/database/app_database.dart';
+import 'package:expense_management/features/dashboard/data/repository_impl/ai_digest_repository_impl.dart';
+import 'package:expense_management/features/dashboard/domain/repositories/ai_digest_repository.dart';
 import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 import 'package:expense_management/features/wallet/data/di/data_providers.dart';
 import 'package:expense_management/features/dashboard/data/di/data_providers.dart';
@@ -19,6 +21,11 @@ final dashboardRepositoryProvider = Provider<DashboardRepository>((ref) {
     database,
     () => ref.read(currentUserProvider)?.id ?? '',
   );
+});
+
+final aiDigestRepositoryProvider = Provider<AiDigestRepository>((ref){
+  final apiService = ref.watch(dashboardApiServiceProvider);
+  return AiDigestRepositoryImpl(apiService);
 });
 
 final recurringRepositoryProvider = Provider<RecurringRepository>((ref) {

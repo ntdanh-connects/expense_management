@@ -31,3 +31,4 @@ class ToggleRecurringRuleUseCase {
   ToggleRecurringRuleUseCase(this._repository);
   Future<RecurringRuleEntity> execute(String id) => _repository.toggleRule(id);
 }
+
