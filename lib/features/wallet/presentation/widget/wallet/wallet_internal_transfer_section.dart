@@ -34,6 +34,7 @@ class _WalletInternalTransferSectionState
   WalletEntity? _fromWallet;
   WalletEntity? _toWallet;
   final TextEditingController _amountController = TextEditingController();
+  final TextEditingController _notesController = TextEditingController();
   bool _isTransferring = false;
   bool _isInternalTransferExpanded = false;
 
@@ -43,11 +44,15 @@ class _WalletInternalTransferSectionState
     _amountController.addListener(() {
       if (mounted) setState(() {});
     });
+    _notesController.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
     _amountController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
@@ -303,6 +308,41 @@ class _WalletInternalTransferSectionState
                   );
                 },
               ),
+              const SizedBox(height: 16),
+
+              // Ô nhập ghi chú chuyển khoản
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withOpacity(0.04)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: colors.textSecondary.withOpacity(0.12),
+                  ),
+                ),
+                child: TextField(
+                  controller: _notesController,
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 16,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Nhập nội dung chuyển khoản *',
+                    hintStyle: TextStyle(
+                      color: colors.textSecondary.withOpacity(0.6),
+                      fontSize: 15,
+                    ),
+                    border: InputBorder.none,
+                    counterText: '',
+                  ),
+                  maxLength: 200,
+                ),
+              ),
               const SizedBox(height: 20),
 
               // Nút chuyển tiền
@@ -465,6 +505,18 @@ class _WalletInternalTransferSectionState
 
   void _executeTransfer(AppColorsExtension colors) async {
     final amountStr = _amountController.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final notes = _notesController.text.trim();
+
+    final amounVal = double.tryParse(amountStr) ?? 0.0;
+    if(amounVal < 1000){
+      _showSnackBar('Số tiền chuyển khoản tối thiểu là 1.000đ', isError: true);
+      return;
+    }
+
+    if (notes.isEmpty) {
+      _showSnackBar('Nội dung chuyển khoản bắt buộc phải nhập.', isError: true);
+      return;
+    }
 
     setState(() {
       _isTransferring = true;
@@ -477,6 +529,7 @@ class _WalletInternalTransferSectionState
             fromWallet: _fromWallet,
             toWallet: _toWallet,
             amountStr: amountStr,
+            notes: notes,
           );
 
       if (errorKey != null) {
@@ -502,6 +555,7 @@ class _WalletInternalTransferSectionState
         final currencyCode = _fromWallet?.currencyCode ?? 'VND';
 
         _amountController.clear();
+        _notesController.clear();
         setState(() {
           _fromWallet = null;
           _toWallet = null;

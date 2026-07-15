@@ -41,6 +41,7 @@ class InternalTransferHistoryNotifier extends StateNotifier<AsyncValue<List<Inte
     required WalletEntity? fromWallet,
     required WalletEntity? toWallet,
     required String amountStr,
+    required String notes,
   }) async {
     if (fromWallet == null || toWallet == null) {
       return 'select_source_dest_wallet_error';
@@ -51,9 +52,12 @@ class InternalTransferHistoryNotifier extends StateNotifier<AsyncValue<List<Inte
     if (amountStr.isEmpty) {
       return 'enter_amount_error';
     }
+    if (notes.trim().isEmpty) {
+      return 'Nội dung chuyển khoản bắt buộc phải nhập.';
+    }
 
     final amount = double.tryParse(amountStr);
-    if (amount == null || amount <= 0) {
+    if (amount == null || amount < 1000) {
       return 'invalid_amount_error';
     }
 
@@ -68,6 +72,7 @@ class InternalTransferHistoryNotifier extends StateNotifier<AsyncValue<List<Inte
         fromWalletId: fromWallet.id,
         toWalletId: toWallet.id,
         amount: amount,
+        notes: notes,
         timezone: timezone,
       );
 

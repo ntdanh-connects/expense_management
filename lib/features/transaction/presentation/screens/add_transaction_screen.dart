@@ -530,7 +530,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
     final amount = _getAmount();
 
-    if (amount <= 0) {
+    if (amount < 1000) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('please_enter_valid_amount'.trRead(ref)),
