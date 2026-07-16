@@ -123,7 +123,7 @@ class TransactionResultSuccessView extends ConsumerWidget {
                                 if (params.currencyCode == 'VND' || params.currencyCode.isEmpty) ...[
                                   const SizedBox(height: 4),
                                   Text(
-                                    '(${formatNumberToWords(params.amount, localeCode)})',
+                                    '(${formatNumberToWords(params.amount ?? 0.0, localeCode)})',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: colors.textSecondary,
@@ -176,7 +176,7 @@ class TransactionResultSuccessView extends ConsumerWidget {
                                   context,
                                   colors,
                                   'payment_wallet'.tr(ref),
-                                  params.walletName,
+                                  params.walletName ?? '',
                                 ),
                                 _buildReceiptRow(
                                   context,

@@ -4,6 +4,7 @@ import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/ai_chat_provider.dart';
+import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
 
 class AIAssistantScreen extends ConsumerStatefulWidget {
   final String? initialMessage;
@@ -179,6 +180,15 @@ class _AIAssistantScreenState extends ConsumerState<AIAssistantScreen> {
                           if (changed == true) {
                             _scrollToBottom();
                           }
+                        },
+                      ),
+                      ListTile(
+                        leading: Icon(Icons.insights_rounded, color: colors.primary),
+                        title: Text('Phân tích Thói Quen AI', style: TextStyle(color: colors.textPrimary)),
+                        onTap: () {
+                          Navigator.pop(context);
+                          ref.read(selectedAnalyticTabProvider.notifier).state = 'habit_analysis';
+                          context.push('/analytics?tab=habit_analysis');
                         },
                       ),
                       ListTile(

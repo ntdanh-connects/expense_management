@@ -14,6 +14,8 @@ class WalletMapper {
       isHidden: dto.isHidden ?? false,
       currencyCode: dto.currencyCode ?? 'VND',
       isDefaultReceiving: dto.isDefaultReceiving ?? false,
+      minimumBalance: dto.minimumBalance,
+      isMinimumBalanceAlertEnabled: dto.isMinimumBalanceAlertEnabled ?? true,
     );
   }
 
@@ -28,6 +30,8 @@ class WalletMapper {
       isHidden: row.isHidden,
       currencyCode: row.currencyCode,
       isDefaultReceiving: row.isDefaultReceiving,
+      minimumBalance: row.minimumBalance,
+      isMinimumBalanceAlertEnabled: row.isMinimumBalanceAlertEnabled ?? true,
     );
   }
 }

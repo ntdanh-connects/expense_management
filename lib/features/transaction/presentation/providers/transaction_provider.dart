@@ -51,9 +51,10 @@ TransactionEntity _mapLocalTransactionToEntity(
     type: row.type,
     status: row.isSynced ? 'success' : 'pending',
     amount: row.amount,
+    amountInUserCurrency: row.amountInUserCurrency,
     currencyCode: wallet?.currencyCode,
-    exchangeRate: row.amount > 0
-        ? (row.amountInUserCurrency / row.amount)
+    exchangeRate: (row.amount != null && row.amount! > 0)
+        ? (row.amountInUserCurrency / row.amount!)
         : 1.0,
     title: row.title,
     notes: row.notes,
@@ -259,7 +260,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> wit
               walletId: newTx.walletId,
               categoryId: newTx.categoryId,
               amount: newTx.amount,
-              amountInUserCurrency: newTx.amount * (newTx.exchangeRate ?? 1.0),
+              amountInUserCurrency: newTx.amountInUserCurrency,
               type: newTx.type,
               title: newTx.title,
               notes: newTx.notes,
@@ -274,6 +275,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> wit
               payeeAccountNumber: newTx.payeeAccountNumber,
               payeeBankName: newTx.payeeBankName,
               isTransferLocked: newTx.isTransferLocked,
+              isSplit: newTx.isSplit,
             );
             await database.saveTransaction(localTx);
             anySuccess = true;
@@ -307,8 +309,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> wit
               walletId: entity.walletId,
               categoryId: entity.categoryId,
               amount: entity.amount,
-              amountInUserCurrency:
-                  entity.amount * (entity.exchangeRate ?? 1.0),
+              amountInUserCurrency: entity.amountInUserCurrency,
               type: entity.type,
               title: entity.title,
               notes: entity.notes,
@@ -323,6 +324,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> wit
               payeeAccountNumber: entity.payeeAccountNumber,
               payeeBankName: entity.payeeBankName,
               isTransferLocked: entity.isTransferLocked,
+              isSplit: entity.isSplit,
             );
             await database.saveTransaction(localTx);
             anySuccess = true;
@@ -535,8 +537,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> wit
         walletId: transaction.walletId,
         categoryId: transaction.categoryId,
         amount: transaction.amount,
-        amountInUserCurrency:
-            transaction.amount * (transaction.exchangeRate ?? 1.0),
+        amountInUserCurrency: transaction.amountInUserCurrency,
         type: transaction.type,
         title: transaction.title,
         notes: transaction.notes,
@@ -551,6 +552,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> wit
         payeeAccountNumber: transaction.payeeAccountNumber,
         payeeBankName: transaction.payeeBankName,
         isTransferLocked: transaction.isTransferLocked,
+        isSplit: transaction.isSplit,
       );
       await database.saveTransaction(localTx);
 
@@ -561,7 +563,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> wit
 
     _notifyTransaction(
       type: transaction.type,
-      amount: transaction.amount,
+      amount: transaction.amountInUserCurrency,
       currencyCode: transaction.currencyCode ?? 'VND',
       walletName: transaction.walletName,
       title: transaction.title,
@@ -591,15 +593,29 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> wit
       activeSourceType = 'transfer';
     }
 
+    double getAmount() {
+      if (params.amount != null) return params.amount!;
+      if (params.splits != null) {
+        return params.splits!.map((s) => (s['amount'] as num).toDouble()).fold(0.0, (sum, val) => sum + val);
+      }
+      return 0.0;
+    }
+    final calculatedAmount = getAmount();
+
+    final fallbackWalletId = params.walletId ??
+        ((params.splits != null && params.splits!.isNotEmpty)
+            ? params.splits!.first['wallet_id'] as String?
+            : null);
+
     final localTx = LocalTransaction(
       id: tempId,
       userId: userId,
-      walletId: params.walletId,
+      walletId: fallbackWalletId,
       categoryId: params.categoryId == null || params.categoryId!.isEmpty
           ? null
           : params.categoryId,
-      amount: params.amount,
-      amountInUserCurrency: params.amount * (params.exchangeRate ?? 1.0),
+      amount: calculatedAmount,
+      amountInUserCurrency: calculatedAmount * (params.exchangeRate ?? 1.0),
       type: params.type,
       title: params.title,
       notes: params.notes,
@@ -614,6 +630,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> wit
       payeeAccountNumber: activePayeeAccountNumber,
       payeeBankName: activePayeeBankName,
       isTransferLocked: false,
+      isSplit: params.splits != null && params.splits!.isNotEmpty,
     );
     await database.saveTransaction(localTx);
 
@@ -629,7 +646,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> wit
     if (notify) {
       _notifyTransaction(
         type: params.type,
-        amount: params.amount,
+        amount: calculatedAmount,
         currencyCode: params.currencyCode ?? 'VND',
         walletName: params.walletName,
         title: params.title,
@@ -697,7 +714,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> wit
     // 1. Scan in current loaded list (state.value)
     final localList = state.value ?? [];
     for (final tx in localList) {
-      if (tx.type == type && (tx.amount - amount).abs() < 0.01) {
+      if (tx.type == type && (tx.amountInUserCurrency - amount).abs() < 0.01) {
         if (senderName != null && tx.title.toLowerCase().contains(senderName.toLowerCase())) {
           return tx;
         }
@@ -822,7 +839,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> wit
         walletId: entity.walletId,
         categoryId: entity.categoryId,
         amount: entity.amount,
-        amountInUserCurrency: entity.amount * (entity.exchangeRate ?? 1.0),
+        amountInUserCurrency: entity.amountInUserCurrency,
         type: entity.type,
         title: entity.title,
         notes: entity.notes,
@@ -837,6 +854,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> wit
         payeeAccountNumber: entity.payeeAccountNumber,
         payeeBankName: entity.payeeBankName,
         isTransferLocked: entity.isTransferLocked,
+        isSplit: entity.isSplit,
       );
       await database.saveTransaction(localTx);
     } catch (e) {
@@ -908,6 +926,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> wit
       type: newType,
       status: 'pending',
       amount: tx.amount,
+      amountInUserCurrency: tx.amountInUserCurrency,
       currencyCode: tx.currencyCode,
       exchangeRate: tx.exchangeRate,
       title: tx.title,
@@ -932,6 +951,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> wit
       senderName: tx.senderName,
       senderWalletName: tx.senderWalletName,
       senderIdentifier: tx.senderIdentifier,
+      isSplit: tx.isSplit,
     );
 
     // Cập nhật state list lập tức để UI render thay đổi ngay (kể cả khi index == -1)
@@ -953,7 +973,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> wit
       walletId: tx.walletId,
       categoryId: categoryId,
       amount: tx.amount,
-      amountInUserCurrency: tx.amount * (tx.exchangeRate ?? 1.0),
+      amountInUserCurrency: tx.amountInUserCurrency,
       type: newType,
       title: tx.title,
       notes: tx.notes,
@@ -968,6 +988,7 @@ class TransactionListNotifier extends AsyncNotifier<List<TransactionEntity>> wit
       payeeAccountNumber: newType == 'income' ? null : tx.payeeAccountNumber,
       payeeBankName: newType == 'income' ? null : tx.payeeBankName,
       isTransferLocked: tx.isTransferLocked,
+      isSplit: tx.isSplit,
     );
     await database.saveTransaction(localTx);
 
@@ -1366,10 +1387,10 @@ List<TransactionEntity> _filterLocalList(
 
   // 6. Lọc theo số tiền tối thiểu/tối đa
   if (filter.minAmount != null) {
-    result = result.where((tx) => tx.amount >= filter.minAmount!).toList();
+    result = result.where((tx) => tx.amountInUserCurrency >= filter.minAmount!).toList();
   }
   if (filter.maxAmount != null) {
-    result = result.where((tx) => tx.amount <= filter.maxAmount!).toList();
+    result = result.where((tx) => tx.amountInUserCurrency <= filter.maxAmount!).toList();
   }
 
   // 7. Sắp xếp theo lựa chọn
@@ -1381,7 +1402,7 @@ List<TransactionEntity> _filterLocalList(
 
     int comparison = 0;
     if (filter.sortBy == 'amount') {
-      comparison = a.amount.compareTo(b.amount);
+      comparison = a.amountInUserCurrency.compareTo(b.amountInUserCurrency);
     } else if (filter.sortBy == 'category') {
       comparison = (a.categoryName ?? '').compareTo(b.categoryName ?? '');
     } else {

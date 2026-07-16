@@ -87,7 +87,7 @@ class DashboardRecentTransactions extends ConsumerWidget {
                   sub:
                       '$walletName • ${_formatDateTime(tx.transactionDate, tx.timezone, ref)}',
                   amount:
-                      '$sign${AppConstant.formatMoney(tx.amount, tx.currencyCode)} $txCurrency',
+                      '$sign${AppConstant.formatMoney(tx.amountInUserCurrency, tx.currencyCode)} $txCurrency',
                   isIncome: isIncome,
                   icon: categoryIcon,
                   iconColor: categoryColor,

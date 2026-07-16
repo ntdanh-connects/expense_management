@@ -1,15 +1,10 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:currency_text_input_formatter/currency_text_input_formatter.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:expense_management/core/utils/currency_utils.dart';
-
 import 'package:expense_management/core/router/app_route.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/profile/presentation/providers/category_provider.dart';
 import 'package:expense_management/features/profile/data/models/category_dto.dart';
-import 'package:expense_management/features/profile/presentation/widgets/category_ui_constants.dart';
-
 import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 import 'package:expense_management/features/transaction/domain/entities/transaction_params.dart';
 import 'package:expense_management/features/transaction/presentation/screens/sub_category_selection_screen.dart';
@@ -18,19 +13,16 @@ import 'package:expense_management/features/wallet/presentation/provider/wallet_
 import 'package:expense_management/features/wallet/presentation/provider/qr_transfer_provider.dart';
 import 'package:expense_management/core/language/app_language.dart';
 import 'package:expense_management/core/language/app_provider.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:expense_management/features/transaction/presentation/widgets/add_transaction/add_transaction_shimmer.dart';
 import 'package:expense_management/features/transaction/presentation/widgets/add_transaction/transaction_amount_card.dart';
 import 'package:expense_management/features/transaction/presentation/widgets/add_transaction/transaction_recipient_card.dart';
 import 'package:expense_management/features/transaction/presentation/widgets/add_transaction/transaction_category_selector.dart';
-import 'package:expense_management/features/transaction/presentation/widgets/add_transaction/transaction_date_wallet_row.dart';
 import 'package:expense_management/features/transaction/presentation/widgets/add_transaction/transaction_attachment_section.dart';
 import 'package:expense_management/features/transaction/presentation/widgets/add_transaction/transaction_wallet_picker_sheet.dart';
 
@@ -55,6 +47,11 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   WalletEntity? _selectedWallet;
   File? _imageFile;
   bool _isLoading = false;
+  bool _isSplitMode = false;
+  bool _isUpdatingMainFromSplits = false;
+  bool _isRedistributing = false;
+  // Each entry: { 'wallet': WalletEntity?, 'amountController': TextEditingController, 'formatter': CurrencyTextInputFormatter }
+  final List<Map<String, dynamic>> _splitEntries = [];
 
   bool _isClassifying = false;
   Timer? _classificationDebounce;
@@ -72,6 +69,11 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     super.initState();
     _titleController.addListener(_onTextChanged);
     _notesController.addListener(_onTextChanged);
+    _amountController.addListener(() {
+      if (!_isUpdatingMainFromSplits && _isSplitMode) {
+        _redistributeSplits();
+      }
+    });
     _formatter = CurrencyTextInputFormatter.currency(
       locale: 'vi',
       decimalDigits: 0,
@@ -194,6 +196,108 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     }
   }
 
+  CurrencyTextInputFormatter _createFormatterForWallet(WalletEntity? wallet) {
+    final currencyCode = wallet?.currencyCode ?? _selectedWallet?.currencyCode ?? 'VND';
+    final symbol = _getCurrencySymbol(currencyCode);
+    final decimals = _getDecimalDigits(currencyCode);
+    final locale = _getLocale(currencyCode);
+    return CurrencyTextInputFormatter.currency(
+      locale: locale,
+      decimalDigits: decimals,
+      symbol: symbol,
+    );
+  }
+
+  void _addSplitEntry({WalletEntity? wallet, double amount = 0.0}) {
+    final controller = TextEditingController();
+    final formatter = _createFormatterForWallet(wallet);
+    if (amount > 0) {
+      controller.text = formatter.formatDouble(amount);
+    }
+    final entry = {
+      'wallet': wallet,
+      'amountController': controller,
+      'formatter': formatter,
+    };
+    controller.addListener(() {
+      _onSplitAmountChanged();
+    });
+    _splitEntries.add(entry);
+  }
+
+  void _redistributeSplits() {
+    if (_isRedistributing) return;
+    _isRedistributing = true;
+    _isUpdatingMainFromSplits = true;
+
+    final totalAmount = _getAmount();
+    if (totalAmount <= 0) {
+      for (final entry in _splitEntries) {
+        final ctrl = entry['amountController'] as TextEditingController;
+        ctrl.text = '';
+      }
+      _isUpdatingMainFromSplits = false;
+      _isRedistributing = false;
+      return;
+    }
+
+    final entriesWithWallet = _splitEntries.where((e) => e['wallet'] != null).toList();
+    final K = entriesWithWallet.length;
+
+    if (K <= 1) {
+      final targetEntry = entriesWithWallet.isNotEmpty ? entriesWithWallet.first : _splitEntries.first;
+      for (final entry in _splitEntries) {
+        final ctrl = entry['amountController'] as TextEditingController;
+        final formatter = entry['formatter'] as CurrencyTextInputFormatter;
+        if (entry == targetEntry) {
+          ctrl.text = formatter.formatDouble(totalAmount);
+        } else {
+          ctrl.text = '';
+        }
+      }
+    } else {
+      final double share = (totalAmount / K).floorToDouble();
+      final double remainder = totalAmount - (share * K);
+
+      for (final entry in _splitEntries) {
+        final ctrl = entry['amountController'] as TextEditingController;
+        final formatter = entry['formatter'] as CurrencyTextInputFormatter;
+        if (entry['wallet'] != null) {
+          final isFirstWithWallet = entry == entriesWithWallet.first;
+          final amt = share + (isFirstWithWallet ? remainder : 0.0);
+          ctrl.text = formatter.formatDouble(amt);
+        } else {
+          ctrl.text = '';
+        }
+      }
+    }
+
+    _isUpdatingMainFromSplits = false;
+    _isRedistributing = false;
+  }
+
+  void _onSplitAmountChanged() {
+    if (_isUpdatingMainFromSplits || !_isSplitMode) return;
+
+    _isUpdatingMainFromSplits = true;
+    double sum = 0.0;
+    for (final entry in _splitEntries) {
+      final ctrl = entry['amountController'] as TextEditingController;
+      final wallet = entry['wallet'] as WalletEntity?;
+      final code = wallet?.currencyCode ?? _selectedWallet?.currencyCode ?? 'VND';
+      final amt = _parseAmountFromString(ctrl.text, code);
+      sum += amt;
+    }
+
+    if (sum > 0) {
+      _amountController.text = _formatter.formatDouble(sum);
+    } else {
+      _amountController.text = '';
+    }
+    _isUpdatingMainFromSplits = false;
+  }
+
+
   void _onTextChanged() {
     _classificationDebounce?.cancel();
     _classificationDebounce = Timer(const Duration(milliseconds: 800), () {
@@ -279,6 +383,9 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     _notesController.dispose();
     _titleController.dispose();
     _payeeController.dispose();
+    for (final entry in _splitEntries) {
+      (entry['amountController'] as TextEditingController).dispose();
+    }
     super.dispose();
   }
 
@@ -542,18 +649,54 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
     // Category selection is now optional (AI auto-classifies on backend if empty)
 
-    if (_selectedWallet == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('please_select_wallet'.trRead(ref)),
-          backgroundColor: Colors.red,
-        ),
-      );
-      final walletList = ref.read(walletNotifierProvider).value ?? [];
-      if (walletList.isEmpty) {
-        context.push(RoutePaths.addWallet);
+    if (_isSplitMode) {
+      // Split mode: validate split entries instead
+      if (_splitEntries.length < 2) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vui lòng thêm ít nhất 2 ví cho thanh toán chia nhỏ!'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
       }
-      return;
+      for (final entry in _splitEntries) {
+        final wallet = entry['wallet'] as WalletEntity?;
+        if (wallet == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Vui lòng chọn ví cho tất cả các khoản chia nhỏ!'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+        final ctrl = entry['amountController'] as TextEditingController;
+        final splitAmt = _parseAmountFromString(ctrl.text, wallet.currencyCode);
+        if (splitAmt < 1000) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Mỗi khoản chia nhỏ phải có số tiền ít nhất 1.000đ!'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      }
+    } else {
+      if (_selectedWallet == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('please_select_wallet'.trRead(ref)),
+            backgroundColor: Colors.red,
+          ),
+        );
+        final walletList = ref.read(walletNotifierProvider).value ?? [];
+        if (walletList.isEmpty) {
+          context.push(RoutePaths.addWallet);
+        }
+        return;
+      }
     }
 
 
@@ -647,6 +790,56 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
     // Xác định loại giao dịch cho backend (income hoặc expense)
     final backendType = _selectedParentCategory?.type ?? 'expense';
+
+    if (_isSplitMode) {
+      // Build splits payload
+      final splitsList = _splitEntries.map((entry) {
+        final wallet = entry['wallet'] as WalletEntity;
+        final ctrl = entry['amountController'] as TextEditingController;
+        final splitAmt = _parseAmountFromString(ctrl.text, wallet.currencyCode);
+        return {
+          'wallet_id': wallet.id,
+          'amount': splitAmt,
+          'amount_in_user_currency': splitAmt,
+        };
+      }).toList();
+
+      final splitWalletNames = _splitEntries.map((entry) {
+        final wallet = entry['wallet'] as WalletEntity;
+        return wallet.name;
+      }).join(', ');
+
+      final params = TransactionParams(
+        walletId: null,
+        walletName: splitWalletNames.isNotEmpty ? splitWalletNames : 'Nhiều ví',
+        categoryId: _selectedCategory?.id,
+        categoryName: _selectedCategory?.name,
+        type: backendType,
+        amount: amount,
+        title: title,
+        notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+        transactionDate: _selectedDate.toUtc().toIso8601String(),
+        currencyCode: 'VND',
+        exchangeRate: 1.0,
+        timezone: ref.read(currentUserProvider)?.timezone ?? 'Asia/Ho_Chi_Minh',
+        attachmentPath: _imageFile?.path,
+        payeeName: payeeName.isEmpty ? null : payeeName,
+        payeeId: _payeeId,
+        payeeAccountNumber: null,
+        payeeBankName: null,
+        sourceType: 'manual',
+        splits: splitsList,
+      );
+      setState(() { _isLoading = true; });
+      try {
+        if (mounted) {
+          await context.push(RoutePaths.transactionResult, extra: params);
+        }
+      } finally {
+        if (mounted) setState(() { _isLoading = false; });
+      }
+      return;
+    }
 
     final params = TransactionParams(
       walletId: _selectedWallet!.id,
@@ -850,6 +1043,9 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                     setState(() {
                       _selectedParentCategory = parent;
                       _selectedCategory = null;
+                      if (parent.type == 'income') {
+                        _isSplitMode = false;
+                      }
                     });
                   },
                   onCategorySelected: (cat) {
@@ -877,21 +1073,307 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                 const SizedBox(height: 24),
 
                 // 📅 4. Date & Wallet Row
-                TransactionDateWalletRow(
-                  selectedDate: _selectedDate,
-                  selectedWallet: _selectedWallet,
-                  walletList: walletList,
-                  onDateTap: () => _selectDate(context),
-                  onWalletTap: () {
-                    if (walletList.isEmpty) {
-                      context.push(RoutePaths.addWallet);
-                    } else {
-                      _showWalletSelector(context, walletList);
-                    }
-                  },
-                  formatDate: _formatDate,
+                Row(
+                  children: [
+                    // Date picker — always shown
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => _selectDate(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: colors.authCardBg,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: colors.textSecondary.withOpacity(0.06)),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: colors.primary.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(Icons.calendar_month_rounded, color: colors.primary, size: 20),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('date_label'.tr(ref), style: TextStyle(color: colors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 4),
+                                    Text(_formatDate(_selectedDate), style: TextStyle(color: colors.textPrimary, fontSize: 13, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Wallet selector — only shown in non-split mode
+                    if (!_isSplitMode || isTransfer) Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          if (walletList.isEmpty) {
+                            context.push(RoutePaths.addWallet);
+                          } else {
+                            _showWalletSelector(context, walletList);
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: colors.authCardBg,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: colors.textSecondary.withOpacity(0.06)),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: colors.primary.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(Icons.account_balance_wallet_rounded, color: colors.primary, size: 20),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('wallet_label'.tr(ref), style: TextStyle(color: colors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 4),
+                                    Text(_selectedWallet?.name ?? 'select_wallet'.tr(ref), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.textPrimary, fontSize: 13, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
 
+                // ✂️ Split mode toggle (only for expense, non-QR)
+                if (!isTransfer && !_isIncome) ...[ 
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _isSplitMode = !_isSplitMode;
+                        if (_isSplitMode) {
+                          if (_splitEntries.isEmpty) {
+                            _addSplitEntry(wallet: _selectedWallet);
+                            _addSplitEntry(wallet: null);
+                          }
+                          _redistributeSplits();
+                        }
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: _isSplitMode
+                            ? colors.primary.withOpacity(0.12)
+                            : colors.authCardBg,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: _isSplitMode
+                              ? colors.primary.withOpacity(0.4)
+                              : colors.textSecondary.withOpacity(0.06),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.call_split_rounded,
+                            color: _isSplitMode ? colors.primary : colors.textSecondary,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Chia nhỏ thanh toán',
+                            style: TextStyle(
+                              color: _isSplitMode ? colors.primary : colors.textSecondary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const Spacer(),
+                          Icon(
+                            _isSplitMode ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                            color: _isSplitMode ? colors.primary : colors.textSecondary,
+                            size: 18,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+
+                // 💳 Split entries
+                if (_isSplitMode && !isTransfer) ...[ 
+                  const SizedBox(height: 12),
+                  ...List.generate(_splitEntries.length, (i) {
+                    final entry = _splitEntries[i];
+                    final wallet = entry['wallet'] as WalletEntity?;
+                    final ctrl = entry['amountController'] as TextEditingController;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: colors.authCardBg,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: colors.textSecondary.withOpacity(0.08)),
+                        ),
+                        child: Row(
+                          children: [
+                            // Wallet selector chip
+                            Expanded(
+                              flex: 3,
+                              child: GestureDetector(
+                                onTap: () {
+                                  final allWallets = ref.read(walletNotifierProvider).value ?? [];
+                                  final selectedWalletIds = _splitEntries
+                                      .where((e) => e != entry && e['wallet'] != null)
+                                      .map((e) => (e['wallet'] as WalletEntity).id)
+                                      .toSet();
+                                  final cashWallets = allWallets
+                                      .where((w) => !w.isHidden && !selectedWalletIds.contains(w.id))
+                                      .toList();
+                                  showModalBottomSheet(
+                                    context: context,
+                                    backgroundColor: Colors.transparent,
+                                    builder: (_) => TransactionWalletPickerSheet(
+                                      wallets: cashWallets,
+                                      selectedWallet: wallet,
+                                      onSelected: (w) {
+                                        setState(() {
+                                          _splitEntries[i]['wallet'] = w;
+                                          _splitEntries[i]['formatter'] = _createFormatterForWallet(w);
+                                          _redistributeSplits();
+                                        });
+                                        Navigator.pop(context);
+                                      },
+                                    ),
+                                  );
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: wallet != null
+                                        ? colors.primary.withOpacity(0.10)
+                                        : colors.textSecondary.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.account_balance_wallet_rounded, size: 16, color: wallet != null ? colors.primary : colors.textSecondary),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          wallet?.name ?? 'Chọn ví',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: wallet != null ? colors.primary : colors.textSecondary,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Amount input
+                            Expanded(
+                              flex: 3,
+                              child: TextField(
+                                controller: ctrl,
+                                keyboardType: TextInputType.number,
+                                style: TextStyle(color: colors.textPrimary, fontSize: 13, fontWeight: FontWeight.bold),
+                                decoration: InputDecoration(
+                                  hintText: wallet != null
+                                      ? '0 ${_getCurrencySymbol(wallet.currencyCode)}'
+                                      : '0 đ',
+                                  hintStyle: TextStyle(color: colors.textSecondary.withOpacity(0.5), fontSize: 13),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                ),
+                                inputFormatters: [entry['formatter'] as CurrencyTextInputFormatter],
+                                onChanged: (val) {
+                                  final formatter = entry['formatter'] as CurrencyTextInputFormatter;
+                                  final cleanString = val.replaceAll(RegExp(r'[^0-9]'), '');
+                                  final double? amt = double.tryParse(cleanString);
+                                  if (amt != null && amt > 500000000) {
+                                    final formatted = formatter.formatDouble(500000000);
+                                    ctrl.value = TextEditingValue(
+                                      text: formatted,
+                                      selection: TextSelection.fromPosition(
+                                        TextPosition(offset: formatted.length),
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                            ),
+                            // Remove entry button
+                            if (_splitEntries.length > 2)
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    (ctrl).dispose();
+                                    _splitEntries.removeAt(i);
+                                    _redistributeSplits();
+                                  });
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.only(left: 4),
+                                  child: Icon(Icons.remove_circle_outline_rounded, color: Colors.redAccent, size: 20),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                  // Add entry button
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _addSplitEntry(wallet: null);
+                        _redistributeSplits();
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: colors.primary.withOpacity(0.06),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: colors.primary.withOpacity(0.2), style: BorderStyle.solid),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.add_circle_outline_rounded, size: 18, color: colors.primary),
+                          const SizedBox(width: 6),
+                          Text('Thêm ví', style: TextStyle(color: colors.primary, fontSize: 13, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                ],
 
                 // 📝 5. Optional Title Input
                 if (_showTitleField) ...[

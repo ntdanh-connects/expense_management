@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:expense_management/core/network/api_endpoints.dart';
 import 'package:expense_management/core/database/app_database.dart';
@@ -97,7 +98,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
             walletId: tx.walletId,
             categoryId: tx.categoryId,
             amount: tx.amount,
-            amountInUserCurrency: tx.amount * (tx.exchangeRate ?? 1.0),
+            amountInUserCurrency: tx.amountInUserCurrency,
             type: tx.type,
             title: tx.title,
             notes: tx.notes,
@@ -112,6 +113,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
             payeeAccountNumber: tx.payeeAccountNumber,
             payeeBankName: tx.payeeBankName,
             isTransferLocked: tx.isTransferLocked,
+            isSplit: tx.isSplit,
           );
         }).toList();
         
@@ -137,10 +139,10 @@ class TransactionRepositoryImpl implements TransactionRepository {
   @override
   Future<TransactionEntity> createTransaction({
     String? id,
-    required String walletId,
+    String? walletId,
     String? categoryId,
     required String type,
-    required double amount,
+    double? amount,
     required String title,
     String? notes,
     String? transactionDate,
@@ -150,6 +152,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
     MultipartFile? attachment,
     String? payeeId,
     String? sourceType,
+    List<Map<String, dynamic>>? splits,
   }) async {
     try {
       final response = await _apiService.createRemoteTransaction(
@@ -167,6 +170,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
         attachment: attachment,
         payeeId: payeeId,
         sourceType: sourceType,
+        splits: splits != null ? jsonEncode(splits) : null,
       );
       return TransactionMapper.toEntity(response.data);
     } catch (e, stackTrace) {
@@ -204,6 +208,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
     String? sourceType,
     String? type,
     MultipartFile? attachment,
+    double? amount,
+    String? walletId,
+    List<Map<String, dynamic>>? splits,
   }) async {
     try {
       final response = await _apiService.updateRemoteTransaction(
@@ -215,6 +222,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
         sourceType: sourceType,
         type: type,
         attachment: attachment,
+        amount: amount,
+        walletId: walletId,
+        splits: splits != null ? jsonEncode(splits) : null,
       );
       return TransactionMapper.toEntity(response.data);
     } catch (e, stackTrace) {

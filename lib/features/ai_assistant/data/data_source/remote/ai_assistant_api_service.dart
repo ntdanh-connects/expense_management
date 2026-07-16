@@ -24,4 +24,14 @@ abstract class AiAssistantApiService {
 
   @GET('api/ai-conversations/{id}/messages')
   Future<dynamic> getConversationMessages(@Path('id') String id);
+
+  @GET('api/ai/habit-analyses')
+  Future<dynamic> getHabitAnalyses({
+    @Query('type') String? type,
+    @Query('page') int? page,
+    @Query('per_page') int? perPage,
+  });
+
+  @POST('api/ai/habit-analyses/{id}/read')
+  Future<dynamic> markHabitAnalysisRead(@Path('id') String id);
 }

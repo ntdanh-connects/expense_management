@@ -87,6 +87,7 @@ class _TransactionResultScreenState
         attachment: attachmentFile,
         payeeId: widget.params.payeeId,
         sourceType: widget.params.sourceType,
+        splits: widget.params.splits,
       );
 
       // Lưu trữ mã giao dịch trả về từ API
@@ -118,7 +119,7 @@ class _TransactionResultScreenState
         final currencyCode = widget.params.currencyCode ?? 'VND';
         final currencySymbol = AppConstant.getCurrencySymbol(currencyCode);
         final formattedAmount = AppConstant.formatMoney(
-          widget.params.amount,
+          widget.params.amount ?? 0.0,
           currencyCode,
         );
         final walletPart = ' ví "${widget.params.walletName}"';
@@ -277,7 +278,7 @@ class _TransactionResultScreenState
           finalTitle: _finalTitle,
           finalCategoryName: _finalCategoryName,
           formattedAmount: _formatAmount(
-            widget.params.amount,
+            widget.params.amount ?? 0.0,
             widget.params.currencyCode,
           ),
           formattedDate: _formatDate(widget.params.transactionDate),
@@ -292,7 +293,7 @@ class _TransactionResultScreenState
         return TransactionResultOfflineSuccessView(
           params: widget.params,
           formattedAmount: _formatAmount(
-            widget.params.amount,
+            widget.params.amount ?? 0.0,
             widget.params.currencyCode,
           ),
           formattedDate: _formatDate(widget.params.transactionDate),

@@ -29,10 +29,10 @@ abstract class TransactionApiService {
   @MultiPart()
   Future<BaseResponseDto<TransactionDto>> createRemoteTransaction({
     @Part(name: 'id') String? id,
-    @Part(name: 'wallet_id') required String walletId,
+    @Part(name: 'wallet_id') String? walletId,
     @Part(name: 'category_id') String? categoryId,
     @Part(name: 'type') required String type,
-    @Part(name: 'amount') required double amount,
+    @Part(name: 'amount') double? amount,
     @Part(name: 'title') required String title,
     @Part(name: 'notes') String? notes,
     @Part(name: 'transaction_date') String? transactionDate,
@@ -42,6 +42,7 @@ abstract class TransactionApiService {
     @Part(name: 'attachment') MultipartFile? attachment,
     @Part(name: 'payee_id') String? payeeId,
     @Part(name: 'source_type') String? sourceType,
+    @Part(name: 'splits') String? splits,
   });
 
   @GET(ApiEndpoints.showTransaction)
@@ -60,6 +61,9 @@ abstract class TransactionApiService {
     @Part(name: 'source_type') String? sourceType,
     @Part(name: 'type') String? type,
     @Part(name: 'attachment') MultipartFile? attachment,
+    @Part(name: 'amount') double? amount,
+    @Part(name: 'wallet_id') String? walletId,
+    @Part(name: 'splits') String? splits,
   });
 
   @DELETE(ApiEndpoints.deleteTransaction)

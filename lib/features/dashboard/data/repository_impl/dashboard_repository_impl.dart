@@ -46,7 +46,7 @@ class DashboardRepositoryImpl implements DashboardRepository {
             walletId: tx.walletId,
             categoryId: tx.categoryId,
             amount: tx.amount,
-            amountInUserCurrency: tx.amount * (tx.exchangeRate ?? 1.0),
+            amountInUserCurrency: tx.amountInUserCurrency,
             type: tx.type,
             title: tx.title,
             notes: tx.notes,
@@ -61,6 +61,7 @@ class DashboardRepositoryImpl implements DashboardRepository {
             payeeAccountNumber: tx.payeeAccountNumber,
             payeeBankName: tx.payeeBankName,
             isTransferLocked: tx.isTransferLocked,
+            isSplit: tx.isSplit,
           );
         }).toList();
 

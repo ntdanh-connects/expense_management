@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:currency_text_input_formatter/currency_text_input_formatter.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/wallet/domain/entities/wallet_entity.dart';
 import 'package:expense_management/features/wallet/data/models/create_wallet_request.dart';
@@ -9,13 +10,13 @@ import 'package:expense_management/features/wallet/domain/di/domain_providers.da
 import 'package:expense_management/core/constants/app_constant.dart';
 import 'package:expense_management/features/profile/presentation/providers/user_provider.dart';
 import 'package:expense_management/core/language/app_language.dart';
-import '../widget/shared/wallet_constants.dart';
 import '../widget/qr_transfer/swipe_to_confirm_button.dart';
 import '../widget/wallet/wallet_preview_card.dart';
 import '../widget/add_wallet/add_wallet_type_selector.dart';
 import '../widget/add_wallet/add_wallet_icon_grid.dart';
 import '../widget/add_wallet/add_wallet_color_picker.dart';
 import '../widget/add_wallet/add_wallet_switches.dart';
+import 'package:expense_management/features/notification/presentation/providers/notification_provider.dart';
 
 class AddWalletScreen extends ConsumerStatefulWidget {
   final WalletEntity? walletToEdit;
@@ -38,11 +39,19 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
   bool _isLoading = false;
   bool _isHidden = false;
   bool _isDefaultReceiving = false;
+  double? _minimumBalance;
+  final TextEditingController _minimumBalanceController = TextEditingController();
+  late final CurrencyTextInputFormatter _minimumBalanceFormatter;
   String _selectedCurrency = 'VND';
 
   @override
   void initState() {
     super.initState();
+    _minimumBalanceFormatter = CurrencyTextInputFormatter.currency(
+      locale: 'vi_VN',
+      decimalDigits: 0,
+      symbol: 'đ',
+    );
     if (widget.walletToEdit != null) {
       _walletName = widget.walletToEdit!.name;
       _nameController.text = widget.walletToEdit!.name;
@@ -54,6 +63,19 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
       _isHidden = widget.walletToEdit!.isHidden;
       _selectedCurrency = widget.walletToEdit!.currencyCode;
       _isDefaultReceiving = widget.walletToEdit!.isDefaultReceiving;
+      _minimumBalance = widget.walletToEdit!.minimumBalance;
+      if (widget.walletToEdit!.isMinimumBalanceAlertEnabled != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ref.read(minimumBalanceAlertProvider.notifier).toggle(
+              widget.walletToEdit!.isMinimumBalanceAlertEnabled!,
+            );
+          }
+        });
+      }
+      if (_minimumBalance != null) {
+        _minimumBalanceController.text = _minimumBalanceFormatter.formatDouble(_minimumBalance!);
+      }
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -85,6 +107,7 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
   void dispose() {
     _nameController.dispose();
     _balanceController.dispose();
+    _minimumBalanceController.dispose();
     super.dispose();
   }
 
@@ -291,7 +314,49 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
                 ),
                 const SizedBox(height: 28),
 
-                // 🚀 7. NÚT SUBMIT
+                // 🔔 7. CẢNH BÁO SỐ DƯ TỐI THIỂU
+                const SizedBox(height: 24),
+                Text(
+                  'Cảnh báo số dư tối thiểu',
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withOpacity(0.04)
+                        : const Color(0xFFF3F4F6),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: TextField(
+                    controller: _minimumBalanceController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                    inputFormatters: [_minimumBalanceFormatter],
+                    style: TextStyle(color: colors.textPrimary),
+                    onChanged: (val) {
+                      setState(() {
+                        final cleanString = val.replaceAll(RegExp(r'[^0-9]'), '');
+                        _minimumBalance = cleanString.isEmpty ? null : double.tryParse(cleanString);
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Để trống nếu không cần cảnh báo',
+                      hintStyle: TextStyle(
+                        color: colors.textSecondary.withOpacity(0.6),
+                        fontSize: 14,
+                      ),
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ),
+
+
+                // 🚀 8. NÚT SUBMIT
                 SizedBox(
                   width: double.infinity,
                   height: 54,
@@ -497,6 +562,11 @@ class _AddWalletScreenState extends ConsumerState<AddWalletScreen> {
         isHidden: _isHidden,
         availableBalance: null,
         currencyCode: _selectedCurrency,
+        minimumBalance: _minimumBalance,
+        isMinimumBalanceAlertEnabled:
+            _minimumBalance != null
+                ? ref.read(minimumBalanceAlertProvider)
+                : null,
       );
 
       if (widget.walletToEdit != null) {

@@ -27,17 +27,19 @@ class TransactionAttachmentDto {
 class TransactionDto {
   final String id;
   @JsonKey(name: 'wallet_id')
-  final String walletId;
+  final String? walletId;
   @JsonKey(name: 'category_id')
   final String? categoryId;
   final String type;
   final String status;
   @JsonKey(fromJson: _amountFromJson)
-  final double amount;
+  final double? amount;
   @JsonKey(name: 'currency_code')
   final String? currencyCode;
   @JsonKey(name: 'exchange_rate', fromJson: _exchangeRateFromJson)
   final double? exchangeRate;
+  @JsonKey(name: 'amount_in_user_currency', fromJson: _amountInUserCurrencyFromJson)
+  final double amountInUserCurrency;
   final String title;
   final String? notes;
   final String? timezone;
@@ -59,16 +61,20 @@ class TransactionDto {
   final String? payeeId;
   final TransactionPayeeDto? payee;
   final TransactionSenderDto? sender;
+  @JsonKey(name: 'is_split')
+  final bool? isSplit;
+  final List<TransactionSplitDto>? splits;
 
   TransactionDto({
     required this.id,
-    required this.walletId,
+    this.walletId,
     this.categoryId,
     required this.type,
     required this.status,
-    required this.amount,
+    this.amount,
     this.currencyCode,
     this.exchangeRate,
+    required this.amountInUserCurrency,
     required this.title,
     this.notes,
     this.timezone,
@@ -83,9 +89,18 @@ class TransactionDto {
     this.payeeId,
     this.payee,
     this.sender,
+    this.isSplit,
+    this.splits,
   });
 
-  static double _amountFromJson(dynamic value) {
+  static double? _amountFromJson(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  static double _amountInUserCurrencyFromJson(dynamic value) {
     if (value == null) return 0.0;
     if (value is num) return value.toDouble();
     if (value is String) return double.tryParse(value) ?? 0.0;
@@ -162,4 +177,35 @@ class TransactionSenderDto {
   factory TransactionSenderDto.fromJson(Map<String, dynamic> json) =>
       _$TransactionSenderDtoFromJson(json);
   Map<String, dynamic> toJson() => _$TransactionSenderDtoToJson(this);
+}
+
+@JsonSerializable()
+class TransactionSplitDto {
+  final String id;
+  @JsonKey(name: 'wallet_id')
+  final String walletId;
+  @JsonKey(fromJson: _doubleFromJson)
+  final double amount;
+  @JsonKey(name: 'amount_in_user_currency', fromJson: _doubleFromJson)
+  final double amountInUserCurrency;
+  final WalletDto? wallet;
+
+  TransactionSplitDto({
+    required this.id,
+    required this.walletId,
+    required this.amount,
+    required this.amountInUserCurrency,
+    this.wallet,
+  });
+
+  static double _doubleFromJson(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
+
+  factory TransactionSplitDto.fromJson(Map<String, dynamic> json) =>
+      _$TransactionSplitDtoFromJson(json);
+  Map<String, dynamic> toJson() => _$TransactionSplitDtoToJson(this);
 }

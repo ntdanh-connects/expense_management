@@ -28,7 +28,7 @@ class CategoryDetailStatsGrid extends StatelessWidget {
 
     double maxTx = 0.0;
     for (final tx in selectedPeriodTxs) {
-      final amt = tx.amount * (tx.exchangeRate ?? 1.0);
+      final amt = tx.amountInUserCurrency;
       if (amt > maxTx) maxTx = amt;
     }
 

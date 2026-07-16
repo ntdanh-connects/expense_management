@@ -226,7 +226,7 @@ class _CategoryDetailTxListState extends ConsumerState<CategoryDetailTxList> {
       );
     } else if (_activeFilterTab == 'top_spend') {
       final sortedList = List<TransactionEntity>.from(originalList)
-        ..sort((a, b) => (b.amount * (b.exchangeRate ?? 1.0)).compareTo(a.amount * (a.exchangeRate ?? 1.0)));
+        ..sort((a, b) => b.amountInUserCurrency.compareTo(a.amountInUserCurrency));
 
       return ListView.separated(
         shrinkWrap: true,
@@ -246,7 +246,7 @@ class _CategoryDetailTxListState extends ConsumerState<CategoryDetailTxList> {
             ? tx.payeeName!.trim()
             : tx.title.trim();
 
-        final txAmount = tx.amount * (tx.exchangeRate ?? 1.0);
+        final txAmount = tx.amountInUserCurrency;
         final existing = payeeGroups[payee];
         if (existing != null) {
           payeeGroups[payee] = (
@@ -571,7 +571,7 @@ class _CategoryDetailTxListState extends ConsumerState<CategoryDetailTxList> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    (tx.type == 'expense' ? '-' : '+') + _formatCurrency(tx.amount * (tx.exchangeRate ?? 1.0)),
+                    (tx.type == 'expense' ? '-' : '+') + _formatCurrency(tx.amountInUserCurrency),
                     style: TextStyle(
                       color: tx.type == 'expense' ? colors.expenseRed : colors.incomeGreen,
                       fontWeight: FontWeight.bold,

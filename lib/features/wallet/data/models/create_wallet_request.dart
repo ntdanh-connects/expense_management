@@ -14,6 +14,10 @@ class CreateWalletRequest {
   final String? availableBalance;
   @JsonKey(name: 'currency_code')
   final String? currencyCode;
+  @JsonKey(name: 'minimum_balance', includeIfNull: false)
+  final double? minimumBalance;
+  @JsonKey(name: 'is_minimum_balance_alert_enabled', includeIfNull: false)
+  final bool? isMinimumBalanceAlertEnabled;
 
   CreateWalletRequest({
     required this.name,
@@ -23,6 +27,8 @@ class CreateWalletRequest {
     this.isHidden,
     this.availableBalance,
     this.currencyCode,
+    this.minimumBalance,
+    this.isMinimumBalanceAlertEnabled,
   });
 
 

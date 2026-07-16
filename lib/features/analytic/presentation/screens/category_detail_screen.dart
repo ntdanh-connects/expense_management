@@ -202,7 +202,7 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
             for (int i = 0; i < periods.length; i++) {
               if (txDate.isAfter(periods[i].start.subtract(const Duration(seconds: 1))) &&
                   txDate.isBefore(periods[i].end.add(const Duration(seconds: 1)))) {
-                periodAmounts[i] += tx.amount * (tx.exchangeRate ?? 1.0);
+                periodAmounts[i] += tx.amountInUserCurrency;
                 break;
               }
             }

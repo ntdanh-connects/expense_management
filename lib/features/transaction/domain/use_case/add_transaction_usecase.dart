@@ -9,10 +9,10 @@ class AddTransactionUseCase {
 
   Future<TransactionEntity> execute({
     String? id,
-    required String walletId,
+    String? walletId,
     String? categoryId,
     required String type,
-    required double amount,
+    double? amount,
     required String title,
     String? notes,
     String? transactionDate,
@@ -22,6 +22,7 @@ class AddTransactionUseCase {
     MultipartFile? attachment,
     String? payeeId,
     String? sourceType,
+    List<Map<String, dynamic>>? splits,
   }) {
     return _repository.createTransaction(
       id: id,
@@ -38,6 +39,7 @@ class AddTransactionUseCase {
       attachment: attachment,
       payeeId: payeeId,
       sourceType: sourceType,
+      splits: splits,
     );
   }
 }

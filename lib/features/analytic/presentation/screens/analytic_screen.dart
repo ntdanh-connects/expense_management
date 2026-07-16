@@ -17,6 +17,7 @@ import 'package:expense_management/features/profile/presentation/providers/categ
 import 'package:expense_management/features/analytic/presentation/screens/statistics_tab.dart';
 import 'package:expense_management/features/analytic/presentation/screens/balance_fluctuation_tab.dart';
 import 'package:expense_management/features/analytic/presentation/screens/budget_tab.dart';
+import 'package:expense_management/features/analytic/presentation/screens/habit_analysis_tab.dart';
 
 class AnalyticScreen extends ConsumerStatefulWidget {
   const AnalyticScreen({super.key});
@@ -35,7 +36,8 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
       if (tab != null &&
           (tab == 'statistics' ||
               tab == 'balance_fluctuations' ||
-              tab == 'budget')) {
+              tab == 'budget' ||
+              tab == 'habit_analysis')) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             ref.read(selectedAnalyticTabProvider.notifier).state = tab;
@@ -105,7 +107,7 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 📊 1. BỘ PHÂN LOẠI NGANG PHỤ (THỐNG KÊ / BIẾN ĐỘNG SỐ DƯ / NGÂN SÁCH)
+              // 📊 1. BỘ PHÂN LOẠI NGANG PHỤ (THỐNG KÊ / BIẾN ĐỘNG SỐ DƯ / NGÂN SÁCH / THÓI QUEN)
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
@@ -116,6 +118,8 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
                     _buildSubTabButton('balance_fluctuations', selectedSubTab),
                     const SizedBox(width: 8),
                     _buildSubTabButton('budget', selectedSubTab),
+                    const SizedBox(width: 8),
+                    _buildSubTabButton('habit_analysis', selectedSubTab),
                   ],
                 ),
               ),
@@ -128,6 +132,8 @@ class _AnalyticScreenState extends ConsumerState<AnalyticScreen> {
                 const BalanceFluctuationTab(),
               ] else if (selectedSubTab == 'budget') ...[
                 const BudgetTab(),
+              ] else if (selectedSubTab == 'habit_analysis') ...[
+                const HabitAnalysisTab(),
               ],
               const SizedBox(
                 height: 80,

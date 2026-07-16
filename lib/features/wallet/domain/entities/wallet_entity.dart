@@ -8,6 +8,8 @@ class WalletEntity {
   final bool isHidden;
   final String currencyCode;
   final bool isDefaultReceiving;
+  final double? minimumBalance;
+  final bool isMinimumBalanceAlertEnabled;
 
   WalletEntity({
     required this.id,
@@ -19,5 +21,7 @@ class WalletEntity {
     required this.isHidden,
     required this.currencyCode,
     required this.isDefaultReceiving,
+    this.minimumBalance,
+    this.isMinimumBalanceAlertEnabled = true,
   });
 }

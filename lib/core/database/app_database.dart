@@ -35,6 +35,9 @@ class Wallets extends Table {
   BoolColumn get isHidden => boolean().withDefault(const Constant(false))();
   BoolColumn get isDefaultReceiving =>
       boolean().withDefault(const Constant(false))();
+  RealColumn get minimumBalance => real().nullable()();
+  BoolColumn get isMinimumBalanceAlertEnabled =>
+      boolean().nullable().withDefault(const Constant(true))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -58,9 +61,9 @@ class Categories extends Table {
 class LocalTransactions extends Table {
   TextColumn get id => text()();
   TextColumn get userId => text()();
-  TextColumn get walletId => text()();
+  TextColumn get walletId => text().nullable()();
   TextColumn get categoryId => text().nullable()();
-  RealColumn get amount => real()();
+  RealColumn get amount => real().nullable()();
   RealColumn get amountInUserCurrency => real()();
   TextColumn get type => text()(); // income / expense
   TextColumn get title => text()();
@@ -80,6 +83,7 @@ class LocalTransactions extends Table {
   TextColumn get payeeAccountNumber => text().nullable()();
   TextColumn get payeeBankName => text().nullable()();
   BoolColumn get isTransferLocked => boolean().withDefault(const Constant(false))();
+  BoolColumn get isSplit => boolean().nullable().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -119,7 +123,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -211,6 +215,15 @@ class AppDatabase extends _$AppDatabase {
       if (from < 13) {
         try {
           await m.addColumn(localTransactions, localTransactions.isTransferLocked);
+        } catch (e) {
+          // Bỏ qua nếu cột đã tồn tại
+        }
+      }
+      if (from < 14) {
+        try {
+          await m.addColumn(wallets, wallets.minimumBalance);
+          await m.addColumn(wallets, wallets.isMinimumBalanceAlertEnabled);
+          await m.addColumn(localTransactions, localTransactions.isSplit);
         } catch (e) {
           // Bỏ qua nếu cột đã tồn tại
         }
