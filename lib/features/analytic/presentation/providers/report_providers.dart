@@ -329,7 +329,7 @@ Future<ReportCategoryDto> _adjustReportCategories(
     final transfers = result.items.where((tx) => tx.isTransferLocked);
     double transferTotal = 0.0;
     for (final tx in transfers) {
-      transferTotal += tx.amount * (tx.exchangeRate ?? 1.0);
+      transferTotal += tx.amountInUserCurrency;
     }
 
     if (transferTotal == 0.0) return dto;
@@ -548,7 +548,7 @@ final trendsDailyProvider = FutureProvider.autoDispose<List<ReportTrendEntryDto>
     double income = 0.0;
     double expense = 0.0;
     for (final tx in items) {
-      final amount = tx.amount * (tx.exchangeRate ?? 1.0);
+      final amount = tx.amountInUserCurrency;
       if (tx.type == 'income') {
         income += amount;
       } else if (tx.type == 'expense') {
@@ -915,6 +915,7 @@ final categoryDetailTransactionsProvider =
               type: tx.type,
               status: tx.status,
               amount: tx.amount,
+              amountInUserCurrency: tx.amountInUserCurrency,
               currencyCode: tx.currencyCode,
               exchangeRate: tx.exchangeRate,
               title: tx.title,

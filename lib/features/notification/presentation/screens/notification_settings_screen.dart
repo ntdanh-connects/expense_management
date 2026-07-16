@@ -103,6 +103,8 @@ class _SettingsBody extends ConsumerWidget {
                     .read(notificationPreferencesProvider.notifier)
                     .updateSettings(emailEnabled: v),
               ),
+              const _Divider(),
+              const _MinBalanceAlertTile(),
             ],
           ),
           const SizedBox(height: 20),
@@ -331,6 +333,58 @@ class _Divider extends StatelessWidget {
       indent: 16,
       endIndent: 16,
       color: colors.textSecondary.withValues(alpha: 0.12),
+    );
+  }
+}
+
+class _MinBalanceAlertTile extends ConsumerWidget {
+  const _MinBalanceAlertTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final enabled = ref.watch(minimumBalanceAlertProvider);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Cảnh báo số dư ví',
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Nhận cảnh báo lúc 08:00 khi số dư ví thấp hơn mức tối thiểu đã đặt',
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Switch(
+            value: enabled,
+            onChanged: (v) =>
+                ref.read(minimumBalanceAlertProvider.notifier).toggle(v),
+            activeThumbColor: Colors.white,
+            activeTrackColor: colors.primary,
+            inactiveThumbColor: Colors.white,
+            inactiveTrackColor: colors.textSecondary.withValues(alpha: 0.24),
+            trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
+          ),
+        ],
+      ),
     );
   }
 }

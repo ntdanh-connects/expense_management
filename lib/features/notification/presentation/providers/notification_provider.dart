@@ -468,3 +468,31 @@ final notificationReminderManagerProvider = Provider<void>((ref) {
   });
 });
 
+// Provider bật/tắt cảnh báo số dư tối thiểu — lưu local qua SharedPreferences
+class MinimumBalanceAlertNotifier extends StateNotifier<bool> {
+  MinimumBalanceAlertNotifier() : super(true) {
+    _loadFromPrefs();
+  }
+
+  static const _key = 'minimum_balance_alert_enabled';
+
+  Future<void> _loadFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      state = prefs.getBool(_key) ?? true;
+    } catch (_) {}
+  }
+
+  Future<void> toggle(bool value) async {
+    state = value;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_key, value);
+    } catch (_) {}
+  }
+}
+
+final minimumBalanceAlertProvider =
+    StateNotifierProvider<MinimumBalanceAlertNotifier, bool>(
+  (ref) => MinimumBalanceAlertNotifier(),
+);

@@ -204,7 +204,7 @@ class TransactionCard extends ConsumerWidget {
         ? localWallet.currencyCode.toString()
         : 'đ';
 
-    final formattedAmount = _fmtAmount(tx.amount, currencySymbol);
+    final formattedAmount = _fmtAmount(tx.amountInUserCurrency, currencySymbol);
 
     // Xác định tiền tố dấu và màu sắc
     String sign = '';

@@ -1,13 +1,14 @@
 
 class TransactionEntity {
   final String id;
-  final String walletId;
+  final String? walletId;
   final String? categoryId;
   final String type; // income, expense
   final String status;
-  final double amount;
+  final double? amount;
   final String? currencyCode;
   final double? exchangeRate;
+  final double amountInUserCurrency;
   final String title;
   final String? notes;
   final String? timezone;
@@ -16,6 +17,7 @@ class TransactionEntity {
   final bool isTransferLocked;
   final DateTime transactionDate;
   final DateTime? createdAt;
+  final bool isSplit;
   
   // Custom helper fields populated from joins
   final String? categoryName;
@@ -39,13 +41,14 @@ class TransactionEntity {
 
   TransactionEntity({
     required this.id,
-    required this.walletId,
+    this.walletId,
     this.categoryId,
     required this.type,
     required this.status,
-    required this.amount,
+    this.amount,
     this.currencyCode,
     this.exchangeRate,
+    required this.amountInUserCurrency,
     required this.title,
     this.notes,
     this.timezone,
@@ -54,6 +57,7 @@ class TransactionEntity {
     this.isTransferLocked = false,
     required this.transactionDate,
     this.createdAt,
+    this.isSplit = false,
     this.categoryName,
     this.categoryIcon,
     this.categoryColor,
@@ -77,13 +81,14 @@ class TransactionEntity {
     final sender = json['sender'] as Map<String, dynamic>?;
     return TransactionEntity(
       id: json['id'] as String,
-      walletId: json['wallet_id'] as String,
+      walletId: json['wallet_id'] as String?,
       categoryId: json['category_id'] as String?,
       type: json['type'] as String,
       status: json['status'] as String,
-      amount: (json['amount'] as num).toDouble(),
+      amount: json['amount'] != null ? (json['amount'] as num).toDouble() : null,
       currencyCode: json['currency_code'] as String?,
       exchangeRate: (json['exchange_rate'] as num?)?.toDouble(),
+      amountInUserCurrency: (json['amount_in_user_currency'] as num?)?.toDouble() ?? 0.0,
       title: json['title'] as String,
       notes: json['notes'] as String?,
       timezone: json['timezone'] as String?,
@@ -92,6 +97,7 @@ class TransactionEntity {
       isTransferLocked: json['is_transfer_locked'] as bool? ?? false,
       transactionDate: DateTime.parse(json['transaction_date'] as String),
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null,
+      isSplit: json['is_split'] as bool? ?? false,
       categoryName: json['category_name'] as String?,
       categoryIcon: json['category_icon'] as String?,
       categoryColor: json['category_color'] as String?,
@@ -119,6 +125,7 @@ class TransactionEntity {
       'amount': amount,
       'currency_code': currencyCode,
       'exchange_rate': exchangeRate,
+      'amount_in_user_currency': amountInUserCurrency,
       'title': title,
       'notes': notes,
       'timezone': timezone,
@@ -127,6 +134,7 @@ class TransactionEntity {
       'is_transfer_locked': isTransferLocked,
       'transaction_date': transactionDate.toUtc().toIso8601String(),
       'created_at': createdAt?.toUtc().toIso8601String(),
+      'is_split': isSplit,
       'category_name': categoryName,
       'category_icon': categoryIcon,
       'category_color': categoryColor,
@@ -158,6 +166,7 @@ class TransactionEntity {
     double? amount,
     String? currencyCode,
     double? exchangeRate,
+    double? amountInUserCurrency,
     String? title,
     String? notes,
     String? timezone,
@@ -166,6 +175,7 @@ class TransactionEntity {
     bool? isTransferLocked,
     DateTime? transactionDate,
     DateTime? createdAt,
+    bool? isSplit,
     String? categoryName,
     String? categoryIcon,
     String? categoryColor,
@@ -190,6 +200,7 @@ class TransactionEntity {
       amount: amount ?? this.amount,
       currencyCode: currencyCode ?? this.currencyCode,
       exchangeRate: exchangeRate ?? this.exchangeRate,
+      amountInUserCurrency: amountInUserCurrency ?? this.amountInUserCurrency,
       title: title ?? this.title,
       notes: notes ?? this.notes,
       timezone: timezone ?? this.timezone,
@@ -198,6 +209,7 @@ class TransactionEntity {
       isTransferLocked: isTransferLocked ?? this.isTransferLocked,
       transactionDate: transactionDate ?? this.transactionDate,
       createdAt: createdAt ?? this.createdAt,
+      isSplit: isSplit ?? this.isSplit,
       categoryName: categoryName ?? this.categoryName,
       categoryIcon: categoryIcon ?? this.categoryIcon,
       categoryColor: categoryColor ?? this.categoryColor,

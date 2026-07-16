@@ -17,6 +17,10 @@ class WalletDto {
   final String? currencyCode;
   @JsonKey(name: 'is_default_receiving')
   final bool? isDefaultReceiving;
+  @JsonKey(name: 'minimum_balance', fromJson: _balanceFromJson)
+  final double? minimumBalance;
+  @JsonKey(name: 'is_minimum_balance_alert_enabled')
+  final bool? isMinimumBalanceAlertEnabled;
 
   WalletDto({
     required this.id,
@@ -28,6 +32,8 @@ class WalletDto {
     required this.availableBalance,
     this.currencyCode,
     this.isDefaultReceiving,
+    this.minimumBalance,
+    this.isMinimumBalanceAlertEnabled,
   });
 
   static double _balanceFromJson(dynamic value) {

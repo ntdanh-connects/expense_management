@@ -41,6 +41,7 @@ import 'package:expense_management/features/notification/presentation/screens/no
 import 'package:expense_management/features/notification/data/models/notification_dto.dart';
 import 'package:expense_management/features/ai_assistant/presentation/screens/ai_assistant_screen.dart';
 import 'package:expense_management/features/ai_assistant/presentation/screens/ai_chat_history_screen.dart';
+import 'package:expense_management/features/ai_assistant/presentation/screens/habit_analysis_screen.dart';
 import 'package:expense_management/features/security/presentation/screens/pin_setup_screen.dart';
 import 'package:expense_management/features/financial_month/presentation/screens/financial_month_screen.dart';
 import 'package:expense_management/features/profile/presentation/screens/sandbox_simulate_transfer_screen.dart';
@@ -93,6 +94,7 @@ class RoutePaths {
   static const savingsList = '/savings';
   static const savingsCreate = '/savings/create';
   static const savingsDetail = '/savings/:id';
+  static const habitAnalyses = '/ai-assistant/habit-analyses';
 }
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -262,6 +264,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.aiAssistantHistory,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const AIChatHistoryScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.habitAnalyses,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const HabitAnalysisScreen(),
       ),
       GoRoute(
         path: RoutePaths.savingsList,

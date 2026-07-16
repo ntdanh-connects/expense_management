@@ -104,7 +104,7 @@ class PdfReportGenerator {
             }
             
             final txCurrency = tx.currencyCode ?? 'VND';
-            final amt = _convertToUserCurrency(tx.amount, txCurrency, userCurrency, ratesData);
+            final amt = tx.amountInUserCurrency;
             
             if (tx.type == 'income') {
               localIncome += amt;
@@ -166,7 +166,7 @@ class PdfReportGenerator {
             if (tx.type != 'expense' || tx.status != 'completed') continue;
             final diffDays = tx.transactionDate.difference(startDate).inDays;
             final txCurrency = tx.currencyCode ?? 'VND';
-            final amt = _convertToUserCurrency(tx.amount, txCurrency, userCurrency, ratesData);
+            final amt = tx.amountInUserCurrency;
             
             if (diffDays < 7) {
               weeklySpending['Tuần 1'] = weeklySpending['Tuần 1']! + amt;
@@ -525,7 +525,7 @@ class PdfReportGenerator {
     final rows = transactions.map((tx) {
       final txCurrency = tx.currencyCode ?? 'VND';
       final txSymbol = AppConstant.getCurrencySymbol(txCurrency);
-      final txAmountStr = '${AppConstant.formatMoney(tx.amount, txCurrency)} $txSymbol';
+      final txAmountStr = '${AppConstant.formatMoney(tx.amountInUserCurrency, txCurrency)} $txSymbol';
 
       return [
         dateFormat.format(tx.transactionDate),

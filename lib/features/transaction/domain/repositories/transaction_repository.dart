@@ -20,10 +20,10 @@ abstract class TransactionRepository {
 
   Future<TransactionEntity> createTransaction({
     String? id,
-    required String walletId,
+    String? walletId,
     String? categoryId,
     required String type,
-    required double amount,
+    double? amount,
     required String title,
     String? notes,
     String? transactionDate,
@@ -33,6 +33,7 @@ abstract class TransactionRepository {
     MultipartFile? attachment,
     String? payeeId,
     String? sourceType,
+    List<Map<String, dynamic>>? splits,
   });
 
   Future<TransactionEntity> getTransactionById(String id);
@@ -46,6 +47,9 @@ abstract class TransactionRepository {
     String? sourceType,
     String? type,
     MultipartFile? attachment,
+    double? amount,
+    String? walletId,
+    List<Map<String, dynamic>>? splits,
   });
 
   Future<void> deleteTransaction(String id);

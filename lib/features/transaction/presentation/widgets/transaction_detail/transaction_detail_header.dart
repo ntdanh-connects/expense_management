@@ -21,7 +21,7 @@ class TransactionDetailHeader extends ConsumerWidget {
     final colors = context.colors;
     final currencySymbol = transaction.currencyCode ?? 'đ';
     final formattedAmount =
-        AppConstant.formatMoney(transaction.amount, transaction.currencyCode);
+        AppConstant.formatMoney(transaction.amountInUserCurrency, transaction.currencyCode);
     final sign = transaction.type == 'income'
         ? '+'
         : (transaction.type == 'expense' ? '-' : '');
@@ -45,7 +45,7 @@ class TransactionDetailHeader extends ConsumerWidget {
               transaction.currencyCode == null) ...[
             const SizedBox(height: 4),
             Text(
-              '(${formatNumberToWords(transaction.amount, localeCode)})',
+              '(${formatNumberToWords(transaction.amountInUserCurrency, localeCode)})',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colors.textSecondary,

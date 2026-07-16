@@ -40,7 +40,7 @@ class CategorySubcategoryBreakdown extends StatelessWidget {
 
     for (final tx in selectedPeriodTxs) {
       final name = tx.categoryName ?? 'Chưa phân loại';
-      subcatSums[name] = (subcatSums[name] ?? 0.0) + (tx.amount * (tx.exchangeRate ?? 1.0));
+      subcatSums[name] = (subcatSums[name] ?? 0.0) + tx.amountInUserCurrency;
       if (!subcatSampleTxs.containsKey(name)) {
         subcatSampleTxs[name] = tx;
       }

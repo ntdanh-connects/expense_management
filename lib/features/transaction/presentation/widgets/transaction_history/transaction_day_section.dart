@@ -71,12 +71,7 @@ class TransactionDaySection extends StatelessWidget {
       }
       final txCurrency = (tx.currencyCode ?? 'VND').toUpperCase();
 
-      final converted = _convertToUserCurrency(
-        tx.amount,
-        txCurrency,
-        userCurrency,
-        ratesData,
-      );
+      final converted = tx.amountInUserCurrency;
 
       if (tx.type == 'income') {
         dayIncome += converted;

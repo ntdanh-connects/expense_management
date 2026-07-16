@@ -1,11 +1,11 @@
 
 class TransactionParams {
-  final String walletId;
-  final String walletName;
+  final String? walletId;
+  final String? walletName;
   final String? categoryId;
   final String? categoryName;
   final String type; // 'income' hoặc 'expense'
-  final double amount;
+  final double? amount;
   final String title;
   final String? notes;
   final String transactionDate;
@@ -19,14 +19,15 @@ class TransactionParams {
   final String? payeeBankName;
   final String? sourceType;
   final String? sourceId;
+  final List<Map<String, dynamic>>? splits;
 
   TransactionParams({
-    required this.walletId,
-    required this.walletName,
+    this.walletId,
+    this.walletName,
     this.categoryId,
     this.categoryName,
     required this.type,
-    required this.amount,
+    this.amount,
     required this.title,
     this.notes,
     required this.transactionDate,
@@ -40,5 +41,6 @@ class TransactionParams {
     this.payeeBankName,
     this.sourceType,
     this.sourceId,
+    this.splits,
   });
 }

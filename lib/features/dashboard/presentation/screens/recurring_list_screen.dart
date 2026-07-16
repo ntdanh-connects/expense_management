@@ -536,7 +536,7 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
           // 2. Khớp dự phòng theo tiêu đề, số tiền và ví (dành cho giao dịch offline/chờ đồng bộ)
           final isTitleMatch = tx.title == rule.title ||
               tx.title == 'Ghi nhận từ giao dịch định kỳ: ${rule.title}';
-          final isAmountMatch = (tx.amount - rule.amount).abs() < 0.01;
+          final isAmountMatch = (tx.amountInUserCurrency - rule.amount).abs() < 0.01;
           final isWalletMatch = tx.walletId == rule.walletId;
 
           return isTitleMatch && isAmountMatch && isWalletMatch;
