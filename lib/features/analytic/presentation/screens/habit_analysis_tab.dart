@@ -4,6 +4,7 @@ import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/features/ai_assistant/presentation/providers/habit_analysis_provider.dart';
 import 'package:expense_management/features/analytic/presentation/widgets/habit_analysis/habit_analysis_card.dart';
 import 'package:expense_management/features/analytic/presentation/widgets/habit_analysis/habit_analysis_type_badge.dart';
+import 'package:expense_management/shared/widgets/shimmer_components.dart';
 import 'package:intl/intl.dart';
 
 class HabitAnalysisTab extends ConsumerStatefulWidget {
@@ -93,11 +94,9 @@ class _HabitAnalysisTabState extends ConsumerState<HabitAnalysisTab> {
 
         // Body content
         if (state.isLoading && state.entries.isEmpty)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 40),
-              child: CircularProgressIndicator(),
-            ),
+          const Padding(
+            padding: EdgeInsets.only(top: 16),
+            child: ListShimmer(itemCount: 3, itemHeight: 180),
           )
         else if (state.error != null && state.entries.isEmpty)
           _buildError(state.error!, colors)
@@ -330,7 +329,7 @@ class _HabitAnalysisTabState extends ConsumerState<HabitAnalysisTab> {
         if (state.isLoading)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            child: BoxShimmer(height: 180, borderRadius: 24),
           )
         else if (state.hasMore)
           Padding(

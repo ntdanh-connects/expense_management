@@ -17,7 +17,7 @@ class WalletDto {
   final String? currencyCode;
   @JsonKey(name: 'is_default_receiving')
   final bool? isDefaultReceiving;
-  @JsonKey(name: 'minimum_balance', fromJson: _balanceFromJson)
+  @JsonKey(name: 'minimum_balance', fromJson: _nullableBalanceFromJson)
   final double? minimumBalance;
   @JsonKey(name: 'is_minimum_balance_alert_enabled')
   final bool? isMinimumBalanceAlertEnabled;
@@ -41,6 +41,13 @@ class WalletDto {
     if (value is num) return value.toDouble();
     if (value is String) return double.tryParse(value) ?? 0.0;
     return 0.0;
+  }
+
+  static double? _nullableBalanceFromJson(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
   }
 
   factory WalletDto.fromJson(Map<String, dynamic> json) => _$WalletDtoFromJson(json);

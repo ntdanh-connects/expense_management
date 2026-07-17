@@ -8,6 +8,7 @@ import 'package:expense_management/features/profile/presentation/widgets/categor
 import 'package:expense_management/shared/widgets/image_overlay_viewer.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
 import 'package:expense_management/core/language/app_language.dart';
+import 'package:expense_management/core/constants/app_constant.dart';
 
 class TransactionDetailFields extends ConsumerWidget {
   final TransactionEntity transaction;
@@ -179,6 +180,73 @@ class TransactionDetailFields extends ConsumerWidget {
             ],
           ),
         ),
+        if (transaction.isSplit && transaction.splits != null && transaction.splits!.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          Text(
+            'Nguồn tiền kết hợp'.tr(ref),
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              children: transaction.splits!.map((split) {
+                final walletName = split.walletName ?? 'Ví';
+                final walletSymbol = transaction.currencyCode ?? 'đ';
+                final formattedSplitAmount = AppConstant.formatMoney(split.amount, transaction.currencyCode);
+                
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6.0),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 14,
+                        backgroundColor: (split.walletColor != null
+                            ? CategoryUIConstants.getColorFromHex(split.walletColor)
+                            : colors.primary).withOpacity(0.15),
+                        child: Icon(
+                          Icons.account_balance_wallet_rounded,
+                          color: split.walletColor != null
+                              ? CategoryUIConstants.getColorFromHex(split.walletColor)
+                              : colors.primary,
+                          size: 14,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          walletName,
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '-$formattedSplitAmount $walletSymbol',
+                        style: TextStyle(
+                          color: colors.expenseRed,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
 
         if (transaction.payeeName != null && transaction.payeeName!.isNotEmpty) ...[
           const SizedBox(height: 18),

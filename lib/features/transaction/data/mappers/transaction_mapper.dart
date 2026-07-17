@@ -17,7 +17,7 @@ class TransactionMapper {
       fallbackWalletName = dto.splits!
           .map((s) => s.wallet?.name)
           .where((name) => name != null && name.isNotEmpty)
-          .join(', ');
+          .join(' + ');
       if (fallbackWalletName.isEmpty) {
         fallbackWalletName = 'Nhiều ví';
       }
@@ -44,6 +44,17 @@ class TransactionMapper {
       transactionDate: AppConstant.adjustOldTransactionDate(dto.transactionDate, dto.timezone, dto.createdAt),
       createdAt: dto.createdAt,
       isSplit: isSplit,
+      splits: dto.splits
+          ?.map((s) => TransactionSplitEntity(
+                id: s.id,
+                walletId: s.walletId,
+                amount: s.amount,
+                amountInUserCurrency: s.amountInUserCurrency,
+                walletName: s.wallet?.name,
+                walletColor: s.wallet?.color,
+                walletIcon: s.wallet?.icon,
+              ))
+          .toList(),
       categoryName: dto.category?.name,
       categoryIcon: dto.category?.icon,
       categoryColor: dto.category?.color,

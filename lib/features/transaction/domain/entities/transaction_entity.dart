@@ -18,6 +18,7 @@ class TransactionEntity {
   final DateTime transactionDate;
   final DateTime? createdAt;
   final bool isSplit;
+  final List<TransactionSplitEntity>? splits;
   
   // Custom helper fields populated from joins
   final String? categoryName;
@@ -58,6 +59,7 @@ class TransactionEntity {
     required this.transactionDate,
     this.createdAt,
     this.isSplit = false,
+    this.splits,
     this.categoryName,
     this.categoryIcon,
     this.categoryColor,
@@ -98,6 +100,9 @@ class TransactionEntity {
       transactionDate: DateTime.parse(json['transaction_date'] as String),
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null,
       isSplit: json['is_split'] as bool? ?? false,
+      splits: (json['splits'] as List<dynamic>?)
+          ?.map((e) => TransactionSplitEntity.fromJson(e as Map<String, dynamic>))
+          .toList(),
       categoryName: json['category_name'] as String?,
       categoryIcon: json['category_icon'] as String?,
       categoryColor: json['category_color'] as String?,
@@ -135,6 +140,7 @@ class TransactionEntity {
       'transaction_date': transactionDate.toUtc().toIso8601String(),
       'created_at': createdAt?.toUtc().toIso8601String(),
       'is_split': isSplit,
+      'splits': splits?.map((e) => e.toJson()).toList(),
       'category_name': categoryName,
       'category_icon': categoryIcon,
       'category_color': categoryColor,
@@ -176,6 +182,7 @@ class TransactionEntity {
     DateTime? transactionDate,
     DateTime? createdAt,
     bool? isSplit,
+    List<TransactionSplitEntity>? splits,
     String? categoryName,
     String? categoryIcon,
     String? categoryColor,
@@ -210,6 +217,7 @@ class TransactionEntity {
       transactionDate: transactionDate ?? this.transactionDate,
       createdAt: createdAt ?? this.createdAt,
       isSplit: isSplit ?? this.isSplit,
+      splits: splits ?? this.splits,
       categoryName: categoryName ?? this.categoryName,
       categoryIcon: categoryIcon ?? this.categoryIcon,
       categoryColor: categoryColor ?? this.categoryColor,
@@ -225,5 +233,52 @@ class TransactionEntity {
       senderWalletName: senderWalletName ?? this.senderWalletName,
       senderIdentifier: senderIdentifier ?? this.senderIdentifier,
     );
+  }
+}
+
+class TransactionSplitEntity {
+  final String id;
+  final String walletId;
+  final double amount;
+  final double amountInUserCurrency;
+  final String? walletName;
+  final String? walletColor;
+  final String? walletIcon;
+
+  TransactionSplitEntity({
+    required this.id,
+    required this.walletId,
+    required this.amount,
+    required this.amountInUserCurrency,
+    this.walletName,
+    this.walletColor,
+    this.walletIcon,
+  });
+
+  factory TransactionSplitEntity.fromJson(Map<String, dynamic> json) {
+    final wallet = json['wallet'] as Map<String, dynamic>?;
+    return TransactionSplitEntity(
+      id: json['id'] as String? ?? '',
+      walletId: json['wallet_id'] as String? ?? '',
+      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      amountInUserCurrency: (json['amount_in_user_currency'] as num?)?.toDouble() ?? 0.0,
+      walletName: wallet != null ? wallet['name'] as String? : null,
+      walletColor: wallet != null ? wallet['color'] as String? : null,
+      walletIcon: wallet != null ? wallet['icon'] as String? : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'wallet_id': walletId,
+      'amount': amount,
+      'amount_in_user_currency': amountInUserCurrency,
+      'wallet': walletName != null ? {
+        'name': walletName,
+        'color': walletColor,
+        'icon': walletIcon,
+      } : null,
+    };
   }
 }
