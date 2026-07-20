@@ -95,10 +95,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
       return response;
     } on AppException catch (e) {
-      state = AuthState.error(message: e.toString());
+      AppLogger.error("🚨 [OAuth] Lỗi khi đăng nhập bằng $provider: $e", tag: "OAuth");
+      state = const AuthState.unauthenticated();
       return null;
     } catch (e) {
-      state = AuthState.error(message: e.toString());
+      AppLogger.error("🚨 [OAuth] Lỗi khi đăng nhập bằng $provider: $e", tag: "OAuth");
+      state = const AuthState.unauthenticated();
       return null;
     }
   }

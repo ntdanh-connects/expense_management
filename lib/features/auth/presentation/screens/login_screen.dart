@@ -156,7 +156,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                       // Đổi tên thương hiệu chuẩn chỉ SpendWise đồng bộ với Web của ní luôn!
                       Text(
-                        'ExpesenManagement',
+                        'Expense\nManagement',
+                        textAlign: TextAlign.center,
                         style: theme.textTheme.headlineLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: colors
@@ -412,8 +413,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       AppLogger.error("🚨 [Google-Auth] Lỗi trong quá trình Google Sign-In: $e", tag: "OAuth", stackTrace: stackTrace);
       if (kDebugMode) {
         _showDevBypassDialog('google');
-      } else {
-        _showErrorNotification("Lỗi đăng nhập Google: $e");
       }
     }
   }
@@ -431,8 +430,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       AppLogger.error("🚨 [GitHub-Auth] Lỗi trong quá trình GitHub Sign-In: $e", tag: "OAuth", stackTrace: stackTrace);
       if (kDebugMode) {
         _showDevBypassDialog('github');
-      } else {
-        _showErrorNotification("Lỗi đăng nhập GitHub: $e");
       }
     }
   }

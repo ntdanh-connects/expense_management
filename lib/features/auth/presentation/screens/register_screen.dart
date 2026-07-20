@@ -111,7 +111,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'ExpenseManagement',
+                    'Expense\nManagement',
+                    textAlign: TextAlign.center,
                     style: theme.textTheme.headlineLarge?.copyWith(
                       fontWeight: FontWeight.bold, 
                       color: colors.textPrimary, // Chữ sáng màu trên nền tối
