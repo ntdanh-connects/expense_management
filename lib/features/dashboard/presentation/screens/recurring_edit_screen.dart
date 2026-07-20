@@ -149,11 +149,15 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
 
   Future<void> _pickStartDate() async {
     final colors = context.colors;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final initial = _startDate.isBefore(today) ? today : _startDate;
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: _startDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2035),
+      initialDate: initial,
+      firstDate: today,
+      lastDate: DateTime(now.year + 20),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: ColorScheme.fromSeed(
@@ -166,7 +170,7 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
     );
     if (picked != null) {
       setState(() {
-        _startDate = picked;
+        _startDate = DateTime(picked.year, picked.month, picked.day);
         if (_endDate != null && _endDate!.isBefore(_startDate)) {
           _endDate = null;
         }
@@ -176,11 +180,17 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
 
   Future<void> _pickEndDate() async {
     final colors = context.colors;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final minDate = _startDate.isBefore(today) ? today : _startDate;
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: _endDate ?? _startDate.add(const Duration(days: 30)),
-      firstDate: _startDate,
-      lastDate: DateTime(2035),
+      initialDate: (_endDate != null && !_endDate!.isBefore(minDate))
+          ? _endDate!
+          : minDate.add(const Duration(days: 30)),
+      firstDate: minDate,
+      lastDate: DateTime(now.year + 20),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: ColorScheme.fromSeed(
@@ -191,7 +201,9 @@ class _RecurringEditScreenState extends ConsumerState<RecurringEditScreen> {
         child: child!,
       ),
     );
-    if (picked != null) setState(() => _endDate = picked);
+    if (picked != null) {
+      setState(() => _endDate = DateTime(picked.year, picked.month, picked.day));
+    }
   }
 
   void _showCategorySheet() {
