@@ -39,6 +39,7 @@ class QrTransferNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>?>
     String? toWalletId,
     String? categoryId,
     bool? isQr,
+    String? transactionDate,
   }) async {
     try {
       final payload = {
@@ -53,6 +54,7 @@ class QrTransferNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>?>
         if (toWalletId != null) 'to_wallet_id': toWalletId,
         if (categoryId != null) 'category_id': categoryId,
         if (isQr != null) 'is_qr': isQr,
+        if (transactionDate != null) 'transaction_date': transactionDate,
       };
 
       final response = await _repository.executeTransfer(payload);

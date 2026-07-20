@@ -438,37 +438,42 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       final today = DateTime(userNow.year, userNow.month, userNow.day);
       final yesterday = today.subtract(const Duration(days: 1));
       final checkDate = DateTime(date.year, date.month, date.day);
+      final timeStr = DateFormat('HH:mm').format(date);
 
       if (checkDate == today) {
-        return '${'today'.trRead(ref)}, ${DateFormat('dd/MM').format(date)}';
+        return '${'today'.trRead(ref)}, $timeStr (${DateFormat('dd/MM').format(date)})';
       } else if (checkDate == yesterday) {
-        return '${'yesterday'.trRead(ref)}, ${DateFormat('dd/MM').format(date)}';
+        return '${'yesterday'.trRead(ref)}, $timeStr (${DateFormat('dd/MM').format(date)})';
       } else {
-        return DateFormat('dd/MM/yyyy').format(date);
+        return '$timeStr - ${DateFormat('dd/MM/yyyy').format(date)}';
       }
     } catch (_) {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final yesterday = today.subtract(const Duration(days: 1));
       final checkDate = DateTime(date.year, date.month, date.day);
+      final timeStr = DateFormat('HH:mm').format(date);
 
       if (checkDate == today) {
-        return '${'today'.trRead(ref)}, ${DateFormat('dd/MM').format(date)}';
+        return '${'today'.trRead(ref)}, $timeStr (${DateFormat('dd/MM').format(date)})';
       } else if (checkDate == yesterday) {
-        return '${'yesterday'.trRead(ref)}, ${DateFormat('dd/MM').format(date)}';
+        return '${'yesterday'.trRead(ref)}, $timeStr (${DateFormat('dd/MM').format(date)})';
       } else {
-        return DateFormat('dd/MM/yyyy').format(date);
+        return '$timeStr - ${DateFormat('dd/MM/yyyy').format(date)}';
       }
     }
   }
 
   void _selectDate(BuildContext context) {
     final colors = context.colors;
+    final now = DateTime.now();
+    final initial = _selectedDate.isAfter(now) ? now : _selectedDate;
+
     showDatePicker(
       context: context,
-      initialDate: _selectedDate,
+      initialDate: initial,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      lastDate: now,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -480,8 +485,50 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
           child: child!,
         );
       },
-    ).then((date) {
+    ).then((date) async {
       if (date != null) {
+        final initialTime = TimeOfDay.fromDateTime(_selectedDate);
+        final TimeOfDay? pickedTime = await showTimePicker(
+          context: context,
+          initialTime: initialTime,
+          builder: (context, child) {
+            return Theme(
+              data: Theme.of(context).copyWith(
+                colorScheme: ColorScheme.fromSeed(
+                  seedColor: colors.primary,
+                  brightness: Theme.of(context).brightness,
+                ),
+              ),
+              child: child!,
+            );
+          },
+        );
+
+        final currentNow = DateTime.now();
+        int hour = pickedTime?.hour ?? _selectedDate.hour;
+        int minute = pickedTime?.minute ?? _selectedDate.minute;
+
+        final isToday = date.year == currentNow.year &&
+            date.month == currentNow.month &&
+            date.day == currentNow.day;
+        if (isToday) {
+          final selectedDateTime =
+              DateTime(date.year, date.month, date.day, hour, minute);
+          if (selectedDateTime.isAfter(currentNow)) {
+            hour = currentNow.hour;
+            minute = currentNow.minute;
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                      'Thời gian không được vượt quá thời điểm hiện tại. Đã tự động điều chỉnh về hiện tại.'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
+          }
+        }
+
         setState(() {
           try {
             final user = ref.read(currentUserProvider);
@@ -492,12 +539,13 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
               date.year,
               date.month,
               date.day,
-              _selectedDate.hour,
-              _selectedDate.minute,
-              _selectedDate.second,
+              hour,
+              minute,
+              0,
             );
           } catch (_) {
-            _selectedDate = date;
+            _selectedDate =
+                DateTime(date.year, date.month, date.day, hour, minute);
           }
         });
       }

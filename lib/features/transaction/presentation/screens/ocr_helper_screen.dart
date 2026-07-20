@@ -344,46 +344,44 @@ class _OcrHelperScreenState extends ConsumerState<OcrHelperScreen> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     flex: 2,
-                                    child: InkWell(
-                                      onTap: () {
-                                        setState(() {
-                                          _activeField = 'date';
-                                        });
-                                        _pickDate(context);
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                        decoration: BoxDecoration(
-                                          color: _activeField == 'date'
-                                              ? color.primary.withOpacity(0.08)
-                                              : (isDark ? Colors.grey[900] : Colors.grey[50]),
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(
-                                            color: _activeField == 'date' ? color.primary : color.textSecondary.withOpacity(0.1),
-                                            width: _activeField == 'date' ? 1.5 : 1,
-                                          ),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: isDark ? Colors.grey[900] : Colors.grey[50],
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: color.textSecondary.withOpacity(0.1),
+                                          width: 1,
                                         ),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Ngày giao dịch',
-                                              style: TextStyle(color: color.textSecondary, fontSize: 10),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              _selectedDate == null
-                                                  ? 'Chọn ngày'
-                                                  : DateFormat('dd/MM/yyyy').format(_selectedDate!),
-                                              style: TextStyle(
-                                                color: color.textPrimary,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.bold,
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  'Ngày giao dịch (OCR)',
+                                                  style: TextStyle(color: color.textSecondary, fontSize: 10),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
                                               ),
-                                              overflow: TextOverflow.ellipsis,
+                                              Icon(Icons.lock_outline_rounded, size: 11, color: color.textSecondary),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            _selectedDate == null
+                                                ? 'Tự động từ OCR'
+                                                : DateFormat('dd/MM/yyyy HH:mm').format(_selectedDate!),
+                                            style: TextStyle(
+                                              color: color.textPrimary,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
                                             ),
-                                          ],
-                                        ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),

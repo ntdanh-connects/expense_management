@@ -32,6 +32,79 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
   final TextEditingController _descController = TextEditingController();
   bool _isProcessing = false;
 
+  DateTime _selectedDateTime = DateTime.now();
+
+  void _selectDateAndTime(BuildContext context) {
+    final colors = context.colors;
+    final now = DateTime.now();
+    final initial = _selectedDateTime.isAfter(now) ? now : _selectedDateTime;
+
+    showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020),
+      lastDate: now,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: colors.primary,
+              brightness: Theme.of(context).brightness,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    ).then((date) async {
+      if (date != null) {
+        final initialTime = TimeOfDay.fromDateTime(_selectedDateTime);
+        final TimeOfDay? pickedTime = await showTimePicker(
+          context: context,
+          initialTime: initialTime,
+          builder: (context, child) {
+            return Theme(
+              data: Theme.of(context).copyWith(
+                colorScheme: ColorScheme.fromSeed(
+                  seedColor: colors.primary,
+                  brightness: Theme.of(context).brightness,
+                ),
+              ),
+              child: child!,
+            );
+          },
+        );
+
+        final currentNow = DateTime.now();
+        int hour = pickedTime?.hour ?? _selectedDateTime.hour;
+        int minute = pickedTime?.minute ?? _selectedDateTime.minute;
+
+        final isToday = date.year == currentNow.year &&
+            date.month == currentNow.month &&
+            date.day == currentNow.day;
+        if (isToday) {
+          final selectedDT = DateTime(date.year, date.month, date.day, hour, minute);
+          if (selectedDT.isAfter(currentNow)) {
+            hour = currentNow.hour;
+            minute = currentNow.minute;
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                      'Thời gian không được vượt quá thời điểm hiện tại. Đã tự động điều chỉnh về hiện tại.'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
+          }
+        }
+
+        setState(() {
+          _selectedDateTime = DateTime(date.year, date.month, date.day, hour, minute);
+        });
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -158,6 +231,7 @@ class _QrTransferConfirmScreenState extends ConsumerState<QrTransferConfirmScree
           'type': widget.payeeData['type'] ?? 'internal',
           'to_wallet_id': widget.payeeData['to_wallet_id'],
           'category_id': _selectedCategory!.id,
+          'transaction_date': _selectedDateTime.toUtc().toIso8601String(),
         });
       }
     } finally {
