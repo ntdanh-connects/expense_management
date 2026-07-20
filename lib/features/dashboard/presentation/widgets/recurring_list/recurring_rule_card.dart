@@ -212,65 +212,70 @@ class RecurringRuleCard extends ConsumerWidget {
                 Row(
                   children: [
                     if (rule.isActive) ...[
-                      GestureDetector(
-                        onTap: (isRecorded || isExecuting) ? null : onRecord,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: (isRecorded || isExecuting)
-                                ? colors.textSecondary.withOpacity(0.06)
-                                : colors.primary.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: (isRecorded || isExecuting)
-                                  ? Colors.transparent
-                                  : colors.primary.withOpacity(0.2),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              if (isExecuting) ...[
-                                SizedBox(
-                                  width: 12,
-                                  height: 12,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                        colors.primary),
-                                  ),
-                                ),
-                              ] else ...[
-                                Icon(
-                                  isRecorded
-                                      ? Icons.check_circle_rounded
-                                      : Icons.add_task_rounded,
-                                  color: isRecorded
-                                      ? colors.textSecondary
-                                      : colors.primary,
-                                  size: 14,
-                                ),
-                              ],
-                              const SizedBox(width: 4),
-                              Text(
-                                isExecuting
-                                    ? 'recurring_recording'.tr(ref)
-                                    : isRecorded
-                                        ? 'recurring_recorded'.tr(ref)
-                                        : 'recurring_record'.tr(ref),
-                                style: TextStyle(
-                                  color: (isRecorded || isExecuting)
-                                      ? colors.textSecondary
-                                      : colors.primary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
+                      Builder(
+                        builder: (context) {
+                          final isDone = rule.isExecutedCurrentPeriod || isRecorded;
+                          return GestureDetector(
+                            onTap: (isDone || isExecuting) ? null : onRecord,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: (isDone || isExecuting)
+                                    ? colors.textSecondary.withOpacity(0.06)
+                                    : colors.primary.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: (isDone || isExecuting)
+                                      ? Colors.transparent
+                                      : colors.primary.withOpacity(0.2),
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
+                              child: Row(
+                                children: [
+                                  if (isExecuting) ...[
+                                    SizedBox(
+                                      width: 12,
+                                      height: 12,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                            colors.primary),
+                                      ),
+                                    ),
+                                  ] else ...[
+                                    Icon(
+                                      isDone
+                                          ? Icons.check_circle_rounded
+                                          : Icons.add_task_rounded,
+                                      color: isDone
+                                          ? colors.textSecondary
+                                          : colors.primary,
+                                      size: 14,
+                                    ),
+                                  ],
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    isExecuting
+                                        ? 'recurring_recording'.tr(ref)
+                                        : isDone
+                                            ? 'recurring_recorded'.tr(ref)
+                                            : 'recurring_record'.tr(ref),
+                                    style: TextStyle(
+                                      color: (isDone || isExecuting)
+                                          ? colors.textSecondary
+                                          : colors.primary,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       ),
                       const SizedBox(width: 8),
                     ],

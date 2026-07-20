@@ -12,6 +12,8 @@ class RecurringRuleEntity {
   final DateTime? nextRunAt;
   final DateTime? endAt;
   final bool isActive;
+  final DateTime? lastExecutedAt;
+  final bool isExecutedCurrentPeriod;
 
   // Helper fields (from joins)
   final String? walletName;
@@ -43,6 +45,8 @@ class RecurringRuleEntity {
     this.nextRunAt,
     this.endAt,
     required this.isActive,
+    this.lastExecutedAt,
+    this.isExecutedCurrentPeriod = false,
     this.walletName,
     this.walletIcon,
     this.walletColor,

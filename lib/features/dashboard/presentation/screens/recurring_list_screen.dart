@@ -136,11 +136,10 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen> {
         )
         .length;
 
-    // Đã thực hiện (next_run_at trong quá khứ, isActive)
+    // Đã thực hiện (đã chạy trong chu kỳ hiện tại)
     final executedCount = rules
         .where(
-          (r) =>
-              r.isActive && r.nextRunAt != null && r.nextRunAt!.isBefore(now),
+          (r) => r.isActive && (r.isExecutedCurrentPeriod || _isRuleRecordedToday(r)),
         )
         .length;
 

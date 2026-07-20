@@ -26,6 +26,10 @@ class RecurringRuleDto {
   final DateTime? endAt;
   @JsonKey(name: 'is_active')
   final bool isActive;
+  @JsonKey(name: 'last_executed_at', fromJson: _dateFromJson)
+  final DateTime? lastExecutedAt;
+  @JsonKey(name: 'is_executed_current_period')
+  final bool? isExecutedCurrentPeriod;
   final RecurringWalletDto? wallet;
   final RecurringCategoryDto? category;
   @JsonKey(name: 'payee_id')
@@ -46,6 +50,8 @@ class RecurringRuleDto {
     this.nextRunAt,
     this.endAt,
     required this.isActive,
+    this.lastExecutedAt,
+    this.isExecutedCurrentPeriod,
     this.wallet,
     this.category,
     this.payeeId,

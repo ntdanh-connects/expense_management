@@ -17,6 +17,8 @@ class RecurringMapper {
       nextRunAt: dto.nextRunAt?.toLocal(),
       endAt: dto.endAt?.toLocal(),
       isActive: dto.isActive,
+      lastExecutedAt: dto.lastExecutedAt?.toLocal(),
+      isExecutedCurrentPeriod: dto.isExecutedCurrentPeriod ?? false,
       walletName: dto.wallet?.name,
       walletIcon: dto.wallet?.icon,
       walletColor: dto.wallet?.color,
