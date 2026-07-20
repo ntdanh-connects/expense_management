@@ -84,6 +84,8 @@ class _NotificationDetailScreenState
   String _normalizeType(String type) {
     final t = type.toLowerCase();
     if (t.contains('budgetwarning')) return 'budget_warning';
+    if (t.contains('minimumbalancewarning') || t.contains('minimum_balance')) return 'minimum_balance_warning';
+    if (t.contains('aihabitanalysis') || t.contains('ai_habit_analysis')) return 'ai_habit_analysis';
     if (t.contains('recurringtransaction')) return 'recurring_created';
     if (t.contains('dailyreminder')) return 'daily_reminder';
     if (t.contains('weeklysummary')) return 'weekly_summary';
@@ -98,6 +100,10 @@ class _NotificationDetailScreenState
     switch (type) {
       case 'budget_warning':
         return Icons.account_balance_wallet_rounded;
+      case 'minimum_balance_warning':
+        return Icons.warning_amber_rounded;
+      case 'ai_habit_analysis':
+        return Icons.auto_awesome_rounded;
       case 'recurring_created':
         return Icons.autorenew_rounded;
       case 'daily_reminder':
@@ -121,6 +127,10 @@ class _NotificationDetailScreenState
     switch (type) {
       case 'budget_warning':
         return const Color(0xFFEF4444); // Red
+      case 'minimum_balance_warning':
+        return const Color(0xFFF59E0B); // Amber
+      case 'ai_habit_analysis':
+        return const Color(0xFF6366F1); // Indigo
       case 'recurring_created':
         return const Color(0xFF3B82F6); // Blue
       case 'daily_reminder':
@@ -144,6 +154,10 @@ class _NotificationDetailScreenState
     switch (type) {
       case 'budget_warning':
         return 'Cảnh báo ngân sách';
+      case 'minimum_balance_warning':
+        return 'Cảnh báo ví tối thiểu';
+      case 'ai_habit_analysis':
+        return 'Phân tích thói quen AI';
       case 'recurring_created':
         return 'Giao dịch định kỳ';
       case 'daily_reminder':
@@ -385,6 +399,60 @@ class _NotificationDetailScreenState
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: colors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                  ),
+                ),
+              ),
+            ] else if (rawType == 'minimum_balance_warning') ...[
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    context.push(RoutePaths.wallet);
+                  },
+                  icon: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white),
+                  label: const Text(
+                    'Quản lý ví chi tiêu',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: themeColor,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                  ),
+                ),
+              ),
+            ] else if (rawType == 'ai_habit_analysis') ...[
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    context.push(RoutePaths.habitAnalyses);
+                  },
+                  icon: const Icon(Icons.auto_awesome_rounded, color: Colors.white),
+                  label: const Text(
+                    'Xem phân tích thói quen AI',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: themeColor,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
