@@ -1,10 +1,13 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
+import 'package:expense_management/core/language/app_language.dart';
+import 'package:expense_management/core/language/app_provider.dart';
 import 'package:expense_management/features/analytic/data/models/report_trend_dto.dart';
 
-class FluctuationChartSection extends StatelessWidget {
+class FluctuationChartSection extends ConsumerWidget {
   final List<ReportTrendEntryDto> trends;
   final double maxVal;
   final int selectedPeriodIndex;
@@ -37,18 +40,27 @@ class FluctuationChartSection extends StatelessWidget {
     return value.toStringAsFixed(0);
   }
 
-  String _formatCompact(double val) {
-    if (val >= 1000000) {
-      return '${(val / 1000000).toStringAsFixed(1)}M đ';
+  String _formatCompact(double val, bool isEnglish) {
+    if (val >= 1000000000) {
+      final v = val / 1000000000;
+      final numStr = v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1);
+      return isEnglish ? '${numStr}B đ' : '$numStr tỷ đ';
+    } else if (val >= 1000000) {
+      final v = val / 1000000;
+      final numStr = v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1);
+      return isEnglish ? '${numStr}M đ' : '$numStr tr đ';
     } else if (val >= 1000) {
-      return '${(val / 1000).toStringAsFixed(0)}K đ';
+      final v = val / 1000;
+      final numStr = v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(0);
+      return isEnglish ? '${numStr}K đ' : '$numStr k đ';
     }
     return '${val.toStringAsFixed(0)}đ';
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
+    final isEnglish = ref.watch(localeProvider) == 'en';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,13 +69,13 @@ class FluctuationChartSection extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Biến động',
+              'fluctuation'.tr(ref),
               style: TextStyle(color: colors.textPrimary, fontSize: 15, fontWeight: FontWeight.bold),
             ),
             Row(
               children: [
                 Text(
-                  'So với cùng kỳ',
+                  'compare_period'.tr(ref),
                   style: TextStyle(color: colors.textSecondary, fontSize: 12, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(width: 8),
@@ -77,20 +89,22 @@ class FluctuationChartSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 18),
-        _buildChartWithYAxis(context, colors),
+        _buildChartWithYAxis(context, ref, colors, isEnglish),
       ],
     );
   }
 
-  Widget _buildChartWithYAxis(BuildContext context, AppColorsExtension colors) {
+  Widget _buildChartWithYAxis(BuildContext context, WidgetRef ref, AppColorsExtension colors, bool isEnglish) {
     final levels = [1.0, 0.75, 0.5, 0.25, 0.0];
     final tickLabels = levels.map((lvl) => _formatTick(maxVal * lvl)).toList();
 
     String unit = '(đ)';
-    if (maxVal >= 1000000) {
-      unit = '(Tr)';
+    if (maxVal >= 1000000000) {
+      unit = isEnglish ? '(B)' : '(tỷ đ)';
+    } else if (maxVal >= 1000000) {
+      unit = isEnglish ? '(M)' : '(tr đ)';
     } else if (maxVal >= 1000) {
-      unit = '(K)';
+      unit = isEnglish ? '(K)' : '(k đ)';
     }
 
     return Row(
@@ -188,7 +202,7 @@ class FluctuationChartSection extends StatelessWidget {
                                   onTap: () => onPeriodSelected(index),
                                   child: Opacity(
                                     opacity: opacity,
-                                    child: _buildBidirectionalBar(trend.label, net, maxVal, colors, isSelected, timeMode),
+                                    child: _buildBidirectionalBar(trend.label, net, maxVal, colors, isSelected, timeMode, isEnglish),
                                   ),
                                 );
                               } else {
@@ -198,7 +212,7 @@ class FluctuationChartSection extends StatelessWidget {
                                   onTap: () => onPeriodSelected(index),
                                   child: Opacity(
                                     opacity: opacity,
-                                    child: _buildSingleBar(trend.label, val, pct, colors, isSelected, timeMode),
+                                    child: _buildSingleBar(trend.label, val, pct, colors, isSelected, timeMode, isEnglish),
                                   ),
                                 );
                               }
@@ -224,6 +238,7 @@ class FluctuationChartSection extends StatelessWidget {
     AppColorsExtension colors,
     bool isSelected,
     String timeMode,
+    bool isEnglish,
   ) {
     final barColor = isSelected ? colors.primary : colors.primary.withOpacity(0.25);
     final double barWidth = timeMode == 'year' ? 48.0 : 32.0;
@@ -256,7 +271,7 @@ class FluctuationChartSection extends StatelessWidget {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      _formatCompact(value),
+                      _formatCompact(value, isEnglish),
                       style: TextStyle(color: colors.surface, fontSize: 9, fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -288,6 +303,7 @@ class FluctuationChartSection extends StatelessWidget {
     AppColorsExtension colors,
     bool isSelected,
     String timeMode,
+    bool isEnglish,
   ) {
     final isPositive = netValue >= 0;
     final double pct = maxVal > 0 ? (netValue.abs() / maxVal) : 0.0;
@@ -348,7 +364,7 @@ class FluctuationChartSection extends StatelessWidget {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      _formatCompact(netValue),
+                      _formatCompact(netValue, isEnglish),
                       style: TextStyle(color: colors.surface, fontSize: 9, fontWeight: FontWeight.bold),
                     ),
                   ),

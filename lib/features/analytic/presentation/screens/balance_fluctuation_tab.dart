@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
+import 'package:expense_management/core/language/app_language.dart';
+import 'package:expense_management/core/language/app_provider.dart';
 import 'package:expense_management/features/analytic/presentation/providers/report_providers.dart';
 import 'package:expense_management/features/analytic/data/models/report_trend_dto.dart';
 
@@ -74,6 +76,7 @@ class _BalanceFluctuationTabState extends ConsumerState<BalanceFluctuationTab> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final isEnglish = ref.watch(localeProvider) == 'en';
     final trendsAsync = ref.watch(trendsFlexibleProvider(_timeMode));
 
     return Column(
@@ -141,12 +144,12 @@ class _BalanceFluctuationTabState extends ConsumerState<BalanceFluctuationTab> {
               trendsAsync.when(
                 data: (trends) {
                   if (trends.isEmpty) {
-                    return const Center(
+                    return Center(
                       child: Padding(
-                        padding: EdgeInsets.all(32.0),
+                        padding: const EdgeInsets.all(32.0),
                         child: Text(
-                          'Không có dữ liệu xu hướng',
-                          style: TextStyle(fontSize: 14),
+                          'no_trend_data'.tr(ref),
+                          style: const TextStyle(fontSize: 14),
                         ),
                       ),
                     );
@@ -196,7 +199,7 @@ class _BalanceFluctuationTabState extends ConsumerState<BalanceFluctuationTab> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // 💵 3. SUMMARY SECTION
-                      _buildSummarySection(totalAmount, diffVal, compLabel, colors),
+                      _buildSummarySection(totalAmount, diffVal, compLabel, colors, isEnglish),
                       const SizedBox(height: 24),
 
                       // 📊 4. CHART SECTION
@@ -244,7 +247,7 @@ class _BalanceFluctuationTabState extends ConsumerState<BalanceFluctuationTab> {
                   child: Padding(
                     padding: const EdgeInsets.all(32.0),
                     child: Text(
-                      'Lỗi tải dữ liệu biến động: $err',
+                      '${'load_fluctuation_error'.tr(ref)}: $err',
                       style: TextStyle(color: colors.expenseRed, fontSize: 13),
                     ),
                   ),
@@ -262,23 +265,24 @@ class _BalanceFluctuationTabState extends ConsumerState<BalanceFluctuationTab> {
     double diffVal,
     String compLabel,
     AppColorsExtension colors,
+    bool isEnglish,
   ) {
     String periodTitle = '';
     if (_timeMode == 'week') {
-      periodTitle = 'tuần';
+      periodTitle = isEnglish ? 'this week' : 'tuần';
     } else if (_timeMode == 'month') {
-      periodTitle = 'tháng';
+      periodTitle = isEnglish ? 'this month' : 'tháng';
     } else {
-      periodTitle = 'năm';
+      periodTitle = isEnglish ? 'this year' : 'năm';
     }
 
     String typeLabel = '';
     if (_typeMode == 'expense') {
-      typeLabel = 'Tổng chi';
+      typeLabel = 'total_expense_period'.tr(ref);
     } else if (_typeMode == 'income') {
-      typeLabel = 'Tổng thu';
+      typeLabel = 'total_income_period'.tr(ref);
     } else {
-      typeLabel = 'Tổng chênh lệch';
+      typeLabel = 'total_difference_period'.tr(ref);
     }
 
     return Center(
@@ -304,13 +308,13 @@ class _BalanceFluctuationTabState extends ConsumerState<BalanceFluctuationTab> {
 
           // Comparison box
           if (_isCompareEnabled && compLabel.isNotEmpty)
-            _buildComparisonBox(diffVal, compLabel, colors),
+            _buildComparisonBox(diffVal, compLabel, colors, isEnglish),
         ],
       ),
     );
   }
 
-  Widget _buildComparisonBox(double diffVal, String compLabel, AppColorsExtension colors) {
+  Widget _buildComparisonBox(double diffVal, String compLabel, AppColorsExtension colors, bool isEnglish) {
     final isIncrease = diffVal > 0;
     final isDecrease = diffVal < 0;
 
@@ -319,20 +323,30 @@ class _BalanceFluctuationTabState extends ConsumerState<BalanceFluctuationTab> {
     String text;
     IconData icon;
 
+    final formattedAmt = _formatCurrency(diffVal.abs());
+
     if (isIncrease) {
       bg = const Color(0xFFFFF0EC);
       fg = const Color(0xFFFF5722);
-      text = 'Tăng ${_formatCurrency(diffVal)} so với cùng kỳ $compLabel';
+      text = 'increase_vs_prev'
+          .tr(ref)
+          .replaceAll('{amount}', formattedAmt)
+          .replaceAll('{period}', compLabel);
       icon = Icons.arrow_upward_rounded;
     } else if (isDecrease) {
       bg = const Color(0xFFEAF9EE);
       fg = const Color(0xFF2E7D32);
-      text = 'Giảm ${_formatCurrency(-diffVal)} so với cùng kỳ $compLabel';
+      text = 'decrease_vs_prev'
+          .tr(ref)
+          .replaceAll('{amount}', formattedAmt)
+          .replaceAll('{period}', compLabel);
       icon = Icons.arrow_downward_rounded;
     } else {
       bg = colors.textSecondary.withOpacity(0.08);
       fg = colors.textSecondary;
-      text = 'Không đổi so với cùng kỳ $compLabel';
+      text = 'unchanged_vs_prev'
+          .tr(ref)
+          .replaceAll('{period}', compLabel);
       icon = Icons.remove_rounded;
     }
 

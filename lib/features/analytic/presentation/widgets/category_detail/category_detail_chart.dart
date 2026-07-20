@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
+import 'package:expense_management/core/language/app_provider.dart';
 
 class PeriodBucket {
   final DateTime start;
@@ -9,7 +11,7 @@ class PeriodBucket {
   PeriodBucket({required this.start, required this.end, required this.label});
 }
 
-class CategoryDetailChart extends StatelessWidget {
+class CategoryDetailChart extends ConsumerWidget {
   final List<PeriodBucket> periods;
   final List<double> periodAmounts;
   final int selectedChartIndex;
@@ -36,18 +38,27 @@ class CategoryDetailChart extends StatelessWidget {
     return value.toStringAsFixed(0);
   }
 
-  String _formatCompact(double val) {
-    if (val >= 1000000) {
-      return '${(val / 1000000).toStringAsFixed(1)}M';
+  String _formatCompact(double val, bool isEnglish) {
+    if (val >= 1000000000) {
+      final v = val / 1000000000;
+      final numStr = v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1);
+      return isEnglish ? '${numStr}B' : '$numStr tỷ';
+    } else if (val >= 1000000) {
+      final v = val / 1000000;
+      final numStr = v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1);
+      return isEnglish ? '${numStr}M' : '$numStr tr';
     } else if (val >= 1000) {
-      return '${(val / 1000).toStringAsFixed(0)}K';
+      final v = val / 1000;
+      final numStr = v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(0);
+      return isEnglish ? '${numStr}K' : '$numStr k';
     }
     return val.toStringAsFixed(0);
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
+    final isEnglish = ref.watch(localeProvider) == 'en';
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -67,7 +78,7 @@ class CategoryDetailChart extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Xu hướng chi tiêu',
+            isEnglish ? 'Spending trend' : 'Xu hướng chi tiêu',
             style: TextStyle(
               color: colors.textPrimary,
               fontSize: 16,
@@ -76,7 +87,7 @@ class CategoryDetailChart extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Nhấn vào cột để lọc danh sách giao dịch bên dưới',
+            isEnglish ? 'Tap column to filter transaction list below' : 'Nhấn vào cột để lọc danh sách giao dịch bên dưới',
             style: TextStyle(
               color: colors.textSecondary,
               fontSize: 11.5,
@@ -97,10 +108,12 @@ class CategoryDetailChart extends StatelessWidget {
                 final tickLabels = levels.map((lvl) => _formatTick(maxVal * lvl)).toList();
 
                 String unit = '(đ)';
-                if (maxVal >= 1000000) {
-                  unit = '(Tr)';
+                if (maxVal >= 1000000000) {
+                  unit = isEnglish ? '(B)' : '(tỷ đ)';
+                } else if (maxVal >= 1000000) {
+                  unit = isEnglish ? '(M)' : '(tr đ)';
                 } else if (maxVal >= 1000) {
-                  unit = '(K)';
+                  unit = isEnglish ? '(K)' : '(k đ)';
                 }
 
                 return Row(
@@ -229,6 +242,7 @@ class CategoryDetailChart extends StatelessWidget {
                                                     colors,
                                                     isSelected,
                                                     timeMode,
+                                                    isEnglish,
                                                   ),
                                                 );
                                               },
@@ -256,7 +270,7 @@ class CategoryDetailChart extends StatelessWidget {
                                       ),
                                     ),
                                     child: Text(
-                                      'T.bình',
+                                      isEnglish ? 'Avg' : 'T.bình',
                                       style: TextStyle(
                                         color: Colors.orange.shade800,
                                         fontSize: 7.5,
@@ -287,6 +301,7 @@ class CategoryDetailChart extends StatelessWidget {
     AppColorsExtension colors,
     bool isSelected,
     String timeMode,
+    bool isEnglish,
   ) {
     final barColor = isSelected ? colors.primary : colors.primary.withValues(alpha: 0.25);
     final double barWidth = timeMode == 'year' ? 48.0 : 32.0;
@@ -319,7 +334,7 @@ class CategoryDetailChart extends StatelessWidget {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      _formatCompact(value),
+                      _formatCompact(value, isEnglish),
                       style: TextStyle(
                         color: colors.surface,
                         fontSize: 9,

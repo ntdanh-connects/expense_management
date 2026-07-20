@@ -49,11 +49,19 @@ class _FluctuationBreakdownSectionState
     return format.format(amount);
   }
 
-  String _formatCompact(double val) {
-    if (val >= 1000000) {
-      return '${(val / 1000000).toStringAsFixed(1)}M đ';
+  String _formatCompact(double val, bool isEnglish) {
+    if (val >= 1000000000) {
+      final v = val / 1000000000;
+      final numStr = v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1);
+      return isEnglish ? '${numStr}B đ' : '$numStr tỷ đ';
+    } else if (val >= 1000000) {
+      final v = val / 1000000;
+      final numStr = v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1);
+      return isEnglish ? '${numStr}M đ' : '$numStr tr đ';
     } else if (val >= 1000) {
-      return '${(val / 1000).toStringAsFixed(0)}K đ';
+      final v = val / 1000;
+      final numStr = v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(0);
+      return isEnglish ? '${numStr}K đ' : '$numStr k đ';
     }
     return '${val.toStringAsFixed(0)}đ';
   }
@@ -139,9 +147,10 @@ class _FluctuationBreakdownSectionState
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final isEnglish = ref.watch(localeProvider) == 'en';
 
     if (widget.typeMode == 'difference') {
-      return _buildNetDifferenceList(widget.trends, colors);
+      return _buildNetDifferenceList(widget.trends, colors, isEnglish);
     }
 
     // Fetch current categories
@@ -179,7 +188,7 @@ class _FluctuationBreakdownSectionState
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Center(
                   child: Text(
-                    'Không có dữ liệu trong kỳ này',
+                    'no_period_data'.tr(ref),
                     style: TextStyle(color: colors.textSecondary, fontSize: 13),
                   ),
                 ),
@@ -299,7 +308,7 @@ class _FluctuationBreakdownSectionState
                                       ),
                                       if (showDiff) ...[
                                         const SizedBox(width: 6),
-                                        _buildDiffIndicatorText(diff, colors),
+                                        _buildDiffIndicatorText(diff, colors, isEnglish),
                                       ],
                                     ],
                                   ),
@@ -317,26 +326,26 @@ class _FluctuationBreakdownSectionState
             );
           },
           loading: () => _buildShimmerBreakdown(colors),
-          error: (err, _) => Text('Lỗi breakdown: $err', style: TextStyle(color: colors.expenseRed)),
+          error: (err, _) => Text('${'error'.tr(ref)}: $err', style: TextStyle(color: colors.expenseRed)),
         ),
       ],
     );
   }
 
-  Widget _buildDiffIndicatorText(double diff, AppColorsExtension colors) {
+  Widget _buildDiffIndicatorText(double diff, AppColorsExtension colors, bool isEnglish) {
     if (diff > 0) {
       return Text(
-        'Tăng ${_formatCompact(diff)}',
+        '${isEnglish ? 'Up' : 'Tăng'} ${_formatCompact(diff, isEnglish)}',
         style: TextStyle(color: colors.expenseRed, fontSize: 11, fontWeight: FontWeight.w500),
       );
     } else if (diff < 0) {
       return Text(
-        'Giảm ${_formatCompact(-diff)}',
+        '${isEnglish ? 'Down' : 'Giảm'} ${_formatCompact(-diff, isEnglish)}',
         style: TextStyle(color: colors.incomeGreen, fontSize: 11, fontWeight: FontWeight.w500),
       );
     } else {
       return Text(
-        'Không đổi',
+        isEnglish ? 'Unchanged' : 'Không đổi',
         style: TextStyle(color: colors.textSecondary, fontSize: 11, fontWeight: FontWeight.w500),
       );
     }
@@ -354,7 +363,7 @@ class _FluctuationBreakdownSectionState
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(
-              'Danh mục con',
+              'subcategories'.tr(ref),
               style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.bold,
@@ -366,7 +375,7 @@ class _FluctuationBreakdownSectionState
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(
-              'Danh mục cha',
+              'parent_categories'.tr(ref),
               style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.bold,
@@ -386,15 +395,14 @@ class _FluctuationBreakdownSectionState
     );
   }
 
-  Widget _buildNetDifferenceList(List<ReportTrendEntryDto> trends, AppColorsExtension colors) {
+  Widget _buildNetDifferenceList(List<ReportTrendEntryDto> trends, AppColorsExtension colors, bool isEnglish) {
     final reversedTrends = List<ReportTrendEntryDto>.from(trends.reversed);
-    final isEnglish = ref.watch(localeProvider) == 'en';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Lịch sử chênh lệch thu chi',
+          'income_expense_diff_history'.tr(ref),
           style: TextStyle(color: colors.textPrimary, fontSize: 15, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 18),
@@ -432,7 +440,7 @@ class _FluctuationBreakdownSectionState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Thu ${_formatCompact(trend.income)}',
+                            '${'income'.tr(ref)} ${_formatCompact(trend.income, isEnglish)}',
                             style: TextStyle(
                               color: colors.textSecondary, 
                               fontSize: 12.5, 
@@ -441,7 +449,7 @@ class _FluctuationBreakdownSectionState
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Chi ${_formatCompact(trend.expense)}',
+                            '${'expense'.tr(ref)} ${_formatCompact(trend.expense, isEnglish)}',
                             style: TextStyle(
                               color: colors.textSecondary, 
                               fontSize: 12.5, 
@@ -455,7 +463,7 @@ class _FluctuationBreakdownSectionState
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          'Còn lại',
+                          'remaining'.tr(ref),
                           style: TextStyle(color: colors.textSecondary, fontSize: 10.5),
                         ),
                         const SizedBox(height: 2),

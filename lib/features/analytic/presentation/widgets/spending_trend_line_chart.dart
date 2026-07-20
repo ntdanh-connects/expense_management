@@ -225,6 +225,7 @@ class _SpendingTrendLineChartState extends ConsumerState<SpendingTrendLineChart>
                     selectedIndex: _selectedIndex,
                     trendType: widget.trendType,
                     trendLineVisibility: widget.trendLineVisibility,
+                    isEnglish: isEnglish,
                   ),
                 ),
               ),
@@ -255,6 +256,7 @@ class LineChartPainter extends CustomPainter {
   final int? selectedIndex;
   final String trendType;
   final String trendLineVisibility;
+  final bool isEnglish;
 
   LineChartPainter({
     required this.data,
@@ -263,6 +265,7 @@ class LineChartPainter extends CustomPainter {
     this.selectedIndex,
     required this.trendType,
     required this.trendLineVisibility,
+    required this.isEnglish,
   });
 
   @override
@@ -477,10 +480,18 @@ class LineChartPainter extends CustomPainter {
   }
 
   String _formatCompact(double val) {
-    if (val >= 1000000) {
-      return '${(val / 1000000).toStringAsFixed(1)}M';
+    if (val >= 1000000000) {
+      final v = val / 1000000000;
+      final numStr = v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1);
+      return isEnglish ? '${numStr}B' : '$numStr tỷ';
+    } else if (val >= 1000000) {
+      final v = val / 1000000;
+      final numStr = v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1);
+      return isEnglish ? '${numStr}M' : '$numStr tr';
     } else if (val >= 1000) {
-      return '${(val / 1000).toStringAsFixed(0)}K';
+      final v = val / 1000;
+      final numStr = v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(0);
+      return isEnglish ? '${numStr}K' : '$numStr k';
     }
     return val.toStringAsFixed(0);
   }
@@ -492,5 +503,6 @@ class LineChartPainter extends CustomPainter {
       oldDelegate.colors != colors ||
       oldDelegate.selectedIndex != selectedIndex ||
       oldDelegate.trendType != trendType ||
-      oldDelegate.trendLineVisibility != trendLineVisibility;
+      oldDelegate.trendLineVisibility != trendLineVisibility ||
+      oldDelegate.isEnglish != isEnglish;
 }

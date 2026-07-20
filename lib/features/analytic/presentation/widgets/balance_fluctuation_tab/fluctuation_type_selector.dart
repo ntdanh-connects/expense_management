@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:expense_management/core/theme/app_colors.dart';
+import 'package:expense_management/core/language/app_language.dart';
 
-class FluctuationTypeSelector extends StatelessWidget {
+class FluctuationTypeSelector extends ConsumerWidget {
   final String typeMode;
   final ValueChanged<String> onTypeModeChanged;
 
@@ -12,12 +14,12 @@ class FluctuationTypeSelector extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
     final tabs = {
-      'income': 'Thu nhập',
-      'expense': 'Chi tiêu',
-      'difference': 'Chênh lệch',
+      'income': 'income'.tr(ref),
+      'expense': 'expense'.tr(ref),
+      'difference': 'difference'.tr(ref),
     };
 
     return Row(

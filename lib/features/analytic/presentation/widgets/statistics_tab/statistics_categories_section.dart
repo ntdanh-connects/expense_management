@@ -54,13 +54,19 @@ class _StatisticsCategoriesSectionState
     );
   }
 
-  String _formatCompactCurrency(double val) {
+  String _formatCompactCurrency(double val, [bool isEnglish = false]) {
     if (val >= 1000000000) {
-      return '${(val / 1000000000).toStringAsFixed(1)}B đ';
+      final v = val / 1000000000;
+      final numStr = v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1);
+      return isEnglish ? '${numStr}B đ' : '$numStr tỷ đ';
     } else if (val >= 1000000) {
-      return '${(val / 1000000).toStringAsFixed(1)}M đ';
+      final v = val / 1000000;
+      final numStr = v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1);
+      return isEnglish ? '${numStr}M đ' : '$numStr tr đ';
     } else if (val >= 1000) {
-      return '${(val / 1000).toStringAsFixed(0)}K đ';
+      final v = val / 1000;
+      final numStr = v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(0);
+      return isEnglish ? '${numStr}K đ' : '$numStr k đ';
     }
     return '${val.toStringAsFixed(0)}đ';
   }

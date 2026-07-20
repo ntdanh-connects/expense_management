@@ -592,61 +592,59 @@ class _RecurringCreateScreenState extends ConsumerState<RecurringCreateScreen> {
 
   Widget _buildEndDateRow(AppColorsExtension colors) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: isDark ? colors.surface : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.textSecondary.withOpacity(0.08)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.calendar_month_rounded,
-              color: Color(0xFF1B6B45), size: 22),
-          const SizedBox(width: 12),
-          Text(
-            'recurring_end_date'.tr(ref),
-            style: TextStyle(
-                color: colors.textPrimary,
-                fontSize: 15,
-                fontWeight: FontWeight.w500),
-          ),
-          const Spacer(),
-          if (_endDate != null) ...[
-            GestureDetector(
-              onTap: _pickEndDate,
-              child: Text(
+    return GestureDetector(
+      onTap: _pickEndDate,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: isDark ? colors.surface : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colors.textSecondary.withOpacity(0.08)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.calendar_month_rounded,
+                color: Color(0xFF1B6B45), size: 22),
+            const SizedBox(width: 12),
+            Text(
+              'recurring_end_date'.tr(ref),
+              style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500),
+            ),
+            const Spacer(),
+            if (_endDate != null) ...[
+              Text(
                 _formatStartDate(_endDate!),
                 style: TextStyle(
                     color: colors.textPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.bold),
               ),
-            ),
-            const SizedBox(width: 12),
-            GestureDetector(
-              onTap: () => setState(() => _endDate = null),
-              child:
-                  Icon(Icons.cancel_rounded, color: colors.textSecondary, size: 20),
-            ),
-          ] else
-            GestureDetector(
-              onTap: _pickEndDate,
-              child: Text(
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => setState(() => _endDate = null),
+                child: Padding(
+                  padding: const EdgeInsets.all(4.0),
+                  child: Icon(Icons.cancel_rounded,
+                      color: colors.textSecondary, size: 20),
+                ),
+              ),
+            ] else
+              Text(
                 'recurring_no_end_date'.tr(ref),
                 style: TextStyle(
                     color: colors.textSecondary,
                     fontSize: 14,
                     fontStyle: FontStyle.italic),
               ),
-            ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: _pickEndDate,
-            child: Icon(Icons.calendar_today_outlined,
+            const SizedBox(width: 8),
+            Icon(Icons.calendar_today_outlined,
                 color: colors.textSecondary, size: 18),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
