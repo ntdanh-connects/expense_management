@@ -167,7 +167,7 @@ class CategoryDetailChart extends ConsumerWidget {
                               ? computedWidth
                               : chartConstraints.maxWidth;
 
-                          return Stack(
+                           return Stack(
                             alignment: Alignment.bottomLeft,
                             children: [
                               SingleChildScrollView(
@@ -197,22 +197,6 @@ class CategoryDetailChart extends ConsumerWidget {
                                           ),
                                         ),
                                       ),
-                                      // Average Line
-                                      if (maxVal > 0 && averageAmount > 0)
-                                        Positioned(
-                                          left: 0,
-                                          right: 0,
-                                          bottom: 15 + (110 * (averageAmount / maxVal)) - 0.5,
-                                          height: 1,
-                                          child: CustomPaint(
-                                            painter: DashedLinePainter(
-                                              color: Colors.orange.withValues(alpha: 0.8),
-                                              strokeWidth: 1.2,
-                                              dashWidth: 4.0,
-                                              dashSpace: 3.0,
-                                            ),
-                                          ),
-                                        ),
                                       // Bar Chart Columns
                                       Positioned(
                                         left: 0,
@@ -254,31 +238,6 @@ class CategoryDetailChart extends ConsumerWidget {
                                   ),
                                 ),
                               ),
-                              // Average text label fixed at the right end
-                              if (maxVal > 0 && averageAmount > 0)
-                                Positioned(
-                                  right: 8,
-                                  bottom: 15 + (110 * (averageAmount / maxVal)) + 2,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
-                                    decoration: BoxDecoration(
-                                      color: Colors.orange.withValues(alpha: 0.18),
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(
-                                        color: Colors.orange.withValues(alpha: 0.4),
-                                        width: 0.5,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      isEnglish ? 'Avg' : 'T.bình',
-                                      style: TextStyle(
-                                        color: Colors.orange.shade800,
-                                        fontSize: 7.5,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
                             ],
                           );
                         },
