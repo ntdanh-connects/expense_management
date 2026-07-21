@@ -230,14 +230,33 @@ void _checkBudgetThresholds(Ref ref, List<BudgetDto> budgets) async {
 List<BudgetDto> _recalculateOverallBudgetUsage(List<BudgetDto> budgets, double fallbackTotal) {
   final generalIndex = budgets.indexWhere((b) => b.categoryId == null);
   final categories = budgets.where((b) => b.categoryId != null).toList();
+
   if (generalIndex != -1) {
     final general = budgets[generalIndex];
-    double sumUsed = 0.0;
-    if (categories.isNotEmpty) {
+
+    // Suy luận chế độ AUTO hay MANUAL từ dữ liệu đã lưu:
+    // - AUTO (toggle ON): limitAmount tổng == tổng limitAmount các danh mục
+    //   → usedAmount tổng = chỉ cộng usedAmount của các danh mục đã có budget
+    //   → Giao dịch thuộc danh mục chưa thiết lập ngân sách KHÔNG được tính
+    // - MANUAL (toggle OFF): limitAmount tổng ≠ tổng limitAmount các danh mục
+    //   → usedAmount tổng = toàn bộ chi tiêu tháng (fallbackTotal),
+    //     bao gồm cả danh mục chưa thiết lập ngân sách
+    final sumCategoryLimits =
+        categories.fold<double>(0.0, (sum, b) => sum + b.limitAmount);
+    final isAutoMode = categories.isNotEmpty &&
+        general.limitAmount > 0 &&
+        (general.limitAmount - sumCategoryLimits).abs() < 1.0;
+
+    double sumUsed;
+    if (isAutoMode) {
+      // Chế độ AUTO: chỉ cộng chi tiêu của các danh mục đã có ngân sách
       sumUsed = categories.fold<double>(0.0, (sum, b) => sum + b.usedAmount);
     } else {
+      // Chế độ MANUAL: dùng tổng toàn bộ chi tiêu (kể cả ngoài budget danh mục)
+      // fallbackTotal = tổng expense của tháng từ report API (không phân biệt category)
       sumUsed = fallbackTotal > 0.0 ? fallbackTotal : general.usedAmount;
     }
+
     final mutableBudgets = List<BudgetDto>.from(budgets);
     mutableBudgets[generalIndex] = general.copyWith(usedAmount: sumUsed);
     return mutableBudgets;

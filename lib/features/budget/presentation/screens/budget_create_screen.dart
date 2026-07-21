@@ -153,7 +153,9 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
         for (var b in categories) {
           sumOfCats += b.limitAmount;
         }
-        if (general != null && sumOfCats > 0 && general.limitAmount == sumOfCats) {
+        // Suy luận chế độ AUTO: dùng tolerance thay vì == để tránh lỗi floating point
+        // Phải nhất quán với logic trong _recalculateOverallBudgetUsage (budget_provider.dart)
+        if (general != null && sumOfCats > 0 && (general.limitAmount - sumOfCats).abs() < 1.0) {
           _autoCalculateTotal = true;
         } else {
           _autoCalculateTotal = false;
@@ -211,6 +213,10 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
           }
         }
       });
+
+      // Khi ở chế độ AUTO, cập nhật controller tổng từ giá trị category thực tế
+      // (đảm bảo nhất quán khi có conversion currency)
+      if (mounted) _updateOverallBudgetIfAuto();
     } catch (e) {
     } finally {
       if (mounted) {
@@ -273,7 +279,8 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
         for (var b in categories) {
           sumOfCats += b.limitAmount;
         }
-        if (general != null && sumOfCats > 0 && general.limitAmount == sumOfCats) {
+        // Suy luận chế độ AUTO từ tháng nguồn (dùng tolerance, nhất quán với provider)
+        if (general != null && sumOfCats > 0 && (general.limitAmount - sumOfCats).abs() < 1.0) {
           _autoCalculateTotal = true;
         } else {
           _autoCalculateTotal = false;
@@ -306,7 +313,10 @@ class _BudgetCreateScreenState extends ConsumerState<BudgetCreateScreen> {
         }
         _isLoadingData = false;
       });
-      
+
+      // Khi ở chế độ AUTO, cập nhật controller tổng từ giá trị category thực tế
+      if (mounted) _updateOverallBudgetIfAuto();
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
