@@ -136,10 +136,23 @@ class _ScanTabState extends ConsumerState<ScanTab> {
   }
 
   Future<void> _scanFromGallery() async {
+    if (_isProcessingQr || _isLoadingDecode) return;
+    _isProcessingQr = true;
+
     try {
+      try {
+        await _scannerController.stop();
+      } catch (_) {}
+
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-      if (image == null) return;
+      if (image == null) {
+        _isProcessingQr = false;
+        try {
+          await _scannerController.start();
+        } catch (_) {}
+        return;
+      }
 
       final BarcodeCapture? capture = await _scannerController.analyzeImage(image.path);
       final bool hasBarcodes = capture != null && capture.barcodes.isNotEmpty;
@@ -147,8 +160,11 @@ class _ScanTabState extends ConsumerState<ScanTab> {
         final String? rawValue = capture.barcodes.first.rawValue;
         if (rawValue != null) {
           await _decodeQrString(rawValue);
+        } else {
+          _isProcessingQr = false;
         }
       } else {
+        _isProcessingQr = false;
         if (mounted) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
@@ -169,7 +185,10 @@ class _ScanTabState extends ConsumerState<ScanTab> {
                   ),
                   actions: [
                     TextButton(
-                      onPressed: () => Navigator.pop(ctx),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _scannerController.start();
+                      },
                       child: Text('Hủy', style: TextStyle(color: context.colors.textSecondary)),
                     ),
                     ElevatedButton(
@@ -192,6 +211,9 @@ class _ScanTabState extends ConsumerState<ScanTab> {
                           };
                           context.push(RoutePaths.addTransaction, extra: qrData);
                         }
+                        try {
+                          await _scannerController.start();
+                        } catch (_) {}
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: context.colors.primary,
@@ -210,6 +232,7 @@ class _ScanTabState extends ConsumerState<ScanTab> {
         }
       }
     } catch (e) {
+      _isProcessingQr = false;
       if (mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
@@ -220,19 +243,35 @@ class _ScanTabState extends ConsumerState<ScanTab> {
           }
         });
       }
+      try {
+        await _scannerController.start();
+      } catch (_) {}
     }
   }
 
   Future<void> _scanReceiptOcr() async {
+    if (_isProcessingQr || _isLoadingDecode) return;
+    _isProcessingQr = true;
+
     try {
+      try {
+        await _scannerController.stop();
+      } catch (_) {}
+
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(
         source: ImageSource.camera,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 85,
+        maxWidth: 2048,
+        maxHeight: 2048,
+        imageQuality: 95,
       );
-      if (image == null) return;
+      if (image == null) {
+        _isProcessingQr = false;
+        try {
+          await _scannerController.start();
+        } catch (_) {}
+        return;
+      }
 
       if (mounted) {
         final result = await context.push(
@@ -258,6 +297,11 @@ class _ScanTabState extends ConsumerState<ScanTab> {
           description: Text('Có lỗi xảy ra: $e'),
         ).show(context);
       }
+    } finally {
+      _isProcessingQr = false;
+      try {
+        await _scannerController.start();
+      } catch (_) {}
     }
   }
 
@@ -290,28 +334,37 @@ class _ScanTabState extends ConsumerState<ScanTab> {
         _buildScannerOverlay(context, color),
 
         Positioned(
-          bottom: 40,
+          bottom: 30,
           left: 0,
           right: 0,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              IconButton(
-                style: IconButton.styleFrom(backgroundColor: Colors.black54, padding: const EdgeInsets.all(12)),
-                icon: const Icon(Icons.flash_on_rounded, color: Colors.white, size: 28),
-                onPressed: () => _scannerController.toggleTorch(),
+          child: SafeArea(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  const SizedBox(width: 16),
+                  IconButton(
+                    style: IconButton.styleFrom(backgroundColor: Colors.black54, padding: const EdgeInsets.all(12)),
+                    icon: const Icon(Icons.flash_on_rounded, color: Colors.white, size: 28),
+                    onPressed: () => _scannerController.toggleTorch(),
+                  ),
+                  const SizedBox(width: 16),
+                  IconButton(
+                    style: IconButton.styleFrom(backgroundColor: Colors.black54, padding: const EdgeInsets.all(12)),
+                    icon: const Icon(Icons.photo_library_rounded, color: Colors.white, size: 28),
+                    onPressed: _scanFromGallery,
+                  ),
+                  const SizedBox(width: 16),
+                  IconButton(
+                    style: IconButton.styleFrom(backgroundColor: Colors.black54, padding: const EdgeInsets.all(12)),
+                    icon: const Icon(Icons.document_scanner_rounded, color: Colors.white, size: 28),
+                    onPressed: _scanReceiptOcr,
+                  ),
+                  const SizedBox(width: 16),
+                ],
               ),
-              IconButton(
-                style: IconButton.styleFrom(backgroundColor: Colors.black54, padding: const EdgeInsets.all(12)),
-                icon: const Icon(Icons.photo_library_rounded, color: Colors.white, size: 28),
-                onPressed: _scanFromGallery,
-              ),
-              IconButton(
-                style: IconButton.styleFrom(backgroundColor: Colors.black54, padding: const EdgeInsets.all(12)),
-                icon: const Icon(Icons.document_scanner_rounded, color: Colors.white, size: 28),
-                onPressed: _scanReceiptOcr,
-              ),
-            ],
+            ),
           ),
         ),
 

@@ -565,9 +565,17 @@ class PdfReportGenerator {
       }
     }
     
-    final downloadsDir = await getDownloadsDirectory();
-    if (downloadsDir != null) {
-      return downloadsDir;
+    if (Platform.isIOS) {
+      return await getApplicationDocumentsDirectory();
+    }
+
+    try {
+      final downloadsDir = await getDownloadsDirectory();
+      if (downloadsDir != null) {
+        return downloadsDir;
+      }
+    } catch (_) {
+      // getDownloadsDirectory is not supported on iOS/Web and will throw an error
     }
     return await getApplicationDocumentsDirectory();
   }

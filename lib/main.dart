@@ -150,8 +150,12 @@ class MyApp extends ConsumerWidget {
       ),
 
       builder: (context, child) {
-        return AppLifecycleManager(
-          child: LogConsoleOverlay(child: child!),
+        return GestureDetector(
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          behavior: HitTestBehavior.translucent,
+          child: AppLifecycleManager(
+            child: LogConsoleOverlay(child: child!),
+          ),
         );
       },
     );
